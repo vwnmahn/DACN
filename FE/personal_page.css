@@ -1,0 +1,91 @@
+/* ============================================================
+   FCA CULINARY - PERSONAL PAGE STYLESHEET
+   Base reset + global overrides + empty states
+   ============================================================ */
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    overscroll-behavior: none;
+  }
+
+  main > :first-child {
+    margin-top: 0 !important;
+  }
+
+  main > :last-child {
+    margin-bottom: 0 !important;
+  }
+}
+
+/* Ẩn scrollbar toàn cục */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================================
+   EMPTY STATES - hiển thị khi chưa có data từ DB
+   ============================================================ */
+
+/* Taste tags container rỗng */
+#tasteTags:empty::before {
+  content: "Đang tải sở thích ẩm thực...";
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border: 2px dashed #dae2fd;
+  border-radius: 9999px;
+  color: #6e7b6c;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: #f2f3ff;
+}
+
+/* Address list rỗng */
+#address-list-container:empty::before {
+  content: "Chưa có địa chỉ nào. Nhấn \"Thêm địa chỉ mới\" để bắt đầu.";
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  border: 2px dashed #dae2fd;
+  border-radius: 1rem;
+  color: #6e7b6c;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #f2f3ff;
+}
+
+/* Recent order rỗng */
+#recent-order-container:empty::before {
+  content: "Bạn chưa có đơn hàng nào gần đây.";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  border: 2px dashed #dae2fd;
+  border-radius: 1rem;
+  color: #6e7b6c;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #f2f3ff;
+}
+
+/* Footer branches rỗng */
+#footer-branches:empty::before {
+  content: "Đang tải danh sách chi nhánh...";
+  color: #6e7b6c;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Voucher badge ẩn khi count = 0 */
+#voucher-badge[data-count="0"] {
+  display: none;
+}

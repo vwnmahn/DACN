@@ -1,0 +1,72 @@
+/* ============================================================
+   FCA CULINARY - HOME STYLESHEET
+   Base reset + Tailwind layer overrides
+   ============================================================ */
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    overscroll-behavior: none;
+  }
+
+  main > :first-child {
+    margin-top: 0 !important;
+  }
+
+  main > :last-child {
+    margin-bottom: 0 !important;
+  }
+}
+
+/* Ẩn scrollbar toàn cục (giữ nguyên hành vi gốc) */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ẩn scrollbar cho các khu vực cuộn ngang (region tabs) */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================================
+   EMPTY STATE - khi container chưa có dữ liệu từ DB
+   Dùng để hiển thị placeholder trước khi JS render
+   ============================================================ */
+
+#restaurant-cards-container:empty::before {
+  content: "Đang tải danh sách chi nhánh...";
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  border: 2px dashed #e2e8f0;
+  border-radius: 1rem;
+  color: #94a3b8;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #f8fafc;
+}
+
+#nearby-list-container:empty::before {
+  content: "Đang tải danh sách chi nhánh gần bạn...";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  border: 2px dashed #e2e8f0;
+  border-radius: 0.75rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: #ffffff;
+}

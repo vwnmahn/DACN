@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="web_standard" name="shell-type"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="cart.css"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script id="tailwind-config">
+tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-variant":"#bdcaba","error":"#ba1a1a","on-surface-variant":"#3e4a3d","on-primary-container":"#f7fff2","surface-container":"#eaedff","on-error-container":"#93000a","on-primary":"#ffffff","on-tertiary":"#ffffff","on-secondary":"#ffffff","surface-dim":"#d2d9f4","inverse-on-surface":"#eef0ff","on-tertiary-fixed-variant":"#00513a","secondary":"#006d30","error-container":"#ffdad6","primary-container":"#00873a","secondary-container":"#92f5a4","inverse-primary":"#62df7d","secondary-fixed-dim":"#79db8d","on-secondary-fixed":"#00210a","on-surface":"#131b2e","outline":"#6e7b6c","on-error":"#ffffff","surface-bright":"#faf8ff","on-primary-fixed-variant":"#005320","on-secondary-container":"#007233","tertiary-fixed-dim":"#7bd8b1","background":"#faf8ff","secondary-fixed":"#95f8a7","on-background":"#131b2e","tertiary":"#00694c","primary-fixed-dim":"#62df7d","surface-container-low":"#f2f3ff","on-tertiary-fixed":"#002115","surface-container-highest":"#dae2fd","surface-variant":"#dae2fd","primary":"#006b2c","tertiary-fixed":"#97f5cc","primary-fixed":"#7ffc97","inverse-surface":"#283044","surface-tint":"#006e2d","tertiary-container":"#1e8462","on-primary-fixed":"#002109","on-secondary-fixed-variant":"#005323","surface-container-lowest":"#ffffff","surface-container-high":"#e2e7ff","on-tertiary-container":"#f5fff7","surface":"#faf8ff"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-xl":"2rem","margin-mobile":"1rem","margin-desktop":"3rem","gutter-mobile":"1rem","space-2xl":"3rem","space-md":"1rem","gutter":"1.5rem","gutter-desktop":"2rem","space-3xl":"4.5rem","space-xs":"0.25rem","space-lg":"1.5rem","margin":"1.5rem","space-sm":"0.5rem"},"fontFamily":{"label-md":["Be Vietnam Pro"],"label-caps":["Be Vietnam Pro"],"body-lg":["Be Vietnam Pro"],"body-sm":["Be Vietnam Pro"],"title-lg":["Be Vietnam Pro"],"display-hero":["Be Vietnam Pro"],"title-md":["Be Vietnam Pro"],"label-lg":["Be Vietnam Pro"],"body-md":["Be Vietnam Pro"],"headline-lg":["Be Vietnam Pro"],"display-hero-mobile":["Be Vietnam Pro"],"headline-sm":["Be Vietnam Pro"],"headline-lg-mobile":["Be Vietnam Pro"],"headline-md":["Be Vietnam Pro"]},"fontSize":{"label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"600"}],"label-caps":["11px",{"lineHeight":"16px","letterSpacing":"0.08em","fontWeight":"700"}],"body-lg":["16px",{"lineHeight":"26px","letterSpacing":"0em","fontWeight":"400"}],"body-sm":["12px",{"lineHeight":"18px","letterSpacing":"0.01em","fontWeight":"400"}],"title-lg":["20px",{"lineHeight":"28px","letterSpacing":"-0.005em","fontWeight":"600"}],"display-hero":["56px",{"lineHeight":"64px","letterSpacing":"-0.02em","fontWeight":"700"}],"title-md":["18px",{"lineHeight":"26px","letterSpacing":"0em","fontWeight":"600"}],"label-lg":["14px",{"lineHeight":"20px","letterSpacing":"0.01em","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"22px","letterSpacing":"0em","fontWeight":"400"}],"headline-lg":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}],"display-hero-mobile":["36px",{"lineHeight":"44px","letterSpacing":"-0.015em","fontWeight":"700"}],"headline-sm":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-lg-mobile":["28px",{"lineHeight":"36px","letterSpacing":"-0.01em","fontWeight":"700"}],"headline-md":["30px",{"lineHeight":"38px","letterSpacing":"-0.015em","fontWeight":"600"}]}}}};
+</script>
+</head>
+<body class="bg-surface font-body-md text-body-md text-on-surface">
+
+<!-- ==================== HEADER ==================== -->
+<header class="fixed top-0 w-full z-50 bg-surface-container-lowest border-b border-surface-container-highest shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+<div class="h-20 max-w-[1360px] mx-auto px-margin-mobile lg:px-margin-desktop flex items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-lg shrink-0">
+<a class="flex items-center gap-space-sm" data-path="he-thong-quan-an" href="#">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-sm">
+<span class="material-symbols-outlined text-[24px]">eco</span>
+</div>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface font-bold tracking-tight leading-none">FCA</span>
+<span class="font-label-caps text-label-caps text-primary tracking-widest leading-none mt-1 uppercase">Culinary Arts</span>
+</div>
+</a>
+<div class="hidden xl:flex items-center gap-space-xs bg-surface-container-low px-3 py-1.5 rounded-full border border-surface-container-highest text-on-surface-variant">
+<span class="material-symbols-outlined text-primary text-[18px]">location_on</span>
+<span class="font-label-md text-label-md font-medium text-on-surface">TP. Hồ Chí Minh (Q.1, Q.3...)</span>
+<span class="material-symbols-outlined text-outline text-[16px]">expand_more</span>
+</div>
+</div>
+<div class="flex-1 max-w-md hidden md:block">
+<div class="relative flex items-center w-full">
+<span class="material-symbols-outlined absolute left-3 text-outline text-[20px]">search</span>
+<input class="w-full h-11 pl-10 pr-4 bg-surface-container-lowest border border-outline-variant/60 rounded-lg font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Tìm kiếm quán ăn, món ngon FCA..." type="text"/>
+</div>
+</div>
+<nav class="hidden lg:flex items-center gap-1 shrink-0">
+<a class="px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-lg text-label-lg rounded-lg transition-colors" data-path="he-thong-quan-an" href="#">Hệ thống Quán ăn</a>
+<a class="px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-lg text-label-lg rounded-lg transition-colors" data-path="thuc-don-va-dat-mon" href="#">Thực đơn &amp; Đặt món</a>
+<a class="px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-lg text-label-lg rounded-lg transition-colors" data-path="uu-dai-khu-vuc" href="#">Ưu đãi khu vực</a>
+<a class="px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-lg text-label-lg rounded-lg transition-colors" data-path="ve-fca" href="#">Về FCA</a>
+</nav>
+<div class="flex items-center gap-space-sm shrink-0">
+<a class="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="gio-hang" href="#">
+<span class="material-symbols-outlined text-[24px]">shopping_bag</span>
+<span class="absolute top-1 right-1 w-4 h-4 rounded-full bg-primary text-on-primary font-label-caps text-[10px] flex items-center justify-center font-bold" id="cart-count-badge" data-count="0">0</span>
+</a>
+<a class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-surface-container-high transition-colors" data-path="tai-khoan" href="#">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
+</div>
+</a>
+</div>
+</div>
+</header>
+
+<main class="w-full pt-20 bg-surface min-h-[calc(100vh-280px)]">
+<div class="flex flex-col w-full">
+
+<!-- ==================== SUB-HEADER: BREADCRUMB ==================== -->
+<div class="bg-surface-container-lowest shadow-sm">
+<div class="max-w-[1360px] mx-auto px-margin-mobile lg:px-margin-desktop py-space-md flex flex-wrap items-center justify-between gap-space-md">
+<nav aria-label="Breadcrumb" class="flex items-center gap-space-xs font-body-sm text-body-sm text-on-surface-variant">
+<a class="hover:text-primary transition-colors flex items-center gap-1" href="#">
+<span class="material-symbols-outlined text-[18px]">home</span>
+Trang chủ
+</a>
+<span class="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
+<span class="font-label-md text-label-md text-primary font-semibold">Giỏ hàng của bạn</span>
+</nav>
+<!-- Active Branch - EMPTY (render from DB) -->
+<div class="flex items-center gap-space-sm bg-surface-container-low px-4 py-2 rounded-full" id="active-branch-bar">
+<div class="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></div>
+<div class="flex items-center gap-1.5 font-label-md text-label-md">
+<span class="text-on-surface-variant">Đặt từ chi nhánh:</span>
+<span class="text-on-surface font-bold" id="active-branch-name">—</span>
+</div>
+<span class="material-symbols-outlined text-outline text-[16px] cursor-pointer hover:text-primary">storefront</span>
+</div>
+</div>
+</div>
+
+<!-- ==================== MAIN BODY ==================== -->
+<div class="max-w-[1360px] mx-auto px-margin-mobile lg:px-margin-desktop py-space-xl w-full">
+
+<!-- Progress Indicator Strip -->
+<div class="mb-space-xl p-space-md bg-surface-container-lowest rounded-xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-md text-label-md font-bold">1</div>
+<div>
+<p class="font-label-lg text-label-lg text-on-surface font-bold leading-none">Giỏ hàng (<span id="cart-total-count">0</span> món)</p>
+<p class="font-body-sm text-body-sm text-outline mt-1" id="progress-subtitle">Đang tải thông tin giỏ hàng...</p>
+</div>
+</div>
+<div class="hidden md:block flex-1 max-w-xs h-1 bg-surface-container rounded-full mx-4 overflow-hidden">
+<div class="h-full bg-primary w-2/3 rounded-full"></div>
+</div>
+<div class="flex items-center gap-space-lg text-on-surface-variant font-label-md text-label-md">
+<span class="hidden items-center gap-1 text-primary font-semibold" id="freeship-eligibility">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+Đủ điều kiện Freeship Xtra
+</span>
+<span class="hidden text-outline" id="divider-pipe">|</span>
+<span class="flex items-center gap-1 text-on-surface-variant" id="estimated-time">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+<span>Thời gian dự kiến: —</span>
+</span>
+</div>
+</div>
+
+<!-- 2-Column Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter-desktop items-start">
+
+<!-- LEFT COLUMN: Cart Items + Upsell -->
+<div class="lg:col-span-8 flex flex-col gap-space-xl">
+
+<!-- Cart Items Box -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg flex flex-col gap-space-lg">
+<div class="flex items-center justify-between pb-space-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[24px]">restaurant_menu</span>
+<h1 class="font-title-lg text-title-lg text-on-surface font-bold">Món đã chọn</h1>
+</div>
+<button class="font-label-md text-label-md text-outline hover:text-error transition-colors flex items-center gap-1" id="clear-all-btn">
+<span class="material-symbols-outlined text-[16px]">delete_sweep</span>
+Xóa tất cả
+</button>
+</div>
+<!-- Items Stack - EMPTY (render from DB) -->
+<div class="flex flex-col gap-space-md" id="cart-item-list">
+<!-- EMPTY: render từ DB -->
+</div>
+<!-- Kitchen Note Box -->
+<div class="mt-space-sm pt-space-md bg-surface-container-lowest rounded-xl">
+<label class="flex items-center gap-2 font-label-lg text-label-lg text-on-surface font-bold mb-2" for="kitchen-note">
+<span class="material-symbols-outlined text-primary text-[20px]">edit_note</span>
+Ghi chú riêng cho nhà bếp:
+</label>
+<div class="relative">
+<input class="w-full h-11 px-4 bg-surface-container-low rounded-lg font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 transition-all" id="kitchen-note" placeholder="Ví dụ: Để riêng nước mắm, xin thêm ớt hiểm tươi, không lấy hành lá..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-3 text-outline text-[18px]">chat_bubble_outline</span>
+</div>
+</div>
+</div>
+
+<!-- UPSELL SECTION - EMPTY (render from DB) -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div>
+<span class="font-label-caps text-label-caps text-primary tracking-wider uppercase">Thêm chút phong vị</span>
+<h2 class="font-title-lg text-title-lg text-on-surface font-bold">Gợi ý món ăn kèm &amp; Đồ uống thanh mát</h2>
+</div>
+<span class="font-label-md text-label-md text-outline">Thêm nhanh vào giỏ</span>
+</div>
+<!-- Upsell Cards Grid - EMPTY (render from DB) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md mt-2" id="upsell-container">
+<!-- EMPTY: render từ DB -->
+</div>
+</div>
+</div>
+
+<!-- RIGHT COLUMN: Summary -->
+<div class="lg:col-span-4 lg:sticky lg:top-24 flex flex-col gap-space-lg">
+
+<!-- Summary Box -->
+<div class="bg-surface-container-lowest rounded-xl shadow-md p-space-lg flex flex-col gap-space-md">
+<div class="flex items-center justify-between pb-space-xs">
+<span class="font-title-md text-title-md text-on-surface font-bold">Tóm tắt đơn hàng</span>
+<span class="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded font-label-caps text-label-caps font-bold">GIAO TẬN NƠI</span>
+</div>
+<!-- Coupon Input -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md font-semibold text-on-surface flex items-center gap-1">
+<span class="material-symbols-outlined text-primary text-[18px]">confirmation_number</span>
+Mã giảm giá FCA Voucher
+</label>
+<div class="flex gap-2">
+<div class="relative flex-1">
+<input class="w-full h-11 px-3 uppercase font-label-lg text-label-lg bg-surface-container-low rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20" id="voucher-code" placeholder="Nhập mã ưu đãi..." type="text"/>
+</div>
+<button class="px-4 h-11 bg-surface-container-lowest text-primary rounded-lg font-label-lg text-label-lg font-bold shadow-xs hover:bg-primary hover:text-on-primary transition-all shrink-0" id="apply-voucher-btn">Áp dụng</button>
+</div>
+<!-- Applied Voucher Pill - Hidden by default -->
+<div class="hidden items-center justify-between bg-primary-container/10 px-3 py-1.5 rounded-lg mt-1" id="voucher-applied-tag">
+<div class="flex items-center gap-1.5 text-primary font-label-md text-label-md">
+<span class="material-symbols-outlined text-[16px]">verified</span>
+<span id="voucher-applied-text"></span>
+</div>
+<button class="text-outline hover:text-error text-xs flex items-center" id="voucher-remove-btn">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+</div>
+<!-- Price Calculation Rows -->
+<div class="flex flex-col gap-3 py-3 font-body-md text-body-md">
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant">Tạm tính (<span id="summary-item-count">0</span> món)</span>
+<span class="font-semibold text-on-surface" id="summary-subtotal">0đ</span>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="text-on-surface-variant">Phí vận chuyển</span>
+<span class="hidden bg-primary text-on-primary font-label-caps text-[10px] px-1.5 py-0.5 rounded-full font-bold" id="freeship-badge">FREESHIP XTRA</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="hidden line-through text-outline text-body-sm" id="shipping-original">0đ</span>
+<span class="font-semibold text-primary" id="shipping-final">0đ</span>
+</div>
+</div>
+<div class="hidden items-center justify-between" id="discount-row">
+<span class="text-on-surface-variant">Ưu đãi giảm giá <span id="discount-code-label"></span></span>
+<span class="font-semibold text-error" id="summary-discount">0đ</span>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant">Hộp bã mía bảo vệ môi trường</span>
+<span class="font-semibold text-on-surface">Miễn phí</span>
+</div>
+<div class="h-px bg-surface-container my-1"></div>
+<div class="flex items-baseline justify-between pt-1">
+<div>
+<span class="font-title-lg text-title-lg font-bold text-on-surface">Tổng cộng</span>
+<p class="font-body-sm text-[12px] text-outline">Đã bao gồm thuế GTGT (VAT)</p>
+</div>
+<span class="font-headline-sm text-headline-sm font-bold text-primary" id="summary-grand-total">0đ</span>
+</div>
+</div>
+<!-- FCA Member Loyalty - EMPTY (render from DB) -->
+<div class="hidden bg-surface-container-low rounded-xl p-3 flex items-center justify-between gap-space-sm" id="loyalty-badge">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold">
+<span class="material-symbols-outlined text-[20px]">workspace_premium</span>
+</div>
+<div>
+<div class="font-label-md text-label-md text-on-surface font-bold" id="loyalty-title">Tích lũy FCA Member</div>
+<div class="font-body-sm text-[12px] text-on-surface-variant" id="loyalty-subtitle">—</div>
+</div>
+</div>
+<span class="font-label-lg text-label-lg font-bold text-primary bg-surface-container-lowest px-2 py-1 rounded-md shadow-xs shrink-0" id="loyalty-points">+0 điểm</span>
+</div>
+<!-- CTA Button -->
+<a class="w-full h-14 bg-primary hover:bg-primary-container text-on-primary rounded-xl font-label-lg text-label-lg font-bold flex items-center justify-between px-6 shadow-md transition-all duration-200 hover:shadow-lg active:scale-[0.99] group" href="#" id="checkout-cta">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[22px]">cloud_download</span>
+Tiến hành thanh toán
+</span>
+<span class="flex items-center gap-1 font-title-md text-title-md" id="cta-button-price">
+0đ
+<span class="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</span>
+</a>
+<!-- Payment methods accepted -->
+<div class="flex items-center justify-center gap-3 pt-2 text-outline text-[12px]">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">qr_code_scanner</span> MoMo / VNPay</span>
+<span>•</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">credit_card</span> Thẻ Visa/Master</span>
+<span>•</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">payments</span> Tiền mặt khi nhận</span>
+</div>
+</div>
+
+<!-- Trust Badges -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md flex flex-col gap-3">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container/60 text-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">schedule</span>
+</div>
+<div class="min-w-0">
+<h5 class="font-label-md text-label-md font-bold text-on-surface">Giao đúng giờ trong 25 phút</h5>
+<p class="font-body-sm text-[12px] text-outline">Đảm bảo món luôn sốt dẻo nóng hổi</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container/60 text-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+</div>
+<div class="min-w-0">
+<h5 class="font-label-md text-label-md font-bold text-on-surface">Chuẩn vị 100% Signature FCA</h5>
+<p class="font-body-sm text-[12px] text-outline">Chế biến từ nguồn nông sản chọn lọc hữu cơ</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container/60 text-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">compost</span>
+</div>
+<div class="min-w-0">
+<h5 class="font-label-md text-label-md font-bold text-on-surface">Bao bì thân thiện môi trường</h5>
+<p class="font-body-sm text-[12px] text-outline">Hộp ép bã mía &amp; bộ dao nĩa tự phân hủy 100%</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="w-full bg-surface-container-lowest border-t border-surface-container-highest mt-space-3xl">
+<div class="max-w-[1360px] mx-auto px-margin-mobile lg:px-margin-desktop py-space-2xl">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-xl mb-space-2xl">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[20px]">eco</span>
+</div>
+<span class="font-title-md text-title-md text-on-surface font-bold tracking-tight">FCA Culinary Arts</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">Hệ thống ẩm thực &amp; tinh hoa nghệ thuật phục vụ ẩm thực truyền cảm hứng trên khắp Việt Nam.</p>
+<div class="flex items-center gap-space-xs text-primary font-label-lg text-label-lg font-bold mt-2">
+<span class="material-symbols-outlined text-[20px]">call</span>
+<span>Hotline: 1900 888 999</span>
+</div>
+</div>
+<div class="flex flex-col gap-space-sm">
+<span class="font-title-md text-title-md text-on-surface font-semibold">Hệ thống Chi nhánh</span>
+<ul class="flex flex-col gap-2 font-body-sm text-body-sm text-on-surface-variant" id="footer-branches">
+<!-- EMPTY: render từ DB -->
+</ul>
+</div>
+<div class="flex flex-col gap-space-sm">
+<span class="font-title-md text-title-md text-on-surface font-semibold">Liên kết nhanh</span>
+<ul class="flex flex-col gap-2 font-body-sm text-body-sm text-on-surface-variant">
+<li><a class="hover:text-primary transition-colors" data-path="thuc-don-va-dat-mon" href="#">Thực đơn Seasonal Tasting</a></li>
+<li><a class="hover:text-primary transition-colors" data-path="dat-ban" href="#">Đặt bàn sự kiện &amp; Tiệc riêng</a></li>
+<li><a class="hover:text-primary transition-colors" data-path="uu-dai-khu-vuc" href="#">Chính sách thành viên FCA Club</a></li>
+<li><a class="hover:text-primary transition-colors" data-path="ve-fca" href="#">Câu chuyện thương hiệu</a></li>
+</ul>
+</div>
+<div class="flex flex-col gap-space-sm">
+<span class="font-title-md text-title-md text-on-surface font-semibold">Tải ứng dụng FCA</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Đặt món nhanh, tích điểm thưởng và nhận ưu đãi độc quyền.</p>
+<div class="flex flex-col gap-2 mt-1">
+<div class="flex items-center gap-3 p-2.5 rounded-lg border border-outline-variant/60 bg-surface hover:bg-surface-container-high transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-on-surface text-[24px]">phone_iphone</span>
+<div class="flex flex-col">
+<span class="font-label-caps text-[10px] text-outline uppercase">Download on</span>
+<span class="font-label-md text-label-md font-bold text-on-surface">Apple App Store</span>
+</div>
+</div>
+<div class="flex items-center gap-3 p-2.5 rounded-lg border border-outline-variant/60 bg-surface hover:bg-surface-container-high transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-on-surface text-[24px]">android</span>
+<div class="flex flex-col">
+<span class="font-label-caps text-[10px] text-outline uppercase">Get it on</span>
+<span class="font-label-md text-label-md font-bold text-on-surface">Google Play</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-space-lg border-t border-surface-container-highest flex flex-col md:flex-row items-center justify-between gap-space-sm font-body-sm text-body-sm text-outline">
+<span>© 2025 FCA Culinary Arts. Bản quyền thuộc về Hệ thống Nhà hàng FCA Việt Nam.</span>
+<div class="flex items-center gap-space-md">
+<a class="hover:text-on-surface transition-colors" href="#">Điều khoản sử dụng</a>
+<a class="hover:text-on-surface transition-colors" href="#">Chính sách bảo mật</a>
+<a class="hover:text-on-surface transition-colors" href="#">Tiêu chuẩn vệ sinh ATTP</a>
+</div>
+</div>
+</div>
+</footer>
+
+<script src="cart.js"></script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+/* ============================================================
+   FCA CULINARY - CART PAGE STYLESHEET
+   Base reset + global overrides + empty states + animations
+   ============================================================ */
+
+@layer base {
+  html, body { margin: 0; padding: 0; }
+  body { overscroll-behavior: none; }
+  main > :first-child { margin-top: 0 !important; }
+  main > :last-child { margin-bottom: 0 !important; }
+}
+
+::-webkit-scrollbar { display: none; }
+
+/* ============================================================
+   ANIMATIONS - cart item removal
+   ============================================================ */
+.cart-item {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* ============================================================
+   EMPTY STATES
+   ============================================================ */
+
+/* Cart item list rỗng */
+#cart-item-list:empty::before {
+  content: "Giỏ hàng đang trống. Hãy thêm món yêu thích của bạn!";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  border: 2px dashed #dae2fd;
+  border-radius: 1rem;
+  color: #6e7b6c;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #f2f3ff;
+}
+
+/* Upsell container rỗng */
+#upsell-container:empty::before {
+  content: "Đang tải gợi ý món ăn kèm...";
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  border: 2px dashed #dae2fd;
+  border-radius: 1rem;
+  color: #6e7b6c;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: #f2f3ff;
+}
+
+/* Footer branches rỗng */
+#footer-branches:empty::before {
+  content: "Đang tải danh sách chi nhánh...";
+  color: #6e7b6c;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Cart badge ẩn khi = 0 */
+#cart-count-badge[data-count="0"] { display: none; }
+
+/* Empty cart state (khi user bấm "Xóa tất cả") */
+.empty-cart-state {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: #6e7b6c;
+}
+.empty-cart-state .material-symbols-outlined {
+  font-size: 48px;
+  margin-bottom: 0.5rem;
+}

@@ -1,0 +1,72 @@
+/* ============================================================
+   FCA CULINARY - PAYMENT PAGE STYLESHEET
+   Base reset + global overrides + empty states
+   ============================================================ */
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    overscroll-behavior: none;
+  }
+
+  main > :first-child {
+    margin-top: 0 !important;
+  }
+
+  main > :last-child {
+    margin-bottom: 0 !important;
+  }
+}
+
+/* Ẩn scrollbar toàn cục */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================================
+   EMPTY STATES
+   ============================================================ */
+
+/* Địa chỉ giao món rỗng */
+#delivery-address-card:empty::before,
+#delivery-address-card.is-empty::before {
+  content: "Chưa có địa chỉ giao món. Nhấn \"Thay đổi địa chỉ\" để chọn.";
+  display: block;
+  color: #6e7b6c;
+  font-size: 0.875rem;
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
+/* Danh sách món rỗng */
+#order-items-container:empty::before {
+  content: "Giỏ hàng trống. Vui lòng chọn món trước khi thanh toán.";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  border: 2px dashed #dae2fd;
+  border-radius: 1rem;
+  color: #6e7b6c;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background-color: #f2f3ff;
+}
+
+/* Footer branches rỗng */
+#footer-branches:empty::before {
+  content: "Đang tải danh sách chi nhánh...";
+  color: #6e7b6c;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Cart badge ẩn khi = 0 */
+#cart-count-badge[data-count="0"] {
+  display: none;
+}
