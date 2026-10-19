@@ -23,17 +23,56 @@ public class ApiExceptionHandler {
         return buildResponse(error.getStatusCode(), error.getCode(), error.getMessage());
     }
 
-    // Lỗi validation
+
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Object>> handleValidation(MethodArgumentNotValidException e) {
-        String message = e.getBindingResult().getFieldErrors().stream()
-                .findFirst()
+    public ResponseEntity<ApiResponse<Object>> handleValidation(
+            MethodArgumentNotValidException e) {
+
+        // Thứ tự ưu tiên theo giao diện đăng ký
+        java.util.List<String> fieldOrder = java.util.List.of(
+                "username",
+                "email",
+                "phoneNumber",
+                "dateOfBirth",
+                "password",
+                "confirmPassword"
+        );
+
+        var errors = e.getBindingResult().getFieldErrors();
+
+        String message = errors.stream()
+                .sorted(
+                        java.util.Comparator
+                                .comparingInt(
+                                        (org.springframework.validation.FieldError error) -> {
+                                            int index = fieldOrder.indexOf(error.getField());
+                                            return index == -1
+                                                    ? Integer.MAX_VALUE
+                                                    : index;
+                                        }
+                                )
+                                // Ưu tiên NotBlank hơn Size, Email, Pattern
+                                // nếu cùng một trường có nhiều lỗi.
+                                .thenComparingInt(error ->
+                                        "NotBlank".equals(error.getCode()) ? 0 : 1
+                                )
+                )
                 .map(error -> error.getDefaultMessage())
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
                 .orElse("Dữ liệu không hợp lệ");
 
         ErrorCode error = ErrorCode.INVALID_REQUEST;
-        return buildResponse(error.getStatusCode(), error.getCode(), message);
+
+        return buildResponse(
+                error.getStatusCode(),
+                error.getCode(),
+                message
+        );
     }
+
+
 
     @ExceptionHandler({
             HttpMessageNotReadableException.class,

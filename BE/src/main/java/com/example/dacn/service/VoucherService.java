@@ -13,6 +13,9 @@ public interface VoucherService {
     VoucherResponse getById(Long id);
     Page<VoucherResponse> getAll(Boolean active, Long restaurantId, Pageable pageable);
     Page<VoucherResponse> getAvailable(Long restaurantId, Pageable pageable);
+    Page<VoucherResponse> getRedeemable(Pageable pageable);
+    java.util.List<VoucherRedemptionResponse> getMyRedemptions();
+    VoucherRedemptionResponse redeem(Long voucherId);
     VoucherValidationResponse validate(VoucherValidateRequest request);
     BigDecimal calculateDiscount(String voucherCode, BigDecimal orderAmount);
     VoucherReservationResult reserveForOrder(String voucherCode, Long accountId, Long orderId,

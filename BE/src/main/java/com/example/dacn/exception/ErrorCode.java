@@ -47,6 +47,7 @@ public enum ErrorCode {
     REFRESH_TOKEN_REVOKED(1023, "Refresh Token đã bị thu hồi", HttpStatus.UNAUTHORIZED),
 
     REFRESH_TOKEN_REQUIRED(1024, "Refresh Token không được để trống", HttpStatus.BAD_REQUEST),
+    PASSWORD_CONFIRM_NOT_MATCH(1025,"Mật khẩu xác thực không khớp",HttpStatus.CONFLICT),
     ACCOUNT_INVALID_PAGE_REQUEST(2001, "Tham số phân trang hoặc sắp xếp tài khoản không hợp lệ", HttpStatus.BAD_REQUEST),
     ACCOUNT_SELF_LOCK_FORBIDDEN(2002, "Quản trị viên không thể tự khóa tài khoản của mình", HttpStatus.CONFLICT),
     ACCOUNT_SELF_DEMOTION_FORBIDDEN(2003, "Quản trị viên không thể tự hạ quyền", HttpStatus.CONFLICT),
@@ -161,7 +162,9 @@ public enum ErrorCode {
     VOUCHER_INVALID_DATA(8010, "Dữ liệu voucher không hợp lệ", HttpStatus.BAD_REQUEST),
     VOUCHER_CODE_EXISTS(8011, "Mã voucher đã tồn tại", HttpStatus.CONFLICT),
     VOUCHER_HISTORY_IMMUTABLE(8012, "Không thể sửa điều kiện voucher đã có lịch sử sử dụng", HttpStatus.CONFLICT),
-    VOUCHER_INVALID_PAGE_REQUEST(8013, "Tham số phân trang hoặc sắp xếp voucher không hợp lệ", HttpStatus.BAD_REQUEST)
+    VOUCHER_INVALID_PAGE_REQUEST(8013, "Tham số phân trang hoặc sắp xếp voucher không hợp lệ", HttpStatus.BAD_REQUEST),
+    LOYALTY_POINTS_INSUFFICIENT(8014, "Bạn chưa đủ 300 điểm khả dụng", HttpStatus.CONFLICT),
+    VOUCHER_NOT_REDEEMABLE(8015, "Voucher không còn đủ điều kiện để đổi điểm", HttpStatus.CONFLICT)
 
 
     ;

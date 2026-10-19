@@ -17,6 +17,9 @@ public interface AccountMapper {
     @Mapping(target = "locked", ignore = true)
     @Mapping(target = "googleId", ignore = true)
     @Mapping(target = "facebookId", ignore = true)
+    @Mapping(target = "loyaltyPoints", ignore = true)
+    @Mapping(target = "availablePoints", ignore = true)
+    @Mapping(target = "membershipRank", ignore = true)
     Account toAccount(RegisterRequest request);
 
     // Account -> AccountResponse
@@ -34,6 +37,9 @@ public interface AccountMapper {
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "loyaltyPoints", ignore = true)
+    @Mapping(target = "availablePoints", ignore = true)
+    @Mapping(target = "membershipRank", ignore = true)
     void updateAccount(
             Update request,
             @MappingTarget Account account

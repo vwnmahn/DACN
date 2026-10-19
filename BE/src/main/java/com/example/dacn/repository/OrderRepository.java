@@ -46,4 +46,7 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     @Query("SELECT o FROM Order o WHERE o.status = com.example.dacn.entity.OrderStatus.PENDING "
             + "AND o.confirmationDeadline IS NOT NULL AND o.confirmationDeadline <= :now ORDER BY o.id")
     List<Order> findExpiredPendingForUpdate(@Param("now") LocalDateTime now, Pageable pageable);
+
+    long countByAccountIdAndLoyaltyPointsAwardedTrueAndCompletedAtGreaterThanEqualAndCompletedAtLessThan(
+            Long accountId, LocalDateTime start, LocalDateTime end);
 }

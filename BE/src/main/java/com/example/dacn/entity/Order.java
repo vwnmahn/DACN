@@ -67,6 +67,14 @@ public class Order extends BaseEntity {
     @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;
 
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
+    @Builder.Default
+    @Column(name = "loyalty_points_awarded", nullable = false,
+            columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE")
+    private Boolean loyaltyPointsAwarded = false;
+
     @Column(name = "refund_required", nullable = false)
     @Builder.Default
     private Boolean refundRequired = false;

@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
+
 /** Request contracts for account profile and administration operations. */
 public final class AccountRequest {
     private AccountRequest() {
@@ -22,6 +24,10 @@ public final class AccountRequest {
 
         @Size(max = 255, message = "Địa chỉ không được vượt quá 255 ký tự")
         private String address;
+
+        private LocalDate dateOfBirth;
+
+        private Boolean gender;
     }
 
     @Data

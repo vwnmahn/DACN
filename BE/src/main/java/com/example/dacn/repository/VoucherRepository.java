@@ -28,6 +28,20 @@ public interface VoucherRepository
 
     @Query("""
             SELECT v FROM Voucher v
+            WHERE v.active = true AND v.startDate <= :now AND v.endDate >= :now
+              AND ((SELECT COUNT(u.id) FROM VoucherUsage u
+                    WHERE u.voucherId = v.id AND u.status IN :occupiedStatuses)
+                   + (SELECT COUNT(r.id) FROM VoucherRedemption r WHERE r.voucherId = v.id)) < v.usageLimit
+              AND (SELECT COUNT(r.id) FROM VoucherRedemption r
+                   WHERE r.voucherId = v.id AND r.accountId = :accountId) < v.perUserLimit
+            """)
+    Page<Voucher> findRedeemable(@Param("accountId") Long accountId,
+                                 @Param("now") LocalDateTime now,
+                                 @Param("occupiedStatuses") Collection<VoucherUsageStatus> occupiedStatuses,
+                                 Pageable pageable);
+
+    @Query("""
+            SELECT v FROM Voucher v
             WHERE v.active = true
               AND v.startDate <= :now AND v.endDate >= :now
               AND (v.restaurantId IS NULL OR (:restaurantId IS NOT NULL AND v.restaurantId = :restaurantId))

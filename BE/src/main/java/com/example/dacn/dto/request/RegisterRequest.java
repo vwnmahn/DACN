@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,6 +25,9 @@ public class RegisterRequest {
     @NotBlank(message = "Mật khẩu không được để trống")
     @Size(min = 8, max = 100, message = "Mật khẩu phải từ 8 ký tự không quá ngắn")
     private String password;
+
+    @NotBlank(message = "Vui lòng xác thực mật khẩu")
+    private String confirmPassword;
 
     @NotBlank(message = "Email không được để trống")
     @Email(message = "Email không đúng định dạng")
@@ -41,6 +46,7 @@ public class RegisterRequest {
     )
     private String phoneNumber;
 
+    private LocalDate dateOfBirth;
 
     private MultipartFile avatar;
 }

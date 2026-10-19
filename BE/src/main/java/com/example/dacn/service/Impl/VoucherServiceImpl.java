@@ -11,16 +11,19 @@ import org.springframework.data.domain.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.*;
 import java.time.*;
 import java.util.*;
 
-@Service @RequiredArgsConstructor
+@Service
 public class VoucherServiceImpl implements VoucherService {
     private static final Set<VoucherUsageStatus> OCCUPIED = EnumSet.of(VoucherUsageStatus.RESERVED, VoucherUsageStatus.APPLIED);
     private final VoucherRepository voucherRepository;
     private final VoucherUsageRepository usageRepository;
+    private final VoucherRedemptionRepository redemptionRepository;
+    private final AccountRepository accountRepository;
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
     private final DeliveryDistanceService deliveryDistanceService;
@@ -28,6 +31,28 @@ public class VoucherServiceImpl implements VoucherService {
     private static final int MAX_PAGE_SIZE = 100;
     private static final Set<String> AVAILABLE_SORT_FIELDS = Set.of(
             "id", "code", "discountValue", "minOrderAmount", "startDate", "endDate", "createdAt");
+
+    @Autowired
+    public VoucherServiceImpl(VoucherRepository voucherRepository, VoucherUsageRepository usageRepository,
+                              VoucherRedemptionRepository redemptionRepository, AccountRepository accountRepository,
+                              RestaurantRepository restaurantRepository, MenuItemRepository menuItemRepository,
+                              DeliveryDistanceService deliveryDistanceService, Clock clock) {
+        this.voucherRepository = voucherRepository;
+        this.usageRepository = usageRepository;
+        this.redemptionRepository = redemptionRepository;
+        this.accountRepository = accountRepository;
+        this.restaurantRepository = restaurantRepository;
+        this.menuItemRepository = menuItemRepository;
+        this.deliveryDistanceService = deliveryDistanceService;
+        this.clock = clock;
+    }
+
+    public VoucherServiceImpl(VoucherRepository voucherRepository, VoucherUsageRepository usageRepository,
+                              RestaurantRepository restaurantRepository, MenuItemRepository menuItemRepository,
+                              DeliveryDistanceService deliveryDistanceService, Clock clock) {
+        this(voucherRepository, usageRepository, null, null, restaurantRepository, menuItemRepository,
+                deliveryDistanceService, clock);
+    }
 
     @Override @Transactional
     public VoucherResponse create(VoucherRequest r) {
@@ -74,6 +99,53 @@ public class VoucherServiceImpl implements VoucherService {
         Pageable safePageable = safeAvailablePageable(p);
         return voucherRepository.findAvailable(restaurantId, accountId, now, OCCUPIED, safePageable)
                 .map(this::response);
+    }
+
+    @Override @Transactional(readOnly = true)
+    public Page<VoucherResponse> getRedeemable(Pageable p) {
+        Long accountId = accountId();
+        return voucherRepository.findRedeemable(accountId, LocalDateTime.now(clock), OCCUPIED,
+                safeAvailablePageable(p)).map(this::response);
+    }
+
+    @Override @Transactional(readOnly = true)
+    public List<VoucherRedemptionResponse> getMyRedemptions() {
+        Long accountId = accountId();
+        return redemptionRepository.findByAccountIdOrderByRedeemedAtDesc(accountId).stream()
+                .map(redemption -> VoucherRedemptionResponse.builder()
+                        .id(redemption.getId())
+                        .voucher(response(voucherRepository.findById(redemption.getVoucherId())
+                                .orElseThrow(() -> error(ErrorCode.VOUCHER_NOT_FOUND))))
+                        .redeemedAt(redemption.getRedeemedAt())
+                        .build())
+                .toList();
+    }
+
+    @Override @Transactional
+    public VoucherRedemptionResponse redeem(Long voucherId) {
+        Account account = accountRepository.findByIdForUpdate(accountId())
+                .orElseThrow(() -> error(ErrorCode.ACCOUNT_NOT_FOUND));
+        if (Objects.requireNonNullElse(account.getAvailablePoints(), 0) < 300) {
+            throw error(ErrorCode.LOYALTY_POINTS_INSUFFICIENT);
+        }
+
+        Voucher voucher = voucherRepository.findByIdForUpdate(voucherId)
+                .orElseThrow(() -> error(ErrorCode.VOUCHER_NOT_FOUND));
+        LocalDateTime now = LocalDateTime.now(clock);
+        long claimed = redemptionRepository.countByVoucherId(voucherId);
+        long claimedByAccount = redemptionRepository.countByVoucherIdAndAccountId(voucherId, account.getId());
+        boolean valid = Boolean.TRUE.equals(voucher.getActive())
+                && !now.isBefore(voucher.getStartDate()) && !now.isAfter(voucher.getEndDate())
+                && occupied(voucherId) + claimed < voucher.getUsageLimit()
+                && claimedByAccount < voucher.getPerUserLimit();
+        if (!valid) throw error(ErrorCode.VOUCHER_NOT_REDEEMABLE);
+
+        account.setAvailablePoints(account.getAvailablePoints() - 300);
+        VoucherRedemption redemption = redemptionRepository.save(VoucherRedemption.builder()
+                .accountId(account.getId()).voucherId(voucherId).redeemedAt(now).build());
+        accountRepository.save(account);
+        return VoucherRedemptionResponse.builder().id(redemption.getId()).voucher(response(voucher))
+                .redeemedAt(now).availablePoints(account.getAvailablePoints()).build();
     }
 
     @Override @Transactional(readOnly = true)

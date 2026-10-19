@@ -6,6 +6,7 @@ import com.example.dacn.entity.*;
 import com.example.dacn.exception.AppException;
 import com.example.dacn.exception.ErrorCode;
 import com.example.dacn.repository.OrderRepository;
+import com.example.dacn.repository.AccountRepository;
 import com.example.dacn.repository.OrderStatusHistoryRepository;
 import com.example.dacn.repository.PaymentRepository;
 import com.example.dacn.service.OrderManagementService;
@@ -18,22 +19,45 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 @Service
-@RequiredArgsConstructor
 public class OrderManagementServiceImpl implements OrderManagementService {
     private final OrderRepository orderRepository;
+    private final AccountRepository accountRepository;
     private final PaymentRepository paymentRepository;
     private final OrderStatusHistoryRepository historyRepository;
     private final VoucherService voucherService;
     private final OrderManagementProperties properties;
     private final Clock clock;
+
+    @Autowired
+    public OrderManagementServiceImpl(OrderRepository orderRepository, AccountRepository accountRepository,
+                                      PaymentRepository paymentRepository, OrderStatusHistoryRepository historyRepository,
+                                      VoucherService voucherService, OrderManagementProperties properties, Clock clock) {
+        this.orderRepository = orderRepository;
+        this.accountRepository = accountRepository;
+        this.paymentRepository = paymentRepository;
+        this.historyRepository = historyRepository;
+        this.voucherService = voucherService;
+        this.properties = properties;
+        this.clock = clock;
+    }
+
+    public OrderManagementServiceImpl(OrderRepository orderRepository, PaymentRepository paymentRepository,
+                                      OrderStatusHistoryRepository historyRepository, VoucherService voucherService,
+                                      OrderManagementProperties properties, Clock clock) {
+        this(orderRepository, null, paymentRepository, historyRepository, voucherService, properties, clock);
+    }
 
     @Override
     @Transactional
@@ -88,6 +112,9 @@ public class OrderManagementServiceImpl implements OrderManagementService {
             throw new AppException(ErrorCode.ORDER_PAYMENT_NOT_READY);
         }
         order.setStatus(target);
+        if (target == OrderStatus.COMPLETED) {
+            awardLoyaltyPoints(order, now());
+        }
         recordHistory(order, oldStatus, target, actor, OrderStatusActorType.ADMIN,
                 "Admin cập nhật trạng thái đơn hàng");
         return response(orderRepository.save(order));
@@ -130,6 +157,7 @@ public class OrderManagementServiceImpl implements OrderManagementService {
         if (payment.getPaymentStatus() == PaymentStatus.SUCCESS) {
             if (order.getStatus() != OrderStatus.COMPLETED) {
                 order.setStatus(OrderStatus.COMPLETED);
+                awardLoyaltyPoints(order, now());
                 recordHistory(order, oldStatus, OrderStatus.COMPLETED, actor,
                         OrderStatusActorType.ADMIN, "Admin xác nhận hoàn tất và đã thu tiền COD");
             }
@@ -142,11 +170,38 @@ public class OrderManagementServiceImpl implements OrderManagementService {
         payment.setPaidAt(now());
         payment.setPaymentMessage("Đã xác nhận thu tiền COD");
         order.setStatus(OrderStatus.COMPLETED);
+        awardLoyaltyPoints(order, now());
         recordHistory(order, oldStatus, OrderStatus.COMPLETED, actor,
                 OrderStatusActorType.ADMIN, "Admin xác nhận hoàn tất và đã thu tiền COD");
         paymentRepository.save(payment);
         voucherService.applyForOrder(orderId);
         return response(orderRepository.save(order));
+    }
+
+    private void awardLoyaltyPoints(Order order, LocalDateTime completedAt) {
+        if (Boolean.TRUE.equals(order.getLoyaltyPointsAwarded())) return;
+        if (accountRepository == null) return;
+
+        Account account = accountRepository.findByIdForUpdate(order.getAccount().getId())
+                .orElseThrow(() -> new AppException(ErrorCode.ACCOUNT_NOT_FOUND));
+        ZoneId zone = ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate deliveryDate = completedAt.atZone(zone).toLocalDate();
+        LocalDateTime start = deliveryDate.atStartOfDay();
+        LocalDateTime end = deliveryDate.plusDays(1).atStartOfDay();
+        long dailyOrdinal = orderRepository
+                .countByAccountIdAndLoyaltyPointsAwardedTrueAndCompletedAtGreaterThanEqualAndCompletedAtLessThan(
+                        account.getId(), start, end) + 1;
+
+        int earned = 10;
+        if (dailyOrdinal == 5) earned += 30;
+        if (dailyOrdinal == 10) earned += 50;
+        int loyalty = Objects.requireNonNullElse(account.getLoyaltyPoints(), 0) + earned;
+        account.setLoyaltyPoints(loyalty);
+        account.setAvailablePoints(Objects.requireNonNullElse(account.getAvailablePoints(), 0) + earned);
+        account.setMembershipRank(MembershipRank.fromPoints(loyalty));
+        order.setCompletedAt(completedAt);
+        order.setLoyaltyPointsAwarded(true);
+        accountRepository.save(account);
     }
 
     @Override
