@@ -70,6 +70,7 @@
     const countElem = document.getElementById('summary-item-count');
     const cartCountBadge = document.getElementById('cart-count-badge');
     const cartTotalCount = document.getElementById('cart-total-count');
+    const checkoutCta = document.getElementById('checkout-cta');
 
     if (subtotalElem) subtotalElem.textContent = formatCurrency(subtotal);
     if (grandTotalElem) grandTotalElem.textContent = formatCurrency(grandTotal);
@@ -84,11 +85,26 @@
       cartCountBadge.textContent = totalCount;
       cartCountBadge.setAttribute('data-count', String(totalCount));
     }
+    if (checkoutCta) {
+      checkoutCta.setAttribute('aria-disabled', String(totalCount === 0));
+    }
 
     // Nếu giỏ trống → hiện empty state
     if (items.length === 0) {
       renderEmptyCart();
     }
+  }
+
+  const checkoutCta = document.getElementById('checkout-cta');
+  if (checkoutCta) {
+    checkoutCta.addEventListener('click', (event) => {
+      const hasCartItems = document.querySelectorAll('#cart-item-list .cart-item').length > 0;
+
+      if (!hasCartItems) {
+        event.preventDefault();
+        checkoutCta.setAttribute('aria-disabled', 'true');
+      }
+    });
   }
 
   function renderEmptyCart() {

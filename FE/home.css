@@ -28,7 +28,7 @@
   display: none;
 }
 
-/* Ẩn scrollbar cho các khu vực cuộn ngang (region tabs) */
+/* Ẩn scrollbar cho các khu vực cuộn ngang */
 .scrollbar-none {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -69,4 +69,273 @@
   font-size: 0.75rem;
   font-weight: 500;
   background-color: #ffffff;
+}
+
+/* =====================================
+   HEADER - CITY LOCATION SELECTOR
+   ===================================== */
+
+.header-location {
+    height: 38px;
+    padding: 0 12px;
+    border-radius: 9999px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.header-location:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+}
+
+.header-location-icon {
+    color: #059669;
+    font-size: 19px;
+    flex-shrink: 0;
+}
+
+.header-city-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+
+    background: transparent;
+    background-image: none;
+
+    border: none;
+    outline: none;
+    box-shadow: none;
+
+    padding: 0;
+    margin: 0;
+
+    width: auto;
+    min-width: 118px;
+    max-width: 150px;
+
+    font-family: "Be Vietnam Pro", sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #334155;
+
+    cursor: pointer;
+}
+
+.header-city-select:focus {
+    outline: none;
+    border: none;
+    box-shadow: none;
+}
+
+.header-location-arrow {
+    font-size: 18px;
+    color: #64748b;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+/* =========================================
+   FCA - LOCATION DROPDOWN
+   ========================================= */
+
+.header-location-dropdown {
+    position: relative;
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+.location-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #334155;
+    font-family: "Be Vietnam Pro", sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.location-trigger:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+}
+
+.location-trigger:focus-visible {
+    outline: 2px solid #10b981;
+    outline-offset: 2px;
+}
+
+.location-icon {
+    color: #059669;
+    font-size: 19px;
+}
+
+.location-chevron {
+    color: #64748b;
+    font-size: 18px;
+    margin-left: 8px;
+    transition: transform 0.2s ease;
+}
+
+.header-location-dropdown.is-open .location-chevron {
+    transform: rotate(180deg);
+}
+
+/* Dropdown menu */
+
+.location-menu {
+    position: absolute;
+    top: calc(100% + 9px);
+    left: 0;
+    width: 205px;
+    padding: 6px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    z-index: 200;
+}
+
+.location-menu[hidden] {
+    display: none !important;
+}
+
+.location-option {
+    display: block;
+    width: 100%;
+    padding: 11px 12px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: #475569;
+    text-align: left;
+    font-family: "Be Vietnam Pro", sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.location-option:hover {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.location-option.active {
+    background: #dcfce7;
+    color: #15803d;
+    font-weight: 600;
+}
+
+.location-option:focus-visible {
+    outline: 2px solid #10b981;
+    outline-offset: -2px;
+}
+
+/* =========================================
+   RESTAURANT CATEGORY TABS
+   ========================================= */
+
+#restaurant-category-list {
+    scroll-behavior: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    cursor: grab;
+    user-select: none;
+}
+
+#restaurant-category-list.is-dragging {
+    cursor: grabbing;
+}
+
+.category-scroll-button {
+    position: absolute;
+    top: calc(50% - 4px);
+    z-index: 2;
+    width: 34px;
+    height: 34px;
+    border: 1px solid #d1fae5;
+    border-radius: 9999px;
+    background-color: #ffffff;
+    color: #047857;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(-50%);
+    transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+}
+
+.category-scroll-button:hover:not(:disabled) {
+    background-color: #059669;
+    color: #ffffff;
+}
+
+.category-scroll-button-left {
+    left: 2px;
+}
+
+.category-scroll-button-right {
+    right: 2px;
+}
+
+.category-scroll-button.is-hidden {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+#restaurant-category-list .restaurant-category-tab {
+    background-color: #ffffff;
+    border-color: #e2e8f0;
+    color: #334155;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    transition-property: background-color, border-color, color;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+}
+
+#restaurant-category-list .restaurant-category-tab:hover:not(.active) {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+#restaurant-category-list .restaurant-category-tab.active {
+    background-color: #059669;
+    border-color: #059669;
+    color: #ffffff;
+}
+
+#restaurant-category-list .restaurant-category-tab .material-symbols-outlined {
+    color: #059669;
+    transition: none;
+}
+
+#restaurant-category-list .restaurant-category-tab.active .material-symbols-outlined {
+    color: #ffffff;
+}
+
+#restaurant-category-list .restaurant-category-tab:active {
+    opacity: 0.9;
+}
+
+/* Hỗ trợ người dùng giảm hiệu ứng */
+@media (prefers-reduced-motion: reduce) {
+    #restaurant-category-list .restaurant-category-tab {
+        transition: none;
+    }
+
+    .category-scroll-button {
+        transition: none;
+    }
 }

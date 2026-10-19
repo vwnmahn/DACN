@@ -1,0 +1,200 @@
+
+/* =========================
+   FCA RESTAURANT
+   Original layout preserved
+========================= */
+
+@layer base {
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        overscroll-behavior: none;
+    }
+
+    main > :first-child {
+        margin-top: 0 !important;
+    }
+
+    main > :last-child {
+        margin-bottom: 0 !important;
+    }
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: "Be Vietnam Pro", sans-serif;
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* =========================
+   GALLERY
+========================= */
+
+#restaurant-main-image,
+#restaurant-side-image-1,
+#restaurant-side-image-2 {
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+}
+
+/* No fake images when API data is missing */
+
+#restaurant-main-image:empty,
+#restaurant-side-image-1:empty,
+#restaurant-side-image-2:empty {
+    background-color: #f2f3ff;
+}
+
+/* =========================
+   MENU CATEGORY
+========================= */
+
+#menu-category-navigation {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overscroll-behavior-x: contain;
+}
+
+#menu-category-navigation::-webkit-scrollbar {
+    display: none;
+}
+
+#menu-category-navigation a {
+    flex-shrink: 0;
+    text-decoration: none;
+}
+
+#menu-items-container > div {
+    scroll-margin-top: 9rem;
+}
+
+/* =========================
+   DISH CARDS
+========================= */
+
+.dish-card-image {
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+}
+
+.dish-card-image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* =========================
+   STATUS / EMPTY
+========================= */
+
+.restaurant-empty {
+    padding: 32px 16px;
+    text-align: center;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.restaurant-error {
+    color: #ba1a1a;
+}
+
+/* =========================
+   TOAST
+========================= */
+
+.restaurant-toast {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 100;
+
+    max-width: 360px;
+    padding: 12px 18px;
+
+    background: #283044;
+    color: #ffffff;
+
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+    font-size: 13px;
+    line-height: 20px;
+
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(12px);
+
+    transition:
+        opacity 180ms ease,
+        transform 180ms ease,
+        visibility 180ms ease;
+
+    pointer-events: none;
+}
+
+.restaurant-toast.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 767px) {
+    header > div {
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+    }
+
+    main .max-w-\[1360px\],
+    footer .max-w-\[1360px\] {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    #restaurant-name {
+        font-size: 28px;
+        line-height: 36px;
+    }
+
+    .restaurant-toast {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        max-width: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    .restaurant-toast {
+        transition: none;
+    }
+}

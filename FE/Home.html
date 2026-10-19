@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="home.css"/>
+<link rel="stylesheet" href="site-shell.css"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script id="tailwind-config">
 tailwind.config = {
@@ -63,44 +64,86 @@ tailwind.config = {
 
 <!-- ==================== HEADER ==================== -->
 <header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-[0_1px_6px_rgba(0,0,0,0.03)]">
-  <div class="h-20 max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex items-center justify-between gap-4">
+  <div class="fca-layout-container fca-site-header-inner h-20 max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex items-center justify-between gap-4">
     <div class="flex items-center gap-6 flex-shrink-0">
-      <a class="flex items-center gap-3" data-path="trang-chu" href="#">
+      <a class="flex items-center gap-3" data-path="trang-chu" href="Home.html">
         <div class="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-lg tracking-tight shadow-sm shadow-emerald-600/30">FCA</div>
         <div class="hidden sm:flex flex-col">
           <span class="text-base text-slate-900 font-bold leading-tight tracking-tight">FCA CULINARY</span>
           <span class="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Food &amp; Delivery</span>
         </div>
       </a>
-      <div class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200/70 hover:bg-slate-200/60 transition-colors cursor-pointer">
-        <span class="material-symbols-outlined text-emerald-600 text-[18px]">location_on</span>
-        <select class="bg-transparent text-xs text-slate-700 font-medium focus:outline-none cursor-pointer pr-1">
-          <option value="hcm">TP. Hồ Chí Minh</option>
-          <option value="hn">Hà Nội</option>
-          <option value="dn">Đà Nẵng</option>
-          <option value="ct">Cần Thơ</option>
-          <option value="hp">Hải Phòng</option>
-        </select>
-      </div>
+
+
+<!-- LOCATION DROPDOWN -->
+<div class="header-location-dropdown hidden md:block" id="header-location">
+
+    <button
+        type="button"
+        class="location-trigger"
+        id="location-trigger"
+        aria-expanded="false"
+        aria-controls="location-menu"
+    >
+        <span class="material-symbols-outlined location-icon">
+            location_on
+        </span>
+
+        <span id="selected-city">TP. Hồ Chí Minh</span>
+
+        <span class="material-symbols-outlined location-chevron">
+            expand_more
+        </span>
+    </button>
+
+    <div class="location-menu" id="location-menu" hidden>
+        <button type="button" class="location-option active"
+                data-city="hcm">
+            TP. Hồ Chí Minh
+        </button>
+
+        <button type="button" class="location-option"
+                data-city="hn">
+            Hà Nội
+        </button>
+
+        <button type="button" class="location-option"
+                data-city="dn">
+            Đà Nẵng
+        </button>
+
+        <button type="button" class="location-option"
+                data-city="ct">
+            Cần Thơ
+        </button>
+
+        <button type="button" class="location-option"
+                data-city="hp">
+            Hải Phòng
+        </button>
+    </div>
+
+</div>
+
+
     </div>
     <div class="flex-1 max-w-xl mx-4 hidden lg:block">
       <div class="relative flex items-center w-full">
         <span class="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">search</span>
-        <input class="w-full h-10 pl-10 pr-4 rounded-full bg-slate-100 border border-transparent focus:border-emerald-500 focus:bg-white text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" placeholder="Tìm kiếm món ngon, ẩm thực nghệ thuật, chi nhánh FCA..." type="text"/>
+        <input class="w-full h-10 pl-10 pr-4 rounded-full bg-slate-100 border border-transparent focus:border-emerald-500 focus:bg-white text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" id="header-search" placeholder="Tìm kiếm món ngon, ẩm thực nghệ thuật, chi nhánh FCA..." type="text"/>
       </div>
     </div>
     <div class="flex items-center gap-4 flex-shrink-0">
       <nav class="hidden xl:flex items-center gap-1.5 px-1">
-        <a class="px-3.5 py-1.5 rounded-full text-sm font-medium text-slate-600 hover:text-emerald-700 hover:bg-slate-100 transition-colors" data-path="kham-pha-quan-an" href="#">Khám phá quán ăn</a>
-        <a class="px-3.5 py-1.5 rounded-full text-sm font-semibold text-emerald-700 bg-emerald-50 transition-colors" data-path="chi-nhanh-fca" href="#">Chi nhánh FCA</a>
-        <a class="px-3.5 py-1.5 rounded-full text-sm font-medium text-slate-600 hover:text-emerald-700 hover:bg-slate-100 transition-colors" data-path="uu-dai-khu-vuc" href="#">Ưu đãi khu vực</a>
+        <a class="site-nav-link px-3.5 py-1.5 rounded-full text-sm font-semibold text-emerald-700 bg-emerald-50 transition-colors" data-site-nav="home" aria-current="page" href="Home.html">Trang chủ</a>
+        <a class="site-nav-link px-3.5 py-1.5 rounded-full text-sm font-medium text-slate-600 hover:text-emerald-700 hover:bg-slate-100 transition-colors" data-site-nav="voucher" href="voucher.html">Voucher</a>
       </nav>
       <div class="flex items-center gap-2">
-        <a class="relative p-2 rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors flex items-center justify-center border border-slate-200/70" data-path="gio-hang" href="#">
+        <a class="relative p-2 rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors flex items-center justify-center border border-slate-200/70" data-path="gio-hang" id="cart-button" href="cart.html" aria-label="Giỏ hàng">
           <span class="material-symbols-outlined text-[22px]">shopping_bag</span>
-          <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center leading-none">3</span>
+          <span class="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-600 text-white text-[10px] font-bold items-center justify-center leading-none hidden" id="cart-count-badge" data-count="0" aria-live="polite"></span>
         </a>
-        <a class="flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full hover:bg-slate-100 border border-slate-200/70 transition-colors" data-path="tai-khoan" href="#">
+        <a class="flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full hover:bg-slate-100 border border-slate-200/70 transition-colors" data-path="tai-khoan" href="personal_page.html">
           <div class="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center">
             <span class="material-symbols-outlined text-[16px]">person</span>
           </div>
@@ -118,89 +161,77 @@ tailwind.config = {
     <section class="relative w-full pt-10 pb-12 bg-gradient-to-b from-slate-50 via-white to-white border-b border-slate-100 overflow-hidden">
       <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-[720px] h-[360px] bg-emerald-100/40 rounded-full blur-3xl pointer-events-none"></div>
       <div class="absolute top-1/4 -right-20 w-80 h-80 bg-slate-100 rounded-full blur-2xl pointer-events-none"></div>
-      <div class="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 relative z-10 flex flex-col gap-6">
+      <div class="fca-layout-container max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 relative z-10 flex flex-col gap-6">
         <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
           <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold shadow-xs">
             <span class="material-symbols-outlined text-[17px] text-emerald-600">verified</span>
             <span class="uppercase tracking-wider">Mạng lưới Ẩm thực Bản quyền FCA Group</span>
           </div>
           <div class="hidden md:flex items-center gap-3 text-slate-500 text-xs font-medium">
-            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> 120 Chi nhánh trực tuyến</span>
-            <span>•</span>
-            <span>Phủ sóng 5 đại đô thị</span>
+            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Nhiều chi nhánh trực tuyến</span>
+      
+            
           </div>
         </div>
-        <div class="max-w-3xl flex flex-col gap-2">
-          <h1 class="text-3xl md:text-4xl lg:text-5xl text-slate-900 font-bold tracking-tight leading-[1.2]">
-            Hệ thống Nhà hàng &amp; Chuỗi Ẩm thực FCA Toàn quốc
+        <div class="w-full flex flex-col gap-2">
+          <h1 class="text-3xl md:text-4xl lg:text-5xl text-slate-900 font-bold tracking-tight leading-[1.2]" align="center">
+            Hệ thống Nhà hàng & Chuỗi Ẩm thực FCA Toàn quốc
           </h1>
-          <p class="text-base text-slate-600 max-w-2xl leading-relaxed mt-1">
+          <p class="text-base text-slate-600 w-full leading-relaxed mt-1">
             Tận hưởng phong vị chuẩn mực từ 5 thương hiệu ẩm thực độc quyền trực thuộc FCA. Tìm kiếm không gian dùng bữa thanh lịch hoặc dịch vụ giao tiệc thượng hạng trong 25 phút.
           </p>
         </div>
         <div class="flex flex-col gap-4 mt-2">
-          <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none" id="region-tab-list">
-            <button class="region-tab active flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-semibold transition-all shadow-sm shadow-emerald-600/30 flex-shrink-0 cursor-pointer" data-region="all">
-              <span class="material-symbols-outlined text-[18px]">public</span>
-              <span>Tất cả khu vực</span>
-              <span class="ml-1 text-xs px-2 py-0.5 rounded-full bg-white/20">120</span>
+          <div class="restaurant-category-scroller relative">
+            <button class="category-scroll-button category-scroll-button-left is-hidden" id="category-scroll-left" type="button" aria-label="Cuộn danh mục sang trái" disabled>
+              <span class="material-symbols-outlined text-[20px]">chevron_left</span>
             </button>
-            <button class="region-tab flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 transition-all shadow-xs flex-shrink-0 cursor-pointer" data-region="hcm">
-              <span class="material-symbols-outlined text-emerald-600 text-[18px]">location_city</span>
-              <span>TP. Hồ Chí Minh (Q.1, Q.3, Thủ Đức, Bình Thạnh...)</span>
-              <span class="ml-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold">58</span>
+            <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none" id="restaurant-category-list" role="tablist" aria-label="Danh mục quán ăn">
+            <button class="restaurant-category-tab active flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="all" role="tab" aria-selected="true">
+              <span class="material-symbols-outlined text-[18px]">storefront</span>
+              <span>Tất cả quán ăn</span>
             </button>
-            <button class="region-tab flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 transition-all shadow-xs flex-shrink-0 cursor-pointer" data-region="hn">
-              <span class="material-symbols-outlined text-emerald-600 text-[18px]">account_balance</span>
-              <span>Hà Nội (Hoàn Kiếm, Cầu Giấy, Ba Đình...)</span>
-              <span class="ml-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold">36</span>
+            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="fast-food" role="tab" aria-selected="false">
+              <span class="material-symbols-outlined text-[18px]">fastfood</span>
+              <span>Quán ăn nhanh</span>
             </button>
-            <button class="region-tab flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 transition-all shadow-xs flex-shrink-0 cursor-pointer" data-region="dn">
-              <span class="material-symbols-outlined text-emerald-600 text-[18px]">waves</span>
-              <span>Đà Nẵng (Hải Châu, Sơn Trà...)</span>
-              <span class="ml-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold">16</span>
+            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="dessert" role="tab" aria-selected="false">
+              <span class="material-symbols-outlined text-[18px]">cookie</span>
+              <span>Quán tráng miệng</span>
             </button>
-            <button class="region-tab flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 transition-all shadow-xs flex-shrink-0 cursor-pointer" data-region="ct">
-              <span class="material-symbols-outlined text-emerald-600 text-[18px]">water</span>
-              <span>Cần Thơ &amp; Miền Tây</span>
-              <span class="ml-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold">10</span>
+            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="ice-cream" role="tab" aria-selected="false">
+              <span class="material-symbols-outlined text-[18px]">icecream</span>
+              <span>Quán kem</span>
+            </button>
+            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="birthday-cake" role="tab" aria-selected="false">
+              <span class="material-symbols-outlined text-[18px]">cake</span>
+              <span>Tiệm bánh sinh nhật</span>
+            </button>
+            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="milk-tea" role="tab" aria-selected="false">
+              <span class="material-symbols-outlined text-[18px]">emoji_food_beverage</span>
+              <span>Quán trà sữa</span>
+            </button>
+            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="coffee" role="tab" aria-selected="false">
+              <span class="material-symbols-outlined text-[18px]">local_cafe</span>
+              <span>Quán cà phê</span>
+            </button>
+            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="pastry" role="tab" aria-selected="false">
+              <span class="material-symbols-outlined text-[18px]">bakery_dining</span>
+              <span>Tiệm bánh ngọt</span>
+            </button>
+            </div>
+            <button class="category-scroll-button category-scroll-button-right is-hidden" id="category-scroll-right" type="button" aria-label="Cuộn danh mục sang phải" disabled>
+              <span class="material-symbols-outlined text-[20px]">chevron_right</span>
             </button>
           </div>
-          <div class="w-full bg-white p-3 sm:p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
-            <div class="relative flex-1 flex items-center">
-              <span class="material-symbols-outlined text-emerald-600 absolute left-3.5 text-[22px]">search</span>
-              <input class="w-full h-11 pl-11 pr-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all" id="restaurant-search" placeholder="Tìm kiếm nhà hàng FCA, chi nhánh gần bạn, không gian tiệc hoặc món ăn..." type="text"/>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <button class="filter-pill flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors cursor-pointer">
-                <span class="material-symbols-outlined text-[17px]">cloud_download</span>
-                <span>Mở cửa ngay</span>
-              </button>
-              <button class="filter-pill flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors cursor-pointer">
-                <span class="material-symbols-outlined text-[17px]">near_me</span>
-                <span>Gần tôi (&lt;3km)</span>
-              </button>
-              <button class="filter-pill flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors cursor-pointer">
-                <span class="material-symbols-outlined text-[17px]">table_restaurant</span>
-                <span>Có chỗ ngồi tại quán</span>
-              </button>
-              <button class="filter-pill flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors cursor-pointer">
-                <span class="material-symbols-outlined text-[17px]">moped</span>
-                <span>Giao hàng tận nơi</span>
-              </button>
-              <button class="px-5 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/30 cursor-pointer">
-                <span>Lọc nhanh</span>
-                <span class="material-symbols-outlined text-[18px]">tune</span>
-              </button>
-            </div>
-          </div>
+        </div>
         </div>
       </div>
     </section>
 
     <!-- ==================== 4 QUALITY COMMITMENTS ==================== -->
     <section class="w-full py-8 bg-slate-50/70 border-b border-slate-100">
-      <div class="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
+      <div class="fca-layout-container max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-sm hover:border-slate-300 transition-all flex items-start gap-4">
             <div class="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
@@ -248,87 +279,18 @@ tailwind.config = {
 
     <!-- ==================== BRAND ECOSYSTEM ==================== -->
     <section class="w-full py-12 bg-white">
-      <div class="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex flex-col gap-6">
+      <div class="fca-layout-container max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex flex-col gap-6">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
           <div>
             <span class="text-xs text-emerald-700 uppercase font-bold tracking-wider">Hệ Sinh Thái Thương Hiệu</span>
-            <h2 class="text-2xl md:text-3xl text-slate-900 font-bold tracking-tight mt-1">5 Chuỗi Nhà Hàng Chuyên Biệt FCA</h2>
+            <h2 class="text-2xl md:text-3xl text-slate-900 font-bold tracking-tight mt-1">Các Chuỗi Nhà Hàng Chuyên Biệt FCA</h2>
           </div>
           <p class="text-sm text-slate-500 max-w-md">
             Mỗi thương hiệu được kiến tạo bởi các Bếp trưởng tài hoa, đáp ứng trọn vẹn từng sở thích và phong cách ẩm thực của quý khách.
           </p>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          <!-- Brand 1 -->
-          <div class="group bg-white rounded-2xl p-3 border border-slate-200/80 flex flex-col gap-3 hover:shadow-lg hover:border-slate-300 transition-all duration-300 cursor-pointer">
-            <div class="relative w-full h-36 rounded-xl overflow-hidden bg-slate-100">
-              <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDoEftIAKHUb5t0nd370W5K6Wz3Z04xLCkuKvA5H-8geHjFHGf9CRJCwx8E7r13yZDO0yq5f-uSypq7aZ5XKTHSHnxsXmbMn5kipORopaIHJzh8wWa0-Kyp7Qp0gOfuA28oLw7oqSsfzWW97kZwMGqAWwM6Y237gaNIo0Zscr_IKycAZEfR2OZqap0A9AXAej3_EEAxxw7ns-GQATZO4EAekYtU--rKMnSorwc4sztMxLUOHdkouTsv"/>
-              <div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-white/95 backdrop-blur text-[11px] text-emerald-700 font-bold border border-slate-200/60 shadow-xs">Heritage</div>
-            </div>
-            <div class="flex flex-col">
-              <h3 class="text-base text-slate-900 font-bold group-hover:text-emerald-700 transition-colors">FCA Cơm Việt</h3>
-              <span class="text-xs text-slate-500 mt-0.5">Cơm tấm, món Bắc - Trung - Nam</span>
-            </div>
-            <div class="mt-auto pt-2 flex items-center justify-between text-slate-500 text-xs font-medium">
-              <span>Xem chi nhánh</span>
-              <span class="material-symbols-outlined text-[18px] text-emerald-600 group-hover:translate-x-1 transition-transform">arrow_forward</span>
-            </div>
-          </div>
-          <!-- Brand 2 -->
-          <div class="group bg-white rounded-2xl p-3 border border-slate-200/80 flex flex-col gap-3 hover:shadow-lg hover:border-slate-300 transition-all duration-300 cursor-pointer">
-            <div class="relative w-full h-36 rounded-xl overflow-hidden bg-slate-100">
-              <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbVY7hjWMmcjzwC3NYe6-ND-RuvrsMT64axnuVbA54St1vRh2maPBGO0s9IqwYoKc2jKQJEeEW95JA5_XnQzHQbb9muMXIyw3rHvaPiyAZkAFPRWrcLWFvjTayEk4GRI33RK0yUQ95S15Z_L_UD4kHgfRHBFRGlmXWfoZ_AuIkuFodmzPwFP-Fjx7RtkzH3dncw_E1QoZUYgNa_3tSwA0fvDlzEARqNglBdnUK-Ilh19pfCU4ZthC0"/>
-              <div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-white/95 backdrop-blur text-[11px] text-emerald-700 font-bold border border-slate-200/60 shadow-xs">Di Sản</div>
-            </div>
-            <div class="flex flex-col">
-              <h3 class="text-base text-slate-900 font-bold group-hover:text-emerald-700 transition-colors">FCA Phở Di Sản</h3>
-              <span class="text-xs text-slate-500 mt-0.5">Phở bò thố đá &amp; Bún thang</span>
-            </div>
-            <div class="mt-auto pt-2 flex items-center justify-between text-slate-500 text-xs font-medium">
-              <span>Xem chi nhánh</span>
-              <span class="material-symbols-outlined text-[18px] text-emerald-600 group-hover:translate-x-1 transition-transform">arrow_forward</span>
-            </div>
-          </div>
-          <!-- Brand 3 -->
-          <div class="group bg-white rounded-2xl p-3 border border-slate-200/80 flex flex-col gap-3 hover:shadow-lg hover:border-slate-300 transition-all duration-300 cursor-pointer">
-            <div class="relative w-full h-36 rounded-xl overflow-hidden bg-slate-100">
-              <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXEIADzlGwoNvtX2oCdxH3x5ulXUNy9YwEIV_wDGHzHbAM2Fe-HC7gpCB15F-tEW6v9M7aqsZqibLtn3XSx5s1AE9-DQ7nOqA4fFDLwnJTM9lp9UHePqXT2Qn-PYO9HFQEdF0LZqraPQ5_E0T0ewL2S3pMI-B47tgT5nM-b_GcAWgepVqnCSEzpmfM2lsLuwEJiDEgc5qDtyf1k2T8mDMqI2DxjrGk4jJSe6LcfTBKHDInA32Z5xdU"/>
-              <div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-white/95 backdrop-blur text-[11px] text-emerald-700 font-bold border border-slate-200/60 shadow-xs">Healthy</div>
-            </div>
-            <div class="flex flex-col">
-              <h3 class="text-base text-slate-900 font-bold group-hover:text-emerald-700 transition-colors">FCA Green Kitchen</h3>
-              <span class="text-xs text-slate-500 mt-0.5">Salad, Poke &amp; Eat-Clean Menu</span>
-            </div>
-            <div class="mt-auto pt-2 flex items-center justify-between text-slate-500 text-xs font-medium">
-              <span>Xem chi nhánh</span>
-              <span class="material-symbols-outlined text-[18px] text-emerald-600 group-hover:translate-x-1 transition-transform">arrow_forward</span>
-            </div>
-          </div>
-          <!-- Brand 4 -->
-          <div class="group bg-white rounded-2xl p-3 border border-slate-200/80 flex flex-col gap-3 hover:shadow-lg hover:border-slate-300 transition-all duration-300 cursor-pointer">
-            <div class="relative w-full h-36 rounded-xl overflow-hidden bg-slate-100">
-              <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCP1GSC-FTgUusbND6h46CEjZIVyfnrQru7yqLvTEWE5sgFs7dju_9k-wZOLSJG2PYj51aYzkAhJEP81SUJun4QZFMs_ac1j_S4CmlXKo3Dhz3kVcqi3XYASzn7YW5CYgPGmz8Kp7nxfJ_uu0KVVb-sygogY9lp4kpHbebYP5J_5keUROMBXGkENvNUn4E7b61UIYM-4AGCZk3UNA6rzvyViYf5efnavTvqCl_OPnYvmrsx_7dgMj0L"/>
-              <div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-white/95 backdrop-blur text-[11px] text-emerald-700 font-bold border border-slate-200/60 shadow-xs">Bistro &amp; BBQ</div>
-            </div>
-            <div class="flex flex-col">
-              <h3 class="text-base text-slate-900 font-bold group-hover:text-emerald-700 transition-colors">FCA Bistro &amp; Grill</h3>
-              <span class="text-xs text-slate-500 mt-0.5">Bò nướng than hoa &amp; Lẩu hải sản</span>
-            </div>
-            <div class="mt-auto pt-2 flex items-center justify-between text-slate-500 text-xs font-medium">
-              <span>Xem chi nhánh</span>
-              <span class="material-symbols-outlined text-[18px] text-emerald-600 group-hover:translate-x-1 transition-transform">arrow_forward</span>
-            </div>
-          </div>
-          <!-- Brand 5 -->
-          <div class="group bg-white rounded-2xl p-3 border border-slate-200/80 flex flex-col gap-3 hover:shadow-lg hover:border-slate-300 transition-all duration-300 cursor-pointer">
-            <div class="relative w-full h-36 rounded-xl overflow-hidden bg-slate-100">
-              <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCO4bvNyxCLkHshc8DwxI2sc_PtiZsx61m_XVj4jUgQfqNz7i_I-nOAH9_5Wk2e2NPGEzrOS9-oVcf52ZilUgffes0MV_KTJBpD6z7WX7IraymDdz8tzDsgt5QP7M0R-yk9sEtC2VGbjUvZMwnsPg5uDdA8ArE7fqFHcSyJTCAdrfb_XuUKzcRVaq_EqVSwBrE5FzJypAk497Su8-PPEhImys89UTnfgS5ZvdXBs8e-w3A79ubE1pco"/>
-              <div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-white/95 backdrop-blur text-[11px] text-emerald-700 font-bold border border-slate-200/60 shadow-xs">Roastery</div>
-            </div>
-            <div class="flex flex-col">
-              <h3 class="text-base text-slate-900 font-bold group-hover:text-emerald-700 transition-colors">FCA Tea &amp; Coffee</h3>
-              <span class="text-xs text-slate-500 mt-0.5">Trà ô long &amp; Cà phê thủ công</span>
-            </div>
+
             <div class="mt-auto pt-2 flex items-center justify-between text-slate-500 text-xs font-medium">
               <span>Xem chi nhánh</span>
               <span class="material-symbols-outlined text-[18px] text-emerald-600 group-hover:translate-x-1 transition-transform">arrow_forward</span>
@@ -340,19 +302,9 @@ tailwind.config = {
 
     <!-- ==================== FEATURED RESTAURANT GRID (EMPTY - FILL FROM DB) ==================== -->
     <section class="w-full py-14 bg-slate-50/70 border-y border-slate-100">
-      <div class="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex flex-col gap-6">
-        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-          <div>
-            <span class="text-xs text-emerald-700 uppercase font-bold tracking-wider">Điểm Đến Trải Nghiệm</span>
-            <h2 class="text-2xl md:text-3xl text-slate-900 font-bold tracking-tight mt-1">Chi Nhánh Nhà Hàng FCA Tiêu Biểu</h2>
-          </div>
-          <div class="flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition-colors cursor-pointer">
-            <span>Xem tất cả điểm bán</span>
-            <span class="material-symbols-outlined text-[20px]">chevron_right</span>
-          </div>
-        </div>
+      <div class="fca-layout-container max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex flex-col gap-6">
         <!-- Card grid rỗng - JS sẽ render từ DB -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="restaurant-cards-container">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6" id="restaurant-cards-container">
           <!-- EMPTY: Dữ liệu sẽ được render bởi home.js -->
         </div>
       </div>
@@ -360,7 +312,7 @@ tailwind.config = {
 
     <!-- ==================== MAP SECTION (EMPTY LIST - FILL FROM DB) ==================== -->
     <section class="w-full py-14 bg-white">
-      <div class="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex flex-col gap-6">
+      <div class="fca-layout-container max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex flex-col gap-6">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
           <div>
             <span class="text-xs text-emerald-700 uppercase font-bold tracking-wider">Hệ Thống Bản Đồ Số</span>
@@ -417,7 +369,7 @@ tailwind.config = {
 
     <!-- ==================== REGIONAL DEALS ==================== -->
     <section class="w-full py-14 bg-slate-50/70 border-t border-slate-100">
-      <div class="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex flex-col gap-6">
+      <div class="fca-layout-container max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex flex-col gap-6">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-3">
           <div>
             <span class="text-xs text-amber-700 uppercase font-bold tracking-wider">Khuyến Mãi Đặc Quyền</span>
@@ -488,7 +440,7 @@ tailwind.config = {
 
 <!-- ==================== FOOTER ==================== -->
 <footer class="w-full bg-slate-900 text-slate-400 pt-14 pb-8">
-  <div class="max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
+  <div class="fca-layout-container max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 pb-12">
       <div class="lg:col-span-2 flex flex-col gap-4 pr-0 lg:pr-8">
         <div class="flex items-center gap-3">
@@ -540,6 +492,7 @@ tailwind.config = {
   </div>
 </footer>
 
+<script src="site-shell.js"></script>
 <script src="home.js"></script>
 </body>
 </html>

@@ -1,13 +1,37 @@
 /* ============================================================
    FCA CULINARY - PERSONAL PAGE SCRIPT
    - Taste tag toggle
-   - Profile save simulation
+   - Profile API integration
    - Reorder handler
    - Render functions cho việc nạp DB
    ============================================================ */
 
 (function () {
   'use strict';
+  const API = 'http://localhost:8080/api/v1';
+  let currentAccount = null;
+
+  function headers(json) {
+    if (window.FCA_SHELL?.authHeaders) return window.FCA_SHELL.authHeaders(json);
+    const result = json ? { 'Content-Type': 'application/json' } : {};
+    const token = localStorage.getItem('accessToken');
+    if (token) result.Authorization = `Bearer ${token}`;
+    return result;
+  }
+
+  async function request(url, options = {}) {
+    const response = await fetch(url, { ...options, headers: { ...headers(options.json), ...(options.headers || {}) } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.message || 'Không thể kết nối hệ thống FCA.');
+    return payload.data;
+  }
+
+  function setMessage(element, message, error) {
+    if (!element) return;
+    element.textContent = message;
+    element.classList.remove('hidden', 'text-error', 'text-primary');
+    element.classList.add(error ? 'text-error' : 'text-primary');
+  }
 
   /* ============================================================
      1. TASTE TAG TOGGLE
@@ -31,9 +55,9 @@
   };
 
   /* ============================================================
-     2. PROFILE SAVE SIMULATION
+     2. PROFILE SAVE
      ============================================================ */
-  window.handleProfileSave = function () {
+  window.handleProfileSave = async function () {
     const btn = document.getElementById('saveBtn');
     const alertBox = document.getElementById('saveAlert');
     if (!btn || !alertBox) return;
@@ -42,16 +66,26 @@
       '<span class="material-symbols-outlined text-[20px] animate-spin">refresh</span><span>Đang lưu...</span>';
     btn.disabled = true;
 
-    // TODO: gọi API/DB để lưu profile
-    setTimeout(() => {
+    const data = new FormData();
+    data.append('email', document.getElementById('emailAddress').value.trim());
+    const address = document.getElementById('address')?.value.trim();
+    const dateOfBirth = document.getElementById('dob')?.value;
+    const gender = document.querySelector('input[name="gender"]:checked')?.value;
+    if (address) data.append('address', address);
+    if (dateOfBirth) data.append('dateOfBirth', dateOfBirth);
+    if (gender === 'true' || gender === 'false') data.append('gender', gender);
+    try {
+      await request(`${API}/auth/update`, { method: 'PUT', body: data });
+      await loadAccount();
       btn.innerHTML =
         '<span class="material-symbols-outlined text-[20px]">save</span><span>Lưu thay đổi</span>';
       btn.disabled = false;
-      alertBox.classList.remove('hidden');
-      setTimeout(() => {
-        alertBox.classList.add('hidden');
-      }, 4000);
-    }, 700);
+      setMessage(alertBox, 'Thông tin tài khoản đã được cập nhật thành công trên hệ thống FCA!', false);
+    } catch (error) {
+      btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">save</span><span>Lưu thay đổi</span>';
+      btn.disabled = false;
+      setMessage(alertBox, error.message, true);
+    }
   };
 
   /* ============================================================
@@ -86,18 +120,26 @@
     const pointsEl = document.getElementById('user-points');
     const orderBadge = document.getElementById('order-count-badge');
     const voucherBadge = document.getElementById('voucher-badge');
+    const avatar = document.getElementById('user-avatar');
 
-    if (nameEl) nameEl.textContent = user.name || '—';
+    if (nameEl) nameEl.textContent = user.username || '—';
     if (emailEl) emailEl.textContent = user.email || '—';
+    if (avatar && user.avatarUrl) {
+      const image = document.createElement('img');
+      image.className = 'w-full h-full object-cover';
+      image.alt = `Ảnh đại diện của ${user.username || 'tài khoản'}`;
+      image.src = new URL(user.avatarUrl, 'http://localhost:8080').href;
+      avatar.replaceChildren(image);
+    }
 
     if (tierEl) {
       tierEl.innerHTML = `
         <span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">stars</span>
-        <span>${user.tierLabel || '—'}</span>`;
+        <span>${rankLabel(user.membershipRank)}</span>`;
     }
 
     if (pointsEl) {
-      pointsEl.innerHTML = `${(user.points ?? 0).toLocaleString('vi-VN')} <span class="font-label-md text-label-md font-medium text-on-surface-variant">điểm</span>`;
+      pointsEl.innerHTML = `${(user.loyaltyPoints ?? 0).toLocaleString('vi-VN')} <span class="font-label-md text-label-md font-medium text-on-surface-variant">điểm</span>`;
     }
 
     if (orderBadge) orderBadge.textContent = user.orderCount ?? 0;
@@ -112,18 +154,43 @@
     const p = document.getElementById('phoneNumber');
     const e = document.getElementById('emailAddress');
     const d = document.getElementById('dob');
-    if (f) f.value = user.name || '';
-    if (p) p.value = user.phone || '';
+    if (f) f.value = user.username || '';
+    if (p) p.value = user.phoneNumber || '';
     if (e) e.value = user.email || '';
-    if (d) d.value = user.dob || '';
+    if (d) d.value = user.dateOfBirth || '';
+    const address = document.getElementById('address');
+    const available = document.getElementById('available-points');
+    if (address) address.value = user.address || '';
+    if (available) available.textContent = (user.availablePoints ?? 0).toLocaleString('vi-VN');
 
     // Giới tính
-    if (user.gender) {
+    if (user.gender !== null && user.gender !== undefined) {
       const radio = document.querySelector(
-        `input[name="gender"][value="${user.gender}"]`
+        `input[name="gender"][value="${String(user.gender)}"]`
       );
       if (radio) radio.checked = true;
     }
+  }
+
+  const RANKS = [
+    { key: 'BRONZE', label: 'Đồng', min: 0 }, { key: 'SILVER', label: 'Bạc', min: 100 },
+    { key: 'GOLD', label: 'Vàng', min: 300 }, { key: 'PLATINUM', label: 'Bạch kim', min: 600 },
+    { key: 'DIAMOND', label: 'Kim cương — VIP', min: 1000 },
+  ];
+  function rankLabel(rank) { return RANKS.find((item) => item.key === rank)?.label || 'Đồng'; }
+
+  function renderAccountTier(account) {
+    const points = account.loyaltyPoints ?? 0;
+    const index = Math.max(0, RANKS.findIndex((item) => item.key === account.membershipRank));
+    const current = RANKS[index];
+    const next = RANKS[index + 1];
+    renderVipTier(next ? {
+      name: current.label, memberCode: '—', nextTier: next.label,
+      currentPoints: points, nextTierPoints: next.min,
+      pointsToNext: Math.max(0, next.min - points),
+      progressPercent: Math.max(0, Math.min(100, ((points - current.min) / (next.min - current.min)) * 100)),
+    } : { name: current.label, memberCode: '—', nextTier: 'Hạng cao nhất', currentPoints: points,
+      nextTierPoints: points, pointsToNext: 0, progressPercent: 100 });
   }
 
   /* ---- 4.2 Render VIP tier banner ---- */
@@ -147,7 +214,9 @@
     }
     if (progBarEl) progBarEl.style.width = `${pct}%`;
     if (hintEl) {
-      hintEl.innerHTML = `Tích lũy thêm <strong class="text-surface font-semibold">${(tier.pointsToNext ?? 0).toLocaleString('vi-VN')} điểm</strong> để mở khóa ưu đãi ${tier.nextTier || ''}`;
+      hintEl.innerHTML = tier.nextTier === 'Hạng cao nhất'
+        ? '<strong class="text-surface font-semibold">Đã đạt hạng cao nhất</strong>'
+        : `Tích lũy thêm <strong class="text-surface font-semibold">${(tier.pointsToNext ?? 0).toLocaleString('vi-VN')} điểm</strong> để mở khóa ưu đãi ${tier.nextTier || ''}`;
     }
   }
 
@@ -305,6 +374,115 @@
       .join('');
   }
 
+  async function loadAccount() {
+    currentAccount = await request(`${API}/auth/me`);
+    renderUserProfile(currentAccount);
+    renderAccountTier(currentAccount);
+  }
+
+  function renderRedeemable(vouchers) {
+    const container = document.getElementById('redeemable-vouchers');
+    const status = document.getElementById('redeem-status');
+    if (!container) return;
+    container.replaceChildren();
+    if (!vouchers.length) {
+      setMessage(status, 'Hiện chưa có voucher để đổi điểm.', false);
+      return;
+    }
+    status?.classList.add('hidden');
+    vouchers.forEach((voucher) => {
+      const card = document.createElement('article');
+      card.className = 'border border-surface-container-highest rounded-xl p-space-md flex items-center justify-between gap-space-md';
+      const info = document.createElement('div');
+      const code = document.createElement('strong');
+      code.className = 'block text-primary';
+      code.textContent = voucher.code;
+      const description = document.createElement('span');
+      description.className = 'font-body-sm text-body-sm text-on-surface-variant';
+      description.textContent = voucher.description || 'Voucher FCA Culinary';
+      info.append(code, description);
+      const button = document.createElement('button');
+      button.className = 'shrink-0 px-4 py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-bold disabled:opacity-50';
+      button.type = 'button';
+      button.textContent = 'Đổi 300 điểm';
+      button.disabled = (currentAccount?.availablePoints ?? 0) < 300;
+      button.addEventListener('click', async () => {
+        button.disabled = true;
+        try {
+          const redemption = await request(`${API}/vouchers/${voucher.id}/redeem`, { method: 'POST' });
+          setMessage(status, `Đã đổi voucher ${redemption.voucher.code} thành công.`, false);
+          await Promise.all([loadAccount(), loadRedeemable(), loadOwnedVouchers()]);
+        } catch (error) {
+          setMessage(status, error.message, true);
+          button.disabled = false;
+        }
+      });
+      card.append(info, button);
+      container.appendChild(card);
+    });
+  }
+
+  async function loadRedeemable() {
+    const data = await request(`${API}/vouchers/redeemable?size=100`);
+    renderRedeemable(data?.content || []);
+  }
+
+  async function loadOwnedVouchers() {
+    const vouchers = await request(`${API}/vouchers/mine`);
+    const badge = document.getElementById('voucher-badge');
+    if (badge) {
+      badge.dataset.count = String(vouchers.length);
+      badge.textContent = String(vouchers.length);
+    }
+  }
+
+  function setupProfileActions() {
+    document.getElementById('cancelProfileBtn')?.addEventListener('click', () => {
+      if (currentAccount) renderUserProfile(currentAccount);
+    });
+    document.getElementById('changePasswordForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmation = document.getElementById('confirmNewPassword').value;
+      const status = document.getElementById('password-status');
+      if (newPassword !== confirmation) {
+        setMessage(status, 'Xác nhận mật khẩu mới không khớp.', true);
+        return;
+      }
+      const button = document.getElementById('changePasswordBtn');
+      button.disabled = true;
+      try {
+        await request(`${API}/auth/change-password`, {
+          method: 'POST', json: true, body: JSON.stringify({ currentPassword, newPassword }),
+        });
+        if (form) form.reset();
+        setMessage(status, 'Đổi mật khẩu thành công', false);
+      } catch (error) { setMessage(status, error.message, true); }
+      finally { button.disabled = false; }
+    });
+    document.getElementById('logout-link')?.addEventListener('click', async (event) => {
+      event.preventDefault();
+      try { await window.FCA_SHELL.logout(); } catch (error) { window.alert(error.message); }
+    });
+  }
+
+  async function initialize() {
+    if (!localStorage.getItem('accessToken')) {
+      window.location.href = 'login.html';
+      return;
+    }
+    setupProfileActions();
+    try {
+      await loadAccount();
+      await Promise.all([loadRedeemable(), loadOwnedVouchers()]);
+    } catch (error) {
+      if (/xác thực|token/i.test(error.message)) window.location.href = 'login.html';
+      else setMessage(document.getElementById('redeem-status'), error.message, true);
+    }
+  }
+
   /* ============================================================
      5. EXPOSE API
      ============================================================ */
@@ -316,6 +494,8 @@
     renderRecentOrders,
     renderFooterBranches,
   };
+
+  initialize();
 
   /* ============================================================
      6. VÍ DỤ CÁCH NẠP TỪ DB (bỏ comment khi dùng thật)

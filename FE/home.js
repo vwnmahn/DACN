@@ -1,7 +1,6 @@
 /* ============================================================
    FCA CULINARY - HOME SCRIPT
-   - Region tab switching
-   - Filter pill toggling
+   - Restaurant category switching
    - Search input filter
    - Skeleton render functions (dùng khi bạn nạp DB)
    ============================================================ */
@@ -10,85 +9,127 @@
   'use strict';
 
   /* ============================================================
-     1. REGION TAB SWITCHING
+     1. RESTAURANT CATEGORY SWITCHING
      ============================================================ */
-  const regionTabs = document.querySelectorAll('.region-tab');
+  const categoryList = document.getElementById('restaurant-category-list');
 
-  regionTabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      regionTabs.forEach((t) => {
-        t.classList.remove(
-          'bg-emerald-600',
-          'text-white',
-          'shadow-sm',
-          'shadow-emerald-600/30'
-        );
-        t.classList.add(
-          'bg-white',
-          'border',
-          'border-slate-200',
-          'text-slate-700'
-        );
-      });
+  if (categoryList) {
+    const scrollLeftButton = document.getElementById('category-scroll-left');
+    const scrollRightButton = document.getElementById('category-scroll-right');
+    let activeCategoryTab = categoryList.querySelector(
+      '.restaurant-category-tab.active'
+    );
+    let draggedWithMouse = false;
+    let activePointerId = null;
+    let pointerStartX = 0;
+    let scrollStartX = 0;
 
-      tab.classList.remove(
-        'bg-white',
-        'border',
-        'border-slate-200',
-        'text-slate-700'
-      );
-      tab.classList.add(
-        'bg-emerald-600',
-        'text-white',
-        'shadow-sm',
-        'shadow-emerald-600/30'
-      );
+    const updateCategoryScrollButtons = () => {
+      const maxScrollLeft = categoryList.scrollWidth - categoryList.clientWidth;
+      const canScrollLeft = categoryList.scrollLeft > 1;
+      const canScrollRight = maxScrollLeft - categoryList.scrollLeft > 1;
 
-      const region = tab.dataset.region || 'all';
-      // TODO: gọi API/DB để load danh sách theo region
-      // loadRestaurantsByRegion(region);
-      console.log('[FCA] Region selected:', region);
-    });
-  });
-
-  /* ============================================================
-     2. FILTER PILL TOGGLING
-     ============================================================ */
-  const filterPills = document.querySelectorAll('.filter-pill');
-
-  filterPills.forEach((pill) => {
-    pill.addEventListener('click', () => {
-      if (pill.classList.contains('bg-emerald-600')) {
-        pill.classList.remove(
-          'bg-emerald-600',
-          'text-white',
-          'border-emerald-600'
-        );
-        pill.classList.add(
-          'bg-slate-100',
-          'text-slate-700',
-          'border-slate-200'
-        );
-      } else {
-        pill.classList.remove(
-          'bg-slate-100',
-          'text-slate-700',
-          'border-slate-200'
-        );
-        pill.classList.add(
-          'bg-emerald-600',
-          'text-white',
-          'border-emerald-600'
-        );
+      if (scrollLeftButton) {
+        scrollLeftButton.disabled = !canScrollLeft;
+        scrollLeftButton.classList.toggle('is-hidden', !canScrollLeft);
       }
 
-      // TODO: gọi API/DB để lọc theo filter
-      console.log('[FCA] Filter toggled');
+      if (scrollRightButton) {
+        scrollRightButton.disabled = !canScrollRight;
+        scrollRightButton.classList.toggle('is-hidden', !canScrollRight);
+      }
+    };
+
+    categoryList.addEventListener('click', (event) => {
+      const selectedTab = event.target.closest('.restaurant-category-tab');
+
+      if (!selectedTab || !categoryList.contains(selectedTab)) return;
+      if (draggedWithMouse) return;
+      if (selectedTab === activeCategoryTab) return;
+
+      if (activeCategoryTab) {
+        activeCategoryTab.classList.remove('active');
+        activeCategoryTab.setAttribute('aria-selected', 'false');
+      }
+
+      selectedTab.classList.add('active');
+      selectedTab.setAttribute('aria-selected', 'true');
+      activeCategoryTab = selectedTab;
+      selectedTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+
+      // Dữ liệu nhà hàng hiện chưa có trường phân loại đáng tin cậy.
+      // Chỉ cập nhật giao diện; không suy diễn hoặc tạo kết quả lọc giả.
     });
-  });
+
+    [scrollLeftButton, scrollRightButton].forEach((button, index) => {
+      button?.addEventListener('click', () => {
+        const direction = index === 0 ? -1 : 1;
+        const distance = Math.max(240, categoryList.clientWidth * 0.65);
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        categoryList.scrollBy({
+          left: direction * distance,
+          behavior: reduceMotion ? 'auto' : 'smooth',
+        });
+      });
+    });
+
+    categoryList.addEventListener('scroll', updateCategoryScrollButtons, {
+      passive: true,
+    });
+
+    categoryList.addEventListener('pointerdown', (event) => {
+      if (event.pointerType !== 'mouse' || event.button !== 0) return;
+
+      activePointerId = event.pointerId;
+      pointerStartX = event.clientX;
+      scrollStartX = categoryList.scrollLeft;
+      draggedWithMouse = false;
+    });
+
+    categoryList.addEventListener('pointermove', (event) => {
+      if (event.pointerId !== activePointerId) return;
+
+      const distance = event.clientX - pointerStartX;
+      if (!draggedWithMouse && Math.abs(distance) > 4) {
+        draggedWithMouse = true;
+        categoryList.setPointerCapture(event.pointerId);
+        categoryList.classList.add('is-dragging');
+      }
+
+      if (!draggedWithMouse) return;
+      categoryList.scrollLeft = scrollStartX - distance;
+    });
+
+    const stopCategoryDrag = (event) => {
+      if (event.pointerId !== activePointerId) return;
+
+      categoryList.classList.remove('is-dragging');
+      if (categoryList.hasPointerCapture(event.pointerId)) {
+        categoryList.releasePointerCapture(event.pointerId);
+      }
+      activePointerId = null;
+      window.setTimeout(() => {
+        draggedWithMouse = false;
+      }, 0);
+    };
+
+    categoryList.addEventListener('pointerup', stopCategoryDrag);
+    categoryList.addEventListener('pointercancel', stopCategoryDrag);
+
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(updateCategoryScrollButtons).observe(categoryList);
+    } else {
+      window.addEventListener('resize', updateCategoryScrollButtons);
+    }
+
+    window.requestAnimationFrame(updateCategoryScrollButtons);
+    window.addEventListener('load', updateCategoryScrollButtons, { once: true });
+    document.fonts?.ready.then(updateCategoryScrollButtons);
+  }
 
   /* ============================================================
-     3. DYNAMIC SEARCH INPUT FILTER
+     2. DYNAMIC SEARCH INPUT FILTER
      ============================================================ */
   const searchInput = document.getElementById('restaurant-search');
 
@@ -114,7 +155,7 @@
   }
 
   /* ============================================================
-     4. RENDER FUNCTIONS - SẴN SÀNG CHO BẠN NẠP DỮ LIỆU TỪ DB
+     3. RENDER FUNCTIONS - SẴN SÀNG CHO BẠN NẠP DỮ LIỆU TỪ DB
      ------------------------------------------------------------
      Dùng khi bạn có data từ DB/API, chỉ cần gọi:
        window.FCA.renderRestaurants(restaurantsArray);
@@ -233,14 +274,14 @@
   }
 
   /* ============================================================
-     5. EXPOSE API CHO VIỆC NẠP DỮ LIỆU TỪ DB
+     4. EXPOSE API CHO VIỆC NẠP DỮ LIỆU TỪ DB
      ============================================================ */
   window.FCA = window.FCA || {};
   window.FCA.renderRestaurants = renderRestaurants;
   window.FCA.renderNearby = renderNearby;
 
   /* ============================================================
-     6. VÍ DỤ CÁCH NẠP TỪ DB (bỏ comment khi dùng thật)
+     5. VÍ DỤ CÁCH NẠP TỪ DB (bỏ comment khi dùng thật)
      ------------------------------------------------------------
      fetch('/api/restaurants?region=hcm')
        .then((res) => res.json())

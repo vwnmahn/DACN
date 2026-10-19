@@ -1,0 +1,169 @@
+/* Shared layout width used by page sections, Header and Footer. */
+:root {
+    --fca-layout-max-width: 1800px;
+    --fca-layout-gutter: clamp(16px, 3vw, 48px);
+}
+
+.fca-layout-container.fca-layout-container {
+    width: 100%;
+    max-width: var(--fca-layout-max-width) !important;
+    margin-inline: auto;
+    padding-inline: var(--fca-layout-gutter) !important;
+    box-sizing: border-box;
+}
+
+/* Shared behavior styles for the Header copied from Home.html. */
+.fca-site-header-inner {
+    width: 100%;
+    min-width: 0;
+}
+
+[data-path="tai-khoan"].is-active {
+    background-color: #ecfdf5;
+    border-color: #d1fae5;
+    color: #047857;
+}
+
+[data-path="tai-khoan"].is-active > div {
+    background-color: #d1fae5;
+    color: #047857;
+}
+
+[data-path="tai-khoan"].is-active > span:last-child {
+    color: #047857;
+    font-weight: 600;
+}
+
+.account-menu-wrap { position: relative; z-index: 210; }
+.account-menu {
+    position: absolute; top: calc(100% + 10px); right: 0; width: 180px;
+    padding: 6px; border: 1px solid #e2e8f0; border-radius: 12px;
+    background: #fff; box-shadow: 0 12px 30px rgba(15, 23, 42, .12);
+}
+.account-menu[hidden] { display: none !important; }
+.account-menu-item {
+    width: 100%; display: flex; align-items: center; gap: 9px; padding: 10px 11px;
+    border: 0; border-radius: 8px; background: transparent; color: #475569;
+    font: 500 12px "Be Vietnam Pro", sans-serif; text-decoration: none; cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+.account-menu-item:hover { background: #ecfdf5; color: #047857; }
+.account-menu-item .material-symbols-outlined { font-size: 18px; }
+
+[data-path="gio-hang"].is-active {
+    background-color: #ecfdf5;
+    border-color: #d1fae5;
+    color: #047857;
+}
+
+[data-path="gio-hang"].is-active > .material-symbols-outlined {
+    color: #047857;
+}
+
+.header-location-dropdown {
+    position: relative;
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+.location-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #334155;
+    font-family: "Be Vietnam Pro", sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.location-trigger:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+}
+
+.location-trigger:focus-visible {
+    outline: 2px solid #10b981;
+    outline-offset: 2px;
+}
+
+.location-icon {
+    color: #059669;
+    font-size: 19px;
+}
+
+.location-chevron {
+    color: #64748b;
+    font-size: 18px;
+    margin-left: 8px;
+    transition: transform 200ms ease;
+}
+
+.header-location-dropdown.is-open .location-chevron {
+    transform: rotate(180deg);
+}
+
+.location-menu {
+    position: absolute;
+    top: calc(100% + 9px);
+    left: 0;
+    width: 205px;
+    padding: 6px;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    z-index: 200;
+}
+
+.location-menu[hidden] {
+    display: none !important;
+}
+
+.location-option {
+    display: block;
+    width: 100%;
+    padding: 11px 12px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #475569;
+    text-align: left;
+    font-family: "Be Vietnam Pro", sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.location-option:hover {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.location-option.active {
+    background: #dcfce7;
+    color: #15803d;
+    font-weight: 600;
+}
+
+.location-option:focus-visible {
+    outline: 2px solid #10b981;
+    outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .location-trigger,
+    .location-chevron,
+    .location-option {
+        transition: none;
+    }
+    .account-menu-item { transition: none; }
+}

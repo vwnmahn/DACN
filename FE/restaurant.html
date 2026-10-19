@@ -1,0 +1,605 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FCA Culinary Arts - Nhà hàng</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary-fixed-variant": "#005320",
+                        "on-tertiary-container": "#f5fff7",
+                        "tertiary": "#00694c",
+                        "background": "#faf8ff",
+                        "on-background": "#131b2e",
+                        "on-surface-variant": "#3e4a3d",
+                        "on-tertiary-fixed-variant": "#00513a",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "primary-container": "#00873a",
+                        "surface": "#faf8ff",
+                        "primary-fixed": "#7ffc97",
+                        "secondary": "#006d30",
+                        "surface-tint": "#006e2d",
+                        "secondary-container": "#92f5a4",
+                        "surface-container-highest": "#dae2fd",
+                        "on-error-container": "#93000a",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-container": "#1e8462",
+                        "on-surface": "#131b2e",
+                        "surface-dim": "#d2d9f4",
+                        "on-secondary-fixed-variant": "#005323",
+                        "surface-bright": "#faf8ff",
+                        "inverse-primary": "#62df7d",
+                        "outline": "#6e7b6c",
+                        "surface-container-low": "#f2f3ff",
+                        "on-secondary-container": "#007233",
+                        "primary": "#006b2c",
+                        "secondary-fixed-dim": "#79db8d",
+                        "primary-fixed-dim": "#62df7d",
+                        "tertiary-fixed": "#97f5cc",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed": "#95f8a7",
+                        "on-primary-fixed": "#002109",
+                        "surface-container": "#eaedff",
+                        "surface-container-high": "#e2e7ff",
+                        "outline-variant": "#bdcaba",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed": "#002115",
+                        "on-secondary-fixed": "#00210a",
+                        "on-primary-container": "#f7fff2",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed-dim": "#7bd8b1",
+                        "inverse-on-surface": "#eef0ff",
+                        "inverse-surface": "#283044",
+                        "surface-variant": "#dae2fd"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    spacing: {
+                        "space-3xl": "4.5rem",
+                        "margin-mobile": "1rem",
+                        "space-lg": "1.5rem",
+                        "margin-desktop": "3rem",
+                        "space-2xl": "3rem",
+                        "space-xs": "0.25rem",
+                        "space-sm": "0.5rem",
+                        "space-xl": "2rem",
+                        "space-md": "1rem",
+                        "gutter-mobile": "1rem",
+                        "margin": "1.5rem",
+                        "gutter-desktop": "2rem",
+                        "gutter": "1.5rem"
+                    },
+                    fontFamily: {
+                        "body-md": ["Be Vietnam Pro"],
+                        "body-sm": ["Be Vietnam Pro"],
+                        "title-md": ["Be Vietnam Pro"],
+                        "title-lg": ["Be Vietnam Pro"],
+                        "headline-sm": ["Be Vietnam Pro"],
+                        "headline-lg": ["Be Vietnam Pro"],
+                        "label-md": ["Be Vietnam Pro"],
+                        "label-lg": ["Be Vietnam Pro"],
+                        "label-caps": ["Be Vietnam Pro"]
+                    },
+                    fontSize: {
+                        "body-md": ["14px", {
+                            lineHeight: "22px",
+                            fontWeight: "400"
+                        }],
+                        "body-sm": ["12px", {
+                            lineHeight: "18px"
+                        }],
+                        "title-md": ["18px", {
+                            lineHeight: "26px",
+                            fontWeight: "600"
+                        }],
+                        "title-lg": ["20px", {
+                            lineHeight: "28px",
+                            fontWeight: "600"
+                        }],
+                        "headline-sm": ["24px", {
+                            lineHeight: "32px",
+                            fontWeight: "600"
+                        }],
+                        "headline-lg": ["40px", {
+                            lineHeight: "48px",
+                            fontWeight: "700"
+                        }],
+                        "label-md": ["12px", {
+                            lineHeight: "16px",
+                            fontWeight: "600"
+                        }],
+                        "label-lg": ["14px", {
+                            lineHeight: "20px",
+                            fontWeight: "600"
+                        }],
+                        "label-caps": ["11px", {
+                            lineHeight: "16px",
+                            fontWeight: "700"
+                        }]
+                    }
+                }
+            }
+        };
+    </script>
+
+    <link rel="stylesheet" href="restaurant.css">
+    <script src="restaurant.js" defer></script>
+<link rel="stylesheet" href="site-shell.css"/>
+<script src="site-shell.js" defer></script>
+</head>
+
+<body class="bg-surface font-body-md text-body-md text-on-surface antialiased">
+
+    <!-- ================= HEADER ================= -->
+
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-[0_1px_6px_rgba(0,0,0,0.03)]">
+  <div class="fca-layout-container fca-site-header-inner h-20 max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-6 flex-shrink-0">
+      <a class="flex items-center gap-3" data-path="trang-chu" href="Home.html">
+        <div class="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-lg tracking-tight shadow-sm shadow-emerald-600/30">FCA</div>
+        <div class="hidden sm:flex flex-col">
+          <span class="text-base text-slate-900 font-bold leading-tight tracking-tight">FCA CULINARY</span>
+          <span class="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Food &amp; Delivery</span>
+        </div>
+      </a>
+
+
+<!-- LOCATION DROPDOWN -->
+<div class="header-location-dropdown hidden md:block" id="header-location">
+
+    <button
+        type="button"
+        class="location-trigger"
+        id="location-trigger"
+        aria-expanded="false"
+        aria-controls="location-menu"
+    >
+        <span class="material-symbols-outlined location-icon">
+            location_on
+        </span>
+
+        <span id="selected-city">TP. Hồ Chí Minh</span>
+
+        <span class="material-symbols-outlined location-chevron">
+            expand_more
+        </span>
+    </button>
+
+    <div class="location-menu" id="location-menu" hidden>
+        <button type="button" class="location-option active"
+                data-city="hcm">
+            TP. Hồ Chí Minh
+        </button>
+
+        <button type="button" class="location-option"
+                data-city="hn">
+            Hà Nội
+        </button>
+
+        <button type="button" class="location-option"
+                data-city="dn">
+            Đà Nẵng
+        </button>
+
+        <button type="button" class="location-option"
+                data-city="ct">
+            Cần Thơ
+        </button>
+
+        <button type="button" class="location-option"
+                data-city="hp">
+            Hải Phòng
+        </button>
+    </div>
+
+</div>
+
+
+    </div>
+    <div class="flex-1 max-w-xl mx-4 hidden lg:block">
+      <div class="relative flex items-center w-full">
+        <span class="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">search</span>
+        <input class="w-full h-10 pl-10 pr-4 rounded-full bg-slate-100 border border-transparent focus:border-emerald-500 focus:bg-white text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" id="header-search" placeholder="Tìm kiếm món ngon, ẩm thực nghệ thuật, chi nhánh FCA..." type="text"/>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 flex-shrink-0">
+      <nav class="hidden xl:flex items-center gap-1.5 px-1">
+        <a class="site-nav-link px-3.5 py-1.5 rounded-full text-sm font-medium text-slate-600 hover:text-emerald-700 hover:bg-slate-100 transition-colors" data-site-nav="home" href="Home.html">Trang chủ</a>
+        <a class="site-nav-link px-3.5 py-1.5 rounded-full text-sm font-medium text-slate-600 hover:text-emerald-700 hover:bg-slate-100 transition-colors" data-site-nav="voucher" href="voucher.html">Voucher</a>
+      </nav>
+      <div class="flex items-center gap-2">
+        <a class="relative p-2 rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors flex items-center justify-center border border-slate-200/70" data-path="gio-hang" id="cart-button" href="cart.html" aria-label="Giỏ hàng">
+          <span class="material-symbols-outlined text-[22px]">shopping_bag</span>
+          <span class="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-600 text-white text-[10px] font-bold items-center justify-center leading-none hidden" id="cart-count-badge" data-count="0" aria-live="polite"></span>
+        </a>
+        <a class="flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full hover:bg-slate-100 border border-slate-200/70 transition-colors" data-path="tai-khoan" href="personal_page.html">
+          <div class="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+            <span class="material-symbols-outlined text-[16px]">person</span>
+          </div>
+          <span class="hidden sm:inline text-xs text-slate-700 font-medium">Tài khoản</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</header>
+
+    <!-- ================= MAIN ================= -->
+
+    <main class="w-full pt-20 bg-surface min-h-screen">
+
+        <div class="flex flex-col w-full">
+
+            <!-- BREADCRUMB -->
+            <div class="w-full bg-surface-container-lowest">
+
+                <div class="fca-layout-container max-w-[1360px] mx-auto px-margin-desktop py-space-sm flex items-center gap-space-xs text-on-surface-variant font-label-md text-label-md">
+
+                    <a class="hover:text-primary transition-colors flex items-center gap-1" href="Home.html">
+
+                        <span class="material-symbols-outlined text-[16px]">
+                            home
+                        </span>
+
+                        <span>Trang chủ</span>
+
+                    </a>
+
+                    <span class="text-outline-variant font-normal">/</span>
+
+                    <span id="breadcrumb-region"></span>
+
+                    <span id="breadcrumb-separator" class="text-outline-variant font-normal hidden">
+                        /
+                    </span>
+
+                    <span id="breadcrumb-name" class="text-on-surface font-semibold"></span>
+
+                </div>
+
+            </div>
+
+            <!-- API STATUS -->
+            <div
+                id="restaurant-status"
+                class="fca-layout-container max-w-[1360px] w-full mx-auto px-margin-desktop py-space-md text-on-surface-variant"
+                role="status"
+            >
+                Đang tải thông tin nhà hàng...
+            </div>
+
+            <!-- ================= STORE HERO ================= -->
+            <section
+                id="restaurant-overview"
+                class="w-full bg-surface-container-lowest shadow-sm pb-space-xl hidden"
+            >
+
+                <div class="fca-layout-container max-w-[1360px] mx-auto px-margin-desktop pt-space-md">
+
+                    <!-- MEDIA GALLERY: GIỮ NGUYÊN MOSAIC 8/4 -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-space-sm rounded-xl overflow-hidden bg-surface-container-low p-space-xs">
+
+                        <!-- Main Image -->
+                        <div class="md:col-span-8 h-72 md:h-96 relative rounded-lg overflow-hidden group">
+
+                            <div
+                                id="restaurant-main-image"
+                                class="w-full h-full bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                            ></div>
+
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-space-lg pointer-events-none">
+
+                                <div id="restaurant-badges" class="flex items-center gap-space-sm flex-wrap">
+
+                                    <!-- Real status and certifications -->
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <!-- Two Side Images -->
+                        <div class="md:col-span-4 grid grid-cols-2 md:grid-cols-1 gap-space-sm">
+
+                            <div class="h-36 md:h-[188px] rounded-lg overflow-hidden relative group">
+
+                                <div
+                                    id="restaurant-side-image-1"
+                                    class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                                ></div>
+
+                                <div
+                                    id="restaurant-side-label-1"
+                                    class="hidden absolute bottom-2 left-2 bg-surface-container-lowest/90 px-space-xs py-0.5 rounded text-on-surface font-label-caps text-label-caps"
+                                ></div>
+
+                            </div>
+
+                            <div class="h-36 md:h-[188px] rounded-lg overflow-hidden relative group">
+
+                                <div
+                                    id="restaurant-side-image-2"
+                                    class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                                ></div>
+
+                                <div
+                                    id="restaurant-side-label-2"
+                                    class="hidden absolute bottom-2 left-2 bg-surface-container-lowest/90 px-space-xs py-0.5 rounded text-on-surface font-label-caps text-label-caps"
+                                ></div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- STORE CORE DETAILS -->
+                    <div class="mt-space-lg flex flex-col lg:flex-row lg:items-start lg:justify-between gap-space-lg">
+
+                        <div class="flex-1 min-w-0">
+
+                            <div class="flex items-center gap-space-sm flex-wrap mb-space-xs">
+
+                                <h1
+                                    id="restaurant-name"
+                                    class="font-headline-lg text-headline-lg text-on-surface tracking-tight"
+                                ></h1>
+
+                            </div>
+
+                            <!-- Rating / Cuisine / Price -->
+                            <div
+                                id="restaurant-meta"
+                                class="flex items-center gap-space-md text-body-sm text-on-surface-variant flex-wrap mb-space-md"
+                            ></div>
+
+                            <div class="flex flex-col gap-space-xs text-body-md text-on-surface-variant">
+
+                                <!-- Address -->
+                                <div id="restaurant-address-row" class="hidden items-start gap-space-xs">
+
+                                    <span class="material-symbols-outlined text-primary text-[20px] flex-shrink-0 mt-0.5">
+                                        location_on
+                                    </span>
+
+                                    <span id="restaurant-address" class="text-on-surface"></span>
+
+                                </div>
+
+                                <!-- Phone + Preparation -->
+                                <div class="flex items-center gap-space-md flex-wrap pt-space-xs">
+
+                                    <div id="restaurant-phone-row" class="hidden items-center gap-space-xs">
+
+                                        <span class="material-symbols-outlined text-primary text-[18px]">
+                                            call
+                                        </span>
+
+                                        <a id="restaurant-phone" class="font-semibold text-on-surface"></a>
+
+                                        <span class="text-label-caps text-on-surface-variant">
+                                            (Hotline Đặt Chỗ)
+                                        </span>
+
+                                    </div>
+
+                                    <div id="restaurant-preparation-row" class="hidden items-center gap-space-xs">
+
+                                        <span class="material-symbols-outlined text-primary text-[18px]">
+                                            schedule
+                                        </span>
+
+                                        <span>
+                                            Chuẩn bị món trung bình:
+                                            <strong id="restaurant-preparation" class="text-on-surface"></strong>
+                                        </span>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            <!-- Facilities -->
+                            <div
+                                id="restaurant-facilities"
+                                class="flex items-center gap-space-xs flex-wrap mt-space-md"
+                            ></div>
+
+                        </div>
+
+                        <!-- BOOKING BUTTON -->
+                        <div class="flex flex-row lg:flex-col gap-space-sm flex-shrink-0 justify-end w-full lg:w-auto">
+
+                            <button
+                                id="book-table-button"
+                                type="button"
+                                class="flex-1 lg:w-60 h-12 bg-primary hover:bg-secondary text-on-primary font-label-lg text-label-lg rounded-lg shadow-sm flex items-center justify-center gap-space-xs transition-all active:scale-[0.98]"
+                            >
+
+                                <span class="material-symbols-outlined text-[20px]">
+                                    table_restaurant
+                                </span>
+
+                                <span>Đặt bàn giữ chỗ</span>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+            <!-- ================= STICKY CATEGORY BAR ================= -->
+            <section
+                id="menu-toolbar"
+                class="sticky top-20 z-40 w-full bg-surface-container-lowest shadow-sm hidden"
+            >
+
+                <div class="fca-layout-container max-w-[1360px] mx-auto px-margin-desktop py-space-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-space-md">
+
+                    <!-- Category Navigation -->
+                    <div
+                        id="menu-category-navigation"
+                        class="flex items-center gap-space-xs overflow-x-auto no-scrollbar py-1"
+                    ></div>
+
+                    <!-- Search and Filter -->
+                    <div class="flex items-center gap-space-xs flex-shrink-0">
+
+                        <div class="relative w-full md:w-64">
+
+                            <span class="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-[18px]">
+                                search
+                            </span>
+
+                            <input
+                                id="menu-search"
+                                class="w-full h-10 pl-9 pr-3 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                                placeholder="Tìm món trong quán..."
+                                type="text"
+                            >
+
+                        </div>
+
+                        <button
+                            id="menu-filter-button"
+                            type="button"
+                            class="h-10 px-3 rounded-lg bg-surface-container-low text-on-surface hover:bg-surface-container flex items-center justify-center gap-1 font-label-md text-label-md"
+                        >
+
+                            <span class="material-symbols-outlined text-[18px]">
+                                tune
+                            </span>
+
+                            <span class="hidden sm:inline">Lọc</span>
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+            <!-- ================= MENU ITEMS ================= -->
+            <section
+                id="menu-section"
+                class="w-full py-space-xl hidden"
+            >
+
+                <div class="fca-layout-container max-w-[1360px] mx-auto px-margin-desktop gap-space-xl flex flex-col">
+
+                    <div class="flex flex-col gap-space-2xl min-w-0 w-full">
+
+                        <!-- Filter Chips -->
+                        <div
+                            id="menu-filter-chips"
+                            class="flex items-center gap-space-xs flex-wrap hidden"
+                        >
+
+                            <span class="font-label-caps text-label-caps text-on-surface-variant mr-1">
+                                Bộ lọc nhanh:
+                            </span>
+
+                        </div>
+
+                        <!-- Categories and Real Dish Cards -->
+                        <div
+                            id="menu-items-container"
+                            class="flex flex-col gap-space-2xl"
+                        ></div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+    <!-- ================= FOOTER ================= -->
+
+    <footer class="w-full bg-slate-900 text-slate-400 pt-14 pb-8">
+  <div class="fca-layout-container max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 pb-12">
+      <div class="lg:col-span-2 flex flex-col gap-4 pr-0 lg:pr-8">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-base shadow-sm">FCA</div>
+          <span class="text-lg text-white font-bold">FCA Culinary Arts</span>
+        </div>
+        <p class="text-sm text-slate-400 leading-relaxed max-w-sm">Hệ thống ẩm thực cao cấp và giao nhận mỹ vị chuẩn nghệ thuật. Tinh hoa ẩm thực Việt giao hòa phong cách ẩm thực đương đại tại các đô thị trọng điểm toàn quốc.</p>
+        <div class="flex items-center gap-2 pt-1">
+          <span class="material-symbols-outlined p-1 rounded-full bg-slate-800 text-emerald-400 text-[18px]">verified</span>
+          <span class="text-xs text-slate-300 font-medium">Tiêu chuẩn An toàn &amp; Vệ sinh Thượng đỉnh F&amp;B</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-3">
+        <h4 class="text-xs text-white font-bold uppercase tracking-wider">Hệ thống chi nhánh</h4>
+        <ul class="flex flex-col gap-2 text-sm">
+          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-emerald-400">pin_drop</span><span>TP. Hồ Chí Minh</span></li>
+          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-emerald-400">pin_drop</span><span>Hà Nội</span></li>
+          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-emerald-400">pin_drop</span><span>Đà Nẵng</span></li>
+          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-emerald-400">pin_drop</span><span>Cần Thơ &amp; Hải Phòng</span></li>
+        </ul>
+      </div>
+      <div class="flex flex-col gap-3">
+        <h4 class="text-xs text-white font-bold uppercase tracking-wider">Dịch vụ &amp; Nghệ thuật</h4>
+        <ul class="flex flex-col gap-2 text-sm">
+          <li><a class="hover:text-emerald-400 transition-colors" data-path="kham-pha-quan-an" href="#">Thực đơn Bếp trưởng FCA</a></li>
+          <li><a class="hover:text-emerald-400 transition-colors" data-path="uu-dai-khu-vuc" href="#">Giao tiệc tận nơi VIP</a></li>
+          <li><a class="hover:text-emerald-400 transition-colors" href="#">Nghệ thuật Trình bày (Arts)</a></li>
+          <li><a class="hover:text-emerald-400 transition-colors" href="#">Đặt bàn sự kiện &amp; Hội nghị</a></li>
+        </ul>
+      </div>
+      <div class="flex flex-col gap-3">
+        <h4 class="text-xs text-white font-bold uppercase tracking-wider">Hỗ trợ &amp; Đối tác</h4>
+        <ul class="flex flex-col gap-2 text-sm">
+          <li><span class="font-medium text-slate-300">Hotline toàn quốc:</span> 1900 8899</li>
+          <li><span class="font-medium text-slate-300">Email:</span> contact@fca-culinary.vn</li>
+          <li><a class="hover:text-emerald-400 transition-colors" href="#">Chính sách thành viên FCA Club</a></li>
+          <li><a class="hover:text-emerald-400 transition-colors" href="#">Gia nhập hệ thống Đối tác F&amp;B</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="pt-6 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
+      <p class="text-xs text-slate-500">© 2025 FCA - Food &amp; Culinary Arts System. Bản quyền thuộc về Tập đoàn F&amp;B FCA.</p>
+      <div class="flex items-center gap-5 text-xs text-slate-400">
+        <a class="hover:text-emerald-400 transition-colors" href="#">Điều khoản dịch vụ</a>
+        <a class="hover:text-emerald-400 transition-colors" href="#">Bảo mật thông tin</a>
+        <a class="hover:text-emerald-400 transition-colors" href="#">Quy chuẩn ẩm thực</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    <!-- ================= TOAST ================= -->
+    <div id="restaurant-toast" class="restaurant-toast" role="status" aria-live="polite"></div>
+
+</body>
+</html>

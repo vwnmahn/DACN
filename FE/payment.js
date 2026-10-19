@@ -84,17 +84,10 @@
      ============================================================ */
   const orderSubmitBtn = document.getElementById('order-submit-btn');
   if (orderSubmitBtn) {
-    orderSubmitBtn.addEventListener('click', () => {
-      orderSubmitBtn.innerHTML =
-        '<span class="material-symbols-outlined animate-spin text-[24px]">progress_activity</span><span>Đang xử lý thanh toán an toàn...</span>';
+    orderSubmitBtn.addEventListener('click', (event) => {
+      event.preventDefault();
 
-      // TODO: gọi API tạo đơn hàng
-      setTimeout(() => {
-        orderSubmitBtn.innerHTML =
-          '<span class="material-symbols-outlined text-[24px]">task_alt</span><span>Đặt hàng thành công! Đang chuyển hướng...</span>';
-        orderSubmitBtn.classList.remove('bg-primary');
-        orderSubmitBtn.classList.add('bg-secondary');
-      }, 1400);
+      // TODO: gọi API tạo đơn hàng và chỉ cập nhật trạng thái khi backend trả kết quả thật.
     });
   }
 
