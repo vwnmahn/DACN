@@ -128,9 +128,10 @@ public class OrderManagementServiceImpl implements OrderManagementService {
         if (!order.getAccount().getId().equals(account.getId())) {
             throw new AppException(ErrorCode.ORDER_NOT_FOUND);
         }
-        if (order.getStatus() != OrderStatus.PENDING
-                && order.getStatus() != OrderStatus.AWAITING_PAYMENT
-                && order.getStatus() != OrderStatus.CONFIRMED) {
+        LocalDateTime cancellationDeadline = order.getCreatedAt() == null ? null
+                : order.getCreatedAt().plus(properties.getCustomerCancellationWindow());
+        if (order.getStatus() != OrderStatus.PENDING || cancellationDeadline == null
+                || !now().isBefore(cancellationDeadline)) {
             throw new AppException(ErrorCode.ORDER_CANCELLATION_NOT_ALLOWED);
         }
         cancel(order, OrderCancellationReason.CANCELLED_BY_USER, account,
@@ -147,7 +148,7 @@ public class OrderManagementServiceImpl implements OrderManagementService {
         Account actor = currentAccountOrNull();
         Order order = lockedOrder(orderId);
         OrderStatus oldStatus = order.getStatus();
-        if (order.getStatus() != OrderStatus.DELIVERING) {
+        if (order.getStatus() != OrderStatus.ARRIVED) {
             throw new AppException(ErrorCode.ORDER_INVALID_TRANSITION);
         }
         Payment payment = latestPaymentForUpdate(orderId);
@@ -276,7 +277,8 @@ public class OrderManagementServiceImpl implements OrderManagementService {
         Account actor = currentAccountOrNull();
         Order order = lockedOrder(orderId);
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.CANCELLED
-                || order.getStatus() == OrderStatus.DELIVERING) {
+                || order.getStatus() == OrderStatus.DELIVERING
+                || order.getStatus() == OrderStatus.ARRIVED) {
             throw new AppException(ErrorCode.ORDER_CANCELLATION_NOT_ALLOWED);
         }
         cancel(order, OrderCancellationReason.CANCELLED_BY_ADMIN, actor,
@@ -286,12 +288,55 @@ public class OrderManagementServiceImpl implements OrderManagementService {
 
     @Override
     @Transactional
-    public int cancelExpiredManualOrders() {
-        List<Order> expired = orderRepository.findExpiredPendingForUpdate(now(),
+    public int confirmEligibleAutoOrders() {
+        LocalDateTime cutoff = now().minus(properties.getAutoConfirmationDelay());
+        List<Order> eligible = orderRepository.findAutoPendingForUpdate(cutoff,
                 PageRequest.of(0, properties.getSchedulerBatchSize()));
-        expired.forEach(order -> cancel(order, OrderCancellationReason.CONFIRMATION_TIMEOUT,
-                null, OrderStatusActorType.SYSTEM, "Quá hạn xác nhận đơn hàng thủ công"));
-        return expired.size();
+        int confirmed = 0;
+        for (Order order : eligible) {
+            if (order.getStatus() != OrderStatus.PENDING
+                    || order.getConfirmationDeadline() != null
+                    || order.getCreatedAt() == null
+                    || order.getCreatedAt().isAfter(cutoff)) {
+                continue;
+            }
+            Payment payment = latestPaymentForUpdate(order.getId());
+            if (payment.getPaymentMethod() == PaymentMethod.VNPAY
+                    && payment.getPaymentStatus() != PaymentStatus.SUCCESS) {
+                continue;
+            }
+            LocalDateTime confirmedAt = now();
+            OrderStatus oldStatus = order.getStatus();
+            order.setStatus(OrderStatus.CONFIRMED);
+            order.setAcceptedAt(confirmedAt);
+            order.setConfirmedAt(confirmedAt);
+            order.setConfirmationSource(ConfirmationSource.AUTO);
+            recordHistory(order, oldStatus, OrderStatus.CONFIRMED, null,
+                    OrderStatusActorType.SYSTEM, "Hệ thống tự động xác nhận đơn hàng");
+            orderRepository.save(order);
+            confirmed++;
+        }
+        return confirmed;
+    }
+
+    @Override
+    @Transactional
+    public int cancelExpiredManualOrders() {
+        LocalDateTime currentTime = now();
+        List<Order> expired = orderRepository.findExpiredPendingForUpdate(currentTime,
+                PageRequest.of(0, properties.getSchedulerBatchSize()));
+        int cancelled = 0;
+        for (Order order : expired) {
+            if (order.getStatus() != OrderStatus.PENDING || order.getConfirmationDeadline() == null
+                    || order.getConfirmationDeadline().isAfter(currentTime)) {
+                continue;
+            }
+            cancel(order, OrderCancellationReason.CONFIRMATION_TIMEOUT,
+                    null, OrderStatusActorType.SYSTEM,
+                    "Nhà hàng không xác nhận đơn trong thời hạn cho phép");
+            cancelled++;
+        }
+        return cancelled;
     }
 
     @Override
@@ -324,9 +369,7 @@ public class OrderManagementServiceImpl implements OrderManagementService {
         order.setCancelledAt(now());
         order.setConfirmationDeadline(null);
         order.setRefundRequired(paid || uncertain);
-        if (!paid) {
-            voucherService.releaseForOrder(order.getId());
-        }
+        voucherService.releaseForOrder(order.getId());
         paymentRepository.saveAll(payments);
         recordHistory(order, oldStatus, OrderStatus.CANCELLED, actor, actorType, detail);
         orderRepository.save(order);

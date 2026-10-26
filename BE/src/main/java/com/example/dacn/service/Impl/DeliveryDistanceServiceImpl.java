@@ -9,6 +9,7 @@ import java.math.*;
 @Service
 public class DeliveryDistanceServiceImpl implements DeliveryDistanceService {
     private static final double EARTH_RADIUS_KM = 6371.0;
+    private static final BigDecimal MAX_DELIVERY_DISTANCE_KM = BigDecimal.valueOf(6);
 
     @Override
     public BigDecimal calculateDistanceKm(BigDecimal lat1, BigDecimal lon1, BigDecimal lat2, BigDecimal lon2) {
@@ -29,6 +30,8 @@ public class DeliveryDistanceServiceImpl implements DeliveryDistanceService {
         validatePolicy(r);
         BigDecimal raw = calculateDistanceKm(r.getLatitude(), r.getLongitude(), customerLat, customerLon);
         BigDecimal radius = BigDecimal.valueOf(r.getDeliveryRadiusKm());
+        if (raw.compareTo(MAX_DELIVERY_DISTANCE_KM) >= 0)
+            throw new AppException(ErrorCode.DELIVERY_DISTANCE_EXCEEDED);
         if (raw.compareTo(radius) > 0) throw new AppException(ErrorCode.DELIVERY_DISTANCE_EXCEEDED);
         BigDecimal excess = raw.subtract(r.getBaseDistanceKm()).max(BigDecimal.ZERO);
         BigDecimal fee = r.getDeliveryFee().add(excess.multiply(r.getAdditionalFeePerKm()))

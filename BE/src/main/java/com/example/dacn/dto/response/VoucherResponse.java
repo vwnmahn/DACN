@@ -1,6 +1,7 @@
 package com.example.dacn.dto.response;
 
 import com.example.dacn.entity.DiscountType;
+import com.example.dacn.entity.CategoryVoucher;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -11,6 +12,7 @@ public class VoucherResponse {
     private Long id;
     private String code;
     private String description;
+    private CategoryVoucher categoryVoucher;
     private DiscountType discountType;
     private BigDecimal discountValue;
     private BigDecimal minOrderAmount;
@@ -19,6 +21,7 @@ public class VoucherResponse {
     private Integer usedCount;
     private Integer perUserLimit;
     private Boolean active;
+    private String customerStatus;
     private Long restaurantId;
     private LocalDateTime startDate;
     private LocalDateTime endDate;

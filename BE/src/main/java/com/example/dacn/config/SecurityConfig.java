@@ -63,12 +63,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/images/avatars/**").permitAll()
                         .requestMatchers("/ws", "/ws/**").permitAll()
-                        .requestMatchers("/api/v1/auth/me", "/api/v1/auth/update",
-                                "/api/v1/auth/change-password", "/api/v1/auth/logout-all").authenticated()
-                        .requestMatchers(
-                                "/api/v1/payments/vnpay/return",
-                                "/api/v1/payments/vnpay/ipn"
-                        ).permitAll()
+                        .requestMatchers("/api/v1/auth/me", "/api/v1/auth/update", "/api/v1/auth/change-password", "/api/v1/auth/logout-all").authenticated()
+                        .requestMatchers("/api/v1/payments/vnpay/return", "/api/v1/payments/vnpay/ipn").permitAll()
+                        .requestMatchers("/api/v1/restaurants/**").permitAll()
+                        .requestMatchers("/api/v1/menu-items/**").permitAll()
+                        .requestMatchers("/api/v1/orders/**").permitAll()
 
                         // ---------- ADMIN ----------
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
@@ -79,6 +78,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/user/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/checkout").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/v1/delivery/estimate").hasRole("USER")
+                        .requestMatchers( "/api/v1/table-reservations","/api/v1/table-reservations/**").hasRole("USER")
+                        .requestMatchers("/api/v1/payments/**").hasRole("USER")
+
+
+                        .requestMatchers("/api/v1/vouchers/**").hasAnyRole("ADMIN", "USER")
+                        .requestMatchers("/api/v1/checkout/**").hasAnyRole("ADMIN", "USER")
 
 
 

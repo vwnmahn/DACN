@@ -13,11 +13,9 @@ public class VoucherValidateRequest {
     private String voucherCode;
     @NotNull @Positive
     private Long restaurantId;
-    @NotNull(message = "Vĩ độ giao hàng không được để trống")
     @DecimalMin(value = "-90.0", message = "Vĩ độ không hợp lệ")
     @DecimalMax(value = "90.0", message = "Vĩ độ không hợp lệ")
     private BigDecimal deliveryLatitude;
-    @NotNull(message = "Kinh độ giao hàng không được để trống")
     @DecimalMin(value = "-180.0", message = "Kinh độ không hợp lệ")
     @DecimalMax(value = "180.0", message = "Kinh độ không hợp lệ")
     private BigDecimal deliveryLongitude;

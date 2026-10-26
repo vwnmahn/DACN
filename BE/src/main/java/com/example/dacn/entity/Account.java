@@ -32,8 +32,9 @@ public class Account extends BaseEntity{
     @Column(name="address")
     private String address;
 
-    @Column(name="gender")
-    private Boolean gender;
+    @Enumerated(EnumType.STRING)
+    @Column(name="gender", nullable = false)
+    private GenderStatus gender;
 
     @Column(name="phone_number")
     private String phoneNumber;

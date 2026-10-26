@@ -94,10 +94,25 @@ public class VoucherServiceImpl implements VoucherService {
     }
 
     @Override @Transactional(readOnly = true)
+    public Page<VoucherResponse> getAll(Boolean active, Long restaurantId, CategoryVoucher category, Pageable p) {
+        if (category == null) return getAll(active, restaurantId, p);
+        return voucherRepository.findFiltered(active, restaurantId, category, p).map(this::response);
+    }
+
+    @Override @Transactional(readOnly = true)
     public Page<VoucherResponse> getAvailable(Long restaurantId, Pageable p) {
         Long accountId = accountId(); LocalDateTime now = LocalDateTime.now(clock);
         Pageable safePageable = safeAvailablePageable(p);
         return voucherRepository.findAvailable(restaurantId, accountId, now, OCCUPIED, safePageable)
+                .map(this::response);
+    }
+
+    @Override @Transactional(readOnly = true)
+    public Page<VoucherResponse> getAvailable(Long restaurantId, CategoryVoucher category, Pageable p) {
+        if (category == null) return getAvailable(restaurantId, p);
+        Long accountId = accountId(); LocalDateTime now = LocalDateTime.now(clock);
+        Pageable safePageable = safeAvailablePageable(p);
+        return voucherRepository.findAvailableByCategory(restaurantId, accountId, now, category, OCCUPIED, safePageable)
                 .map(this::response);
     }
 
@@ -109,9 +124,28 @@ public class VoucherServiceImpl implements VoucherService {
     }
 
     @Override @Transactional(readOnly = true)
+    public Page<VoucherResponse> getRedeemable(CategoryVoucher category, Pageable p) {
+        if (category == null) return getRedeemable(p);
+        Long accountId = accountId();
+        return voucherRepository.findRedeemableByCategory(accountId, LocalDateTime.now(clock), category, OCCUPIED,
+                safeAvailablePageable(p)).map(this::response);
+    }
+
+    @Override @Transactional(readOnly = true)
     public List<VoucherRedemptionResponse> getMyRedemptions() {
         Long accountId = accountId();
-        return redemptionRepository.findByAccountIdOrderByRedeemedAtDesc(accountId).stream()
+        List<VoucherRedemption> redemptions = redemptionRepository.findByAccountIdOrderByRedeemedAtDesc(accountId);
+        Map<Long, Long> availableByVoucher = new HashMap<>();
+        redemptions.forEach(redemption -> availableByVoucher.computeIfAbsent(redemption.getVoucherId(), voucherId ->
+                Math.max(0L, redemptionRepository.countByVoucherIdAndAccountId(voucherId, accountId)
+                        - occupiedByUser(voucherId, accountId))));
+        return redemptions.stream()
+                .filter(redemption -> {
+                    long remaining = availableByVoucher.getOrDefault(redemption.getVoucherId(), 0L);
+                    if (remaining <= 0) return false;
+                    availableByVoucher.put(redemption.getVoucherId(), remaining - 1);
+                    return true;
+                })
                 .map(redemption -> VoucherRedemptionResponse.builder()
                         .id(redemption.getId())
                         .voucher(response(voucherRepository.findById(redemption.getVoucherId())
@@ -201,7 +235,13 @@ public class VoucherServiceImpl implements VoucherService {
     @Override @Transactional
     public void releaseForOrder(Long orderId) {
         VoucherUsage u = usageRepository.findByOrderIdForUpdate(orderId).orElse(null);
-        if (u == null || u.getStatus() != VoucherUsageStatus.RESERVED) return;
+        if (u == null || u.getStatus() == VoucherUsageStatus.RELEASED) return;
+        if (u.getStatus() == VoucherUsageStatus.APPLIED) {
+            Voucher v = voucherRepository.findByIdForUpdate(u.getVoucherId())
+                    .orElseThrow(() -> error(ErrorCode.VOUCHER_NOT_FOUND));
+            v.setUsedCount(Math.max(0, Objects.requireNonNullElse(v.getUsedCount(), 0) - 1));
+            voucherRepository.save(v);
+        }
         u.setStatus(VoucherUsageStatus.RELEASED); u.setReleasedAt(LocalDateTime.now(clock)); usageRepository.save(u);
     }
 
@@ -218,9 +258,12 @@ public class VoucherServiceImpl implements VoucherService {
             if (m.getPrice() == null || m.getPrice().signum() < 0) throw error(ErrorCode.MENU_ITEM_INVALID_PRICE);
             total = total.add(m.getPrice().multiply(BigDecimal.valueOf(i.getQuantity())));
         }
-        DeliveryCalculation delivery = deliveryDistanceService.calculateDelivery(restaurant,
-                r.getDeliveryLatitude(), r.getDeliveryLongitude());
-        return new CartQuote(total, delivery.deliveryFee());
+        BigDecimal deliveryFee = restaurant.getDeliveryFee();
+        if (r.getDeliveryLatitude() != null && r.getDeliveryLongitude() != null) {
+            deliveryFee = deliveryDistanceService.calculateDelivery(restaurant,
+                    r.getDeliveryLatitude(), r.getDeliveryLongitude()).deliveryFee();
+        }
+        return new CartQuote(total, deliveryFee);
     }
 
     private Pageable safeAvailablePageable(Pageable pageable) {
@@ -239,6 +282,8 @@ public class VoucherServiceImpl implements VoucherService {
         if (v.getRestaurantId() != null && !Objects.equals(v.getRestaurantId(), restaurantId)) throw error(ErrorCode.VOUCHER_NOT_APPLICABLE_TO_RESTAURANT);
         if (capacity && occupied(v.getId()) >= v.getUsageLimit()) throw error(ErrorCode.VOUCHER_USAGE_LIMIT_REACHED);
         if (capacity && occupiedByUser(v.getId(), accountId) >= v.getPerUserLimit()) throw error(ErrorCode.VOUCHER_USER_LIMIT_REACHED);
+        if (capacity && redemptionRepository.countByVoucherIdAndAccountId(v.getId(), accountId)
+                <= occupiedByUser(v.getId(), accountId)) throw error(ErrorCode.VOUCHER_NOT_OWNED);
     }
 
     private void validateTimeValue(Voucher v, BigDecimal subtotal) {
@@ -277,21 +322,37 @@ public class VoucherServiceImpl implements VoucherService {
     private AppException error(ErrorCode e) { return new AppException(e); }
 
     private void copy(VoucherRequest r, Voucher v) {
-        v.setCode(code(r.getCode())); v.setDescription(r.getDescription()); v.setDiscountType(r.getDiscountType()); v.setDiscountValue(r.getDiscountValue());
+        v.setCode(code(r.getCode())); v.setDescription(r.getDescription()); v.setCategoryVoucher(r.getCategoryVoucher()); v.setDiscountType(r.getDiscountType()); v.setDiscountValue(r.getDiscountValue());
         v.setMinOrderAmount(r.getMinOrderAmount()); v.setMaxDiscountAmount(r.getMaxDiscountAmount()); v.setUsageLimit(r.getUsageLimit());
         v.setPerUserLimit(r.getPerUserLimit()); v.setStartDate(r.getStartDate()); v.setEndDate(r.getEndDate()); v.setActive(r.getActive()); v.setRestaurantId(r.getRestaurantId());
     }
     private boolean materialChanged(Voucher v, VoucherRequest r, String c) {
-        return !v.getCode().equals(c) || v.getDiscountType() != r.getDiscountType() || v.getDiscountValue().compareTo(r.getDiscountValue()) != 0
+        return !v.getCode().equals(c) || v.getCategoryVoucher() != r.getCategoryVoucher() || v.getDiscountType() != r.getDiscountType() || v.getDiscountValue().compareTo(r.getDiscountValue()) != 0
                 || v.getMinOrderAmount().compareTo(r.getMinOrderAmount()) != 0 || !Objects.equals(v.getMaxDiscountAmount(), r.getMaxDiscountAmount())
                 || !Objects.equals(v.getUsageLimit(), r.getUsageLimit()) || !Objects.equals(v.getPerUserLimit(), r.getPerUserLimit())
                 || !Objects.equals(v.getRestaurantId(), r.getRestaurantId()) || !Objects.equals(v.getStartDate(), r.getStartDate()) || !Objects.equals(v.getEndDate(), r.getEndDate());
     }
     private VoucherResponse response(Voucher v) {
-        return VoucherResponse.builder().id(v.getId()).code(v.getCode()).description(v.getDescription()).discountType(v.getDiscountType())
+        return VoucherResponse.builder().id(v.getId()).code(v.getCode()).description(v.getDescription()).categoryVoucher(v.getCategoryVoucher()).discountType(v.getDiscountType())
                 .discountValue(v.getDiscountValue()).minOrderAmount(v.getMinOrderAmount()).maxDiscountAmount(v.getMaxDiscountAmount())
                 .usageLimit(v.getUsageLimit()).usedCount(v.getUsedCount()).perUserLimit(v.getPerUserLimit()).active(v.getActive())
+                .customerStatus(customerStatus(v))
                 .restaurantId(v.getRestaurantId()).startDate(v.getStartDate()).endDate(v.getEndDate()).createdAt(v.getCreatedAt()).updatedAt(v.getUpdatedAt()).build();
+    }
+    private String customerStatus(Voucher v) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof Account account)
+                || account.getRole() != Role.USER) return null;
+        long occupiedByUser = occupiedByUser(v.getId(), account.getId());
+        long redeemedByUser = redemptionRepository.countByVoucherIdAndAccountId(v.getId(), account.getId());
+        if (occupiedByUser > 0 && redeemedByUser <= occupiedByUser) return "USED";
+        LocalDateTime now = LocalDateTime.now(clock);
+        boolean available = Boolean.TRUE.equals(v.getActive())
+                && !now.isBefore(v.getStartDate()) && !now.isAfter(v.getEndDate())
+                && occupied(v.getId()) < v.getUsageLimit()
+                && occupiedByUser < v.getPerUserLimit();
+        if (!available) return "UNAVAILABLE";
+        return redeemedByUser > occupiedByUser ? "AVAILABLE" : "UNOWNED";
     }
     private record CartQuote(BigDecimal subtotal, BigDecimal deliveryFee) {}
 }

@@ -36,4 +36,20 @@ public class OrderController {
                 .code(1000).message("Hủy đơn hàng thành công")
                 .data(orderManagementService.cancelMyOrder(id)).build());
     }
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
+            @jakarta.validation.Valid
+            @org.springframework.web.bind.annotation.RequestBody
+            com.example.dacn.dto.request.CreateOrderRequest request) {
+
+        return ResponseEntity.ok(
+                ApiResponse.<OrderResponse>builder()
+                        .code(1000)
+                        .message("Tạo đơn hàng thành công")
+                        .data(orderService.createOrder(request))
+                        .build()
+        );
+    }
+
 }

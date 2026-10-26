@@ -1,5 +1,6 @@
 package com.example.dacn.dto.request;
 
+import com.example.dacn.entity.GenderStatus;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -37,7 +38,7 @@ public class RegisterRequest {
     @Size(max = 255, message = "Địa chỉ không được vượt quá 255 ký tự")
     private String address;
 
-    private Boolean gender;
+    private GenderStatus gender;
 
     @NotBlank(message = "Số điện thoại không được để trống")
     @Pattern(

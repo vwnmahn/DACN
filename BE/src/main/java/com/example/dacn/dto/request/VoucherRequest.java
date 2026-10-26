@@ -1,6 +1,7 @@
 package com.example.dacn.dto.request;
 
 import com.example.dacn.entity.DiscountType;
+import com.example.dacn.entity.CategoryVoucher;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
@@ -13,6 +14,7 @@ public class VoucherRequest {
     private String code;
     @Size(max = 255)
     private String description;
+    private CategoryVoucher categoryVoucher;
     @NotNull
     private DiscountType discountType;
     @NotNull @DecimalMin(value = "0.01")

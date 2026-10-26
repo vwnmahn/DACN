@@ -32,6 +32,10 @@ public class Voucher extends BaseEntity {
     private String description;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "category_voucher", length = 20)
+    private CategoryVoucher categoryVoucher;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DiscountType discountType;
 
@@ -67,4 +71,6 @@ public class Voucher extends BaseEntity {
     @Column(nullable = false)
     @Builder.Default
     private Boolean active = true;
+
+
 }

@@ -125,6 +125,8 @@ public enum ErrorCode {
     DELIVERY_DISTANCE_EXCEEDED(5002, "Địa chỉ giao hàng vượt quá bán kính của nhà hàng", HttpStatus.BAD_REQUEST),
     RESTAURANT_GPS_NOT_CONFIGURED(5003, "Nhà hàng chưa cấu hình tọa độ giao hàng", HttpStatus.CONFLICT),
     RESTAURANT_DELIVERY_POLICY_INVALID(5004, "Chính sách phí giao hàng của nhà hàng không hợp lệ", HttpStatus.CONFLICT),
+    DELIVERY_ADDRESS_NOT_FOUND(5005, "Không tìm thấy tọa độ cho địa chỉ giao hàng", HttpStatus.BAD_REQUEST),
+    DELIVERY_GEOCODING_UNAVAILABLE(5006, "Không thể xác định tọa độ địa chỉ giao hàng lúc này", HttpStatus.SERVICE_UNAVAILABLE),
 
     // ================= MENU ITEM =================
     MENU_ITEM_NOT_FOUND(6001, "Không tìm thấy món ăn", HttpStatus.NOT_FOUND),
@@ -164,7 +166,8 @@ public enum ErrorCode {
     VOUCHER_HISTORY_IMMUTABLE(8012, "Không thể sửa điều kiện voucher đã có lịch sử sử dụng", HttpStatus.CONFLICT),
     VOUCHER_INVALID_PAGE_REQUEST(8013, "Tham số phân trang hoặc sắp xếp voucher không hợp lệ", HttpStatus.BAD_REQUEST),
     LOYALTY_POINTS_INSUFFICIENT(8014, "Bạn chưa đủ 300 điểm khả dụng", HttpStatus.CONFLICT),
-    VOUCHER_NOT_REDEEMABLE(8015, "Voucher không còn đủ điều kiện để đổi điểm", HttpStatus.CONFLICT)
+    VOUCHER_NOT_REDEEMABLE(8015, "Voucher không còn đủ điều kiện để đổi điểm", HttpStatus.CONFLICT),
+    VOUCHER_NOT_OWNED(8016, "Voucher chưa thuộc kho voucher của tài khoản", HttpStatus.CONFLICT)
 
 
     ;

@@ -47,6 +47,12 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
             + "AND o.confirmationDeadline IS NOT NULL AND o.confirmationDeadline <= :now ORDER BY o.id")
     List<Order> findExpiredPendingForUpdate(@Param("now") LocalDateTime now, Pageable pageable);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM Order o WHERE o.status = com.example.dacn.entity.OrderStatus.PENDING "
+            + "AND o.restaurant.orderConfirmationMode = com.example.dacn.entity.OrderConfirmationMode.AUTO "
+            + "AND o.confirmationDeadline IS NULL AND o.createdAt <= :cutoff ORDER BY o.id")
+    List<Order> findAutoPendingForUpdate(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
+
     long countByAccountIdAndLoyaltyPointsAwardedTrueAndCompletedAtGreaterThanEqualAndCompletedAtLessThan(
             Long accountId, LocalDateTime start, LocalDateTime end);
 }

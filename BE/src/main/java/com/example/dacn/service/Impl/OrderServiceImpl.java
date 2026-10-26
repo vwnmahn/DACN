@@ -75,18 +75,17 @@ public class OrderServiceImpl implements OrderService {
                 ? OrderConfirmationMode.MANUAL : restaurant.getOrderConfirmationMode();
         boolean auto = confirmationMode == OrderConfirmationMode.AUTO;
         boolean onlinePayment = request.getPaymentMethod() == PaymentMethod.VNPAY;
-        OrderStatus initialStatus = auto
-                ? (onlinePayment ? OrderStatus.AWAITING_PAYMENT : OrderStatus.CONFIRMED)
-                : OrderStatus.PENDING;
+        OrderStatus initialStatus = auto && onlinePayment
+                ? OrderStatus.AWAITING_PAYMENT : OrderStatus.PENDING;
 
         Order order = Order.builder()
                 .account(account)
                 .restaurant(restaurant)
                 .status(initialStatus)
                 .confirmationDeadline(auto ? null : now.plus(orderManagementProperties.getConfirmationTimeout()))
-                .acceptedAt(auto ? now : null)
-                .confirmedAt(auto && !onlinePayment ? now : null)
-                .confirmationSource(auto ? ConfirmationSource.AUTO : null)
+                .acceptedAt(null)
+                .confirmedAt(null)
+                .confirmationSource(null)
                 .refundRequired(false)
                 .deliveryFee(delivery.deliveryFee())
                 .deliveryLatitude(request.getDeliveryLatitude())

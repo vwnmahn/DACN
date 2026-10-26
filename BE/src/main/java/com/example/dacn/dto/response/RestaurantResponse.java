@@ -1,5 +1,6 @@
 package com.example.dacn.dto.response;
 
+import com.example.dacn.entity.CategoryStatus;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -11,7 +12,7 @@ import com.example.dacn.entity.OrderConfirmationMode;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class RestaurantResponse {
+public class RestaurantResponse {// k dùng
 
     private Long id;
 
@@ -34,6 +35,9 @@ public class RestaurantResponse {
     private BigDecimal additionalFeePerKm;
 
     private String imageUrl;
+    // Hai ảnh bổ sung — dùng ở trang chi tiết nhà hàng
+    private String imageUrl2;
+    private String imageUrl3;
 
     private Integer reviewCount;
 
@@ -45,4 +49,6 @@ public class RestaurantResponse {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    private CategoryStatus categoryStatus;
 }

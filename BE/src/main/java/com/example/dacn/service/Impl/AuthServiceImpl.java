@@ -420,7 +420,9 @@ public class AuthServiceImpl implements AuthService {
             registerAvatarLifecycle(oldAvatarUrl, newAvatarUrl);
             account.setAvatarUrl(newAvatarUrl);
         }
-
+        if (request.getGender() != null) {
+            account.setGender(request.getGender());
+        }
         return accountMapper.toAccountResponse(
                 accountRepo.save(account)
         );

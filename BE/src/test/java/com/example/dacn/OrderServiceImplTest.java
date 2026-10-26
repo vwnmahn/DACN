@@ -23,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.*;
@@ -83,7 +84,8 @@ class OrderServiceImplTest {
         assertEquals(new BigDecimal("90000"), response.getSubtotal());
         assertEquals(new BigDecimal("110000"), response.getTotalAmount());
         assertEquals(OrderStatus.PENDING, response.getStatus());
-        assertNotNull(response.getConfirmationDeadline());
+        assertEquals(LocalDateTime.now(Clock.fixed(Instant.parse("2026-10-12T05:00:00Z"),
+                ZoneId.of("Asia/Ho_Chi_Minh"))).plusSeconds(60), response.getConfirmationDeadline());
         assertEquals("Cơm gà", response.getItems().getFirst().getItemName());
         assertEquals(new BigDecimal("45000"), response.getItems().getFirst().getUnitPrice());
 
@@ -94,7 +96,7 @@ class OrderServiceImplTest {
     }
 
     @Test
-    void autoCodOrderIsConfirmedImmediatelyWithoutDeadline() {
+    void autoCodOrderStartsPendingWithoutManualDeadline() {
         restaurant.setOrderConfirmationMode(OrderConfirmationMode.AUTO);
         CreateOrderRequest request = validRequest("auto-key", 1);
         request.setPaymentMethod(PaymentMethod.COD);
@@ -108,9 +110,9 @@ class OrderServiceImplTest {
 
         var response = service.createOrder(request);
 
-        assertEquals(OrderStatus.CONFIRMED, response.getStatus());
-        assertEquals(ConfirmationSource.AUTO, response.getConfirmationSource());
-        assertNotNull(response.getConfirmedAt());
+        assertEquals(OrderStatus.PENDING, response.getStatus());
+        assertNull(response.getConfirmationSource());
+        assertNull(response.getConfirmedAt());
         assertNull(response.getConfirmationDeadline());
     }
 
@@ -240,7 +242,9 @@ class OrderServiceImplTest {
         assertTrue(OrderStatus.PENDING.canTransitionTo(OrderStatus.CONFIRMED));
         assertTrue(OrderStatus.PENDING.canTransitionTo(OrderStatus.CANCELLED));
         assertFalse(OrderStatus.PENDING.canTransitionTo(OrderStatus.COMPLETED));
-        assertTrue(OrderStatus.DELIVERING.canTransitionTo(OrderStatus.COMPLETED));
+        assertTrue(OrderStatus.DELIVERING.canTransitionTo(OrderStatus.ARRIVED));
+        assertFalse(OrderStatus.DELIVERING.canTransitionTo(OrderStatus.COMPLETED));
+        assertTrue(OrderStatus.ARRIVED.canTransitionTo(OrderStatus.COMPLETED));
         assertFalse(OrderStatus.COMPLETED.canTransitionTo(OrderStatus.CANCELLED));
         assertFalse(OrderStatus.CANCELLED.canTransitionTo(OrderStatus.CONFIRMED));
     }

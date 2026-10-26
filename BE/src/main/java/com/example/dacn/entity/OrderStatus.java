@@ -7,6 +7,7 @@ public enum OrderStatus {
     PREPARING,
     READY_FOR_DELIVERY,
     DELIVERING,
+    ARRIVED,
     COMPLETED,
     CANCELLED;
 
@@ -20,7 +21,8 @@ public enum OrderStatus {
             case CONFIRMED -> target == PREPARING || target == CANCELLED;
             case PREPARING -> target == READY_FOR_DELIVERY || target == CANCELLED;
             case READY_FOR_DELIVERY -> target == DELIVERING || target == CANCELLED;
-            case DELIVERING -> target == COMPLETED;
+            case DELIVERING -> target == ARRIVED;
+            case ARRIVED -> target == COMPLETED;
             case COMPLETED, CANCELLED -> false;
         };
     }

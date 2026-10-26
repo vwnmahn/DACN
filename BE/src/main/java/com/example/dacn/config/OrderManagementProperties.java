@@ -12,7 +12,9 @@ import java.time.Duration;
 @Component
 @ConfigurationProperties(prefix = "app.order-management")
 public class OrderManagementProperties {
-    private Duration confirmationTimeout = Duration.ofMinutes(10);
+    private Duration confirmationTimeout = Duration.ofSeconds(60);
+    private Duration autoConfirmationDelay = Duration.ofSeconds(15);
+    private Duration customerCancellationWindow = Duration.ofSeconds(15);
     private int schedulerBatchSize = 100;
     private Duration paymentPendingTimeout = Duration.ofMinutes(15);
 }

@@ -1,5 +1,6 @@
 package com.example.dacn.dto.response;
 
+import com.example.dacn.entity.GenderStatus;
 import com.example.dacn.entity.Role;
 import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,7 +19,7 @@ public class AccountResponse {
 
     private String address;
 
-    private Boolean gender;
+    private GenderStatus gender;
 
     private String phoneNumber;
 

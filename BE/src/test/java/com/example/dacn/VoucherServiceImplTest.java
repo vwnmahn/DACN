@@ -26,6 +26,8 @@ import static org.mockito.Mockito.*;
 class VoucherServiceImplTest {
     @Mock VoucherRepository vouchers;
     @Mock VoucherUsageRepository usages;
+    @Mock VoucherRedemptionRepository redemptions;
+    @Mock AccountRepository accounts;
     @Mock RestaurantRepository restaurants;
     @Mock MenuItemRepository menuItems;
     @Mock DeliveryDistanceService deliveryDistanceService;
@@ -33,8 +35,9 @@ class VoucherServiceImplTest {
     final LocalDateTime now = LocalDateTime.of(2026, 10, 12, 12, 0);
 
     @BeforeEach void setup() {
-        service = new VoucherServiceImpl(vouchers, usages, restaurants, menuItems, deliveryDistanceService,
+        service = new VoucherServiceImpl(vouchers, usages, redemptions, accounts, restaurants, menuItems, deliveryDistanceService,
                 Clock.fixed(now.atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant(), ZoneId.of("Asia/Ho_Chi_Minh")));
+        lenient().when(redemptions.countByVoucherIdAndAccountId(anyLong(), anyLong())).thenReturn(1L);
     }
 
     @AfterEach void clearSecurity() { SecurityContextHolder.clearContext(); }
@@ -58,6 +61,28 @@ class VoucherServiceImplTest {
         assertEquals(new BigDecimal("82500.00"), result.getEstimatedTotal());
     }
 
+    @Test void validateWithoutGpsUsesConfiguredBaseDeliveryFee() {
+        authenticateUser();
+        Restaurant restaurant = Restaurant.builder().id(7L).active(true)
+                .deliveryFee(new BigDecimal("15000")).build();
+        MenuItem item = MenuItem.builder().id(11L).restaurant(restaurant).active(true).available(true)
+                .price(new BigDecimal("75000")).build();
+        when(restaurants.findById(7L)).thenReturn(Optional.of(restaurant));
+        when(menuItems.findById(11L)).thenReturn(Optional.of(item));
+        when(vouchers.findByCodeIgnoreCase("SAVE10")).thenReturn(Optional.of(voucher(DiscountType.PERCENTAGE, "10")));
+        VoucherValidateRequest request = validateRequest();
+        request.setDeliveryLatitude(null);
+        request.setDeliveryLongitude(null);
+
+        var result = service.validate(request);
+
+        assertTrue(result.isValid());
+        assertEquals(new BigDecimal("7500.00"), result.getDiscountAmount());
+        assertEquals(new BigDecimal("15000"), result.getDeliveryFee());
+        assertEquals(new BigDecimal("82500.00"), result.getEstimatedTotal());
+        verifyNoInteractions(deliveryDistanceService);
+    }
+
     @Test void validatePropagatesOutsideDeliveryRadiusInsteadOfUsingBaseFee() {
         authenticateUser();
         Restaurant restaurant = Restaurant.builder().id(7L).active(true).build();
@@ -68,6 +93,64 @@ class VoucherServiceImplTest {
         when(deliveryDistanceService.calculateDelivery(any(), any(), any()))
                 .thenThrow(new AppException(ErrorCode.DELIVERY_DISTANCE_EXCEEDED));
         assertCode(ErrorCode.DELIVERY_DISTANCE_EXCEEDED, () -> service.validate(validateRequest()));
+    }
+
+    @Test void validateRejectsVoucherAfterCustomerReachedPerUserLimit() {
+        authenticateUser();
+        Restaurant restaurant = Restaurant.builder().id(7L).active(true)
+                .deliveryFee(new BigDecimal("15000")).build();
+        MenuItem item = MenuItem.builder().id(11L).restaurant(restaurant).active(true).available(true)
+                .price(new BigDecimal("75000")).build();
+        when(restaurants.findById(7L)).thenReturn(Optional.of(restaurant));
+        when(menuItems.findById(11L)).thenReturn(Optional.of(item));
+        when(deliveryDistanceService.calculateDelivery(any(), any(), any())).thenReturn(new DeliveryCalculation(
+                new BigDecimal("2.000"), new BigDecimal("10.000"), new BigDecimal("15000")));
+        when(vouchers.findByCodeIgnoreCase("SAVE10")).thenReturn(Optional.of(voucher(DiscountType.PERCENTAGE, "10")));
+        when(usages.countByVoucherIdAndAccountIdAndStatusIn(eq(1L), eq(2L), anyCollection())).thenReturn(1L);
+
+        var result = service.validate(validateRequest());
+
+        assertFalse(result.isValid());
+        assertEquals(ErrorCode.VOUCHER_USER_LIMIT_REACHED.getCode(), result.getReasonCode());
+        assertEquals(BigDecimal.ZERO, result.getDiscountAmount());
+    }
+
+    @Test void validateRejectsVoucherThatCustomerHasNotRedeemed() {
+        authenticateUser();
+        Restaurant restaurant = Restaurant.builder().id(7L).active(true)
+                .deliveryFee(new BigDecimal("15000")).build();
+        MenuItem item = MenuItem.builder().id(11L).restaurant(restaurant).active(true).available(true)
+                .price(new BigDecimal("75000")).build();
+        when(restaurants.findById(7L)).thenReturn(Optional.of(restaurant));
+        when(menuItems.findById(11L)).thenReturn(Optional.of(item));
+        when(deliveryDistanceService.calculateDelivery(any(), any(), any())).thenReturn(new DeliveryCalculation(
+                new BigDecimal("2.000"), new BigDecimal("10.000"), new BigDecimal("15000")));
+        when(vouchers.findByCodeIgnoreCase("SAVE10")).thenReturn(Optional.of(voucher(DiscountType.PERCENTAGE, "10")));
+        when(redemptions.countByVoucherIdAndAccountId(1L, 2L)).thenReturn(0L);
+
+        var result = service.validate(validateRequest());
+
+        assertFalse(result.isValid());
+        assertEquals(ErrorCode.VOUCHER_NOT_OWNED.getCode(), result.getReasonCode());
+    }
+
+    @Test void myVouchersOnlyReturnsRedeemedCopiesNotOccupiedByAnOrder() {
+        authenticateUser();
+        Voucher voucher = voucher(DiscountType.PERCENTAGE, "10");
+        voucher.setPerUserLimit(2);
+        List<VoucherRedemption> claims = List.of(
+                VoucherRedemption.builder().id(10L).accountId(2L).voucherId(1L).redeemedAt(now).build(),
+                VoucherRedemption.builder().id(11L).accountId(2L).voucherId(1L).redeemedAt(now.minusMinutes(1)).build());
+        when(redemptions.findByAccountIdOrderByRedeemedAtDesc(2L)).thenReturn(claims);
+        when(redemptions.countByVoucherIdAndAccountId(1L, 2L)).thenReturn(2L);
+        when(usages.countByVoucherIdAndAccountIdAndStatusIn(eq(1L), eq(2L), anyCollection())).thenReturn(1L);
+        when(vouchers.findById(1L)).thenReturn(Optional.of(voucher));
+
+        var result = service.getMyRedemptions();
+
+        assertEquals(1, result.size());
+        assertEquals("SAVE10", result.getFirst().getVoucher().getCode());
+        assertEquals("AVAILABLE", result.getFirst().getVoucher().getCustomerStatus());
     }
 
     @Test void availableVoucherDelegatesFilteringPaginationAndSortingToDatabase() {
@@ -89,6 +172,18 @@ class VoucherServiceImplTest {
                 () -> service.getAvailable(7L, PageRequest.of(0, 101)));
         assertCode(ErrorCode.VOUCHER_INVALID_PAGE_REQUEST,
                 () -> service.getAvailable(7L, PageRequest.of(0, 20, Sort.by("restaurant.name"))));
+    }
+
+    @Test void voucherListMarksVoucherUsedWhenCustomerReachedPerUserLimit() {
+        authenticateUser();
+        Voucher used = voucher(DiscountType.PERCENTAGE, "10");
+        when(vouchers.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(used)));
+        when(usages.countByVoucherIdAndAccountIdAndStatusIn(
+                eq(1L), eq(2L), eq(EnumSet.of(VoucherUsageStatus.RESERVED, VoucherUsageStatus.APPLIED)))).thenReturn(1L);
+
+        var result = service.getAll(null, null, PageRequest.of(0, 20));
+
+        assertEquals("USED", result.getContent().getFirst().getCustomerStatus());
     }
 
     @Test void createsValidVoucherAndNormalizesCode() {
@@ -163,6 +258,12 @@ class VoucherServiceImplTest {
         when(usages.findByOrderIdForUpdate(4L)).thenReturn(Optional.of(release));
         service.releaseForOrder(4L); service.releaseForOrder(4L);
         assertEquals(VoucherUsageStatus.RELEASED, release.getStatus());
+
+        VoucherUsage applied = VoucherUsage.builder().voucherId(1L).orderId(5L).status(VoucherUsageStatus.APPLIED).build();
+        when(usages.findByOrderIdForUpdate(5L)).thenReturn(Optional.of(applied));
+        service.releaseForOrder(5L); service.releaseForOrder(5L);
+        assertEquals(VoucherUsageStatus.RELEASED, applied.getStatus());
+        assertEquals(0, v.getUsedCount());
     }
 
     private VoucherRequest request(DiscountType type, String value) {

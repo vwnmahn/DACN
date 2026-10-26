@@ -16,11 +16,12 @@ public class OrderMaintenanceScheduler {
     @Scheduled(fixedDelayString = "${app.order-management.scheduler-delay-ms:30000}")
     public void processTimeouts() {
         try {
+            int confirmed = orderManagementService.confirmEligibleAutoOrders();
             int cancelled = orderManagementService.cancelExpiredManualOrders();
             int reconciliation = orderManagementService.markExpiredPaymentsForReconciliation();
-            if (cancelled > 0 || reconciliation > 0) {
-                log.info("Order maintenance processed: cancelledOrders={}, reconciliationPayments={}",
-                        cancelled, reconciliation);
+            if (confirmed > 0 || cancelled > 0 || reconciliation > 0) {
+                log.info("Order maintenance processed: confirmedOrders={}, cancelledOrders={}, reconciliationPayments={}",
+                        confirmed, cancelled, reconciliation);
             }
         } catch (RuntimeException exception) {
             log.error("Order maintenance batch failed: {}", exception.getClass().getSimpleName());

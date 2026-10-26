@@ -1,9 +1,12 @@
 package com.example.dacn.controller;
 
 import com.example.dacn.dto.request.CheckoutRequest;
+import com.example.dacn.dto.request.DeliveryAvailabilityRequest;
 import com.example.dacn.dto.response.ApiResponse;
 import com.example.dacn.dto.response.CheckoutResponse;
+import com.example.dacn.dto.response.DeliveryAvailabilityResponse;
 import com.example.dacn.service.CheckoutService;
+import com.example.dacn.service.DeliveryAvailabilityService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class CheckoutController {
     private final CheckoutService checkoutService;
+    private final DeliveryAvailabilityService deliveryAvailabilityService;
 
     @PostMapping
     @PreAuthorize("hasRole('USER')")
@@ -29,5 +33,22 @@ public class CheckoutController {
     private String clientIp(HttpServletRequest request) {
         String forwarded = request.getHeader("X-Forwarded-For");
         return forwarded == null || forwarded.isBlank() ? request.getRemoteAddr() : forwarded;
+    }
+    @PostMapping("/delivery-availability")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<ApiResponse<DeliveryAvailabilityResponse>>
+    checkDeliveryAvailability(
+            @Valid @RequestBody DeliveryAvailabilityRequest request) {
+
+        DeliveryAvailabilityResponse data =
+                deliveryAvailabilityService.checkAvailability(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.<DeliveryAvailabilityResponse>builder()
+                        .code(1000)
+                        .message("Kiểm tra phạm vi giao hàng thành công")
+                        .data(data)
+                        .build()
+        );
     }
 }

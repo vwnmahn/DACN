@@ -5,14 +5,21 @@ import com.example.dacn.dto.request.RestaurantUpdateRequest;
 import com.example.dacn.dto.response.ApiResponse;
 import com.example.dacn.dto.response.RestaurantResponse;
 import com.example.dacn.dto.response.RestaurantPageResponse;
+import com.example.dacn.dto.response.TableAvailabilityResponse;
 import com.example.dacn.service.RestaurantService;
+import com.example.dacn.service.TableReservationService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 @RestController
@@ -21,6 +28,7 @@ import java.util.List;
 public class RestaurantController {
 
     private final RestaurantService restaurantService;
+    private final TableReservationService reservationService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN')")
@@ -172,4 +180,37 @@ public class RestaurantController {
                         .build()
         );
     }
+    /**
+     * Kiểm tra các bàn còn trống theo ngày, giờ và số lượng khách.
+     */
+    @GetMapping("/{restaurantId}/tables/availability")
+    public ApiResponse<TableAvailabilityResponse> getAvailability(
+            @PathVariable @NotNull @Min(1) Long restaurantId,
+
+            @RequestParam
+            @NotNull
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate date,
+
+            @RequestParam
+            @NotNull
+            @DateTimeFormat(iso = DateTimeFormat.ISO.TIME)
+            LocalTime time,
+
+            @RequestParam
+            @NotNull
+            @Min(1)
+            Integer guests) {
+
+        TableAvailabilityResponse result =
+                reservationService.getAvailability(
+                        restaurantId, date, time, guests);
+
+        return ApiResponse.<TableAvailabilityResponse>builder()
+                .code(1000)
+                .message("Lấy thông tin bàn trống thành công")
+                .data(result)
+                .build();
+    }
+
 }

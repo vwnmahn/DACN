@@ -20,6 +20,7 @@ public interface OrderManagementService {
     AdminOrderResponse getAdminOrder(Long orderId);
     List<OrderStatusHistoryResponse> getStatusHistory(Long orderId);
     OrderResponse cancelByAdmin(Long orderId, String reason);
+    int confirmEligibleAutoOrders();
     int cancelExpiredManualOrders();
     int markExpiredPaymentsForReconciliation();
 }

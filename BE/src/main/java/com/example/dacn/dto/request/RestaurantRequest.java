@@ -1,5 +1,6 @@
 package com.example.dacn.dto.request;
 
+import com.example.dacn.entity.CategoryStatus;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
@@ -53,4 +54,14 @@ public class RestaurantRequest {
 
     @Size(max = 500, message = "URL ảnh không được vượt quá 500 ký tự")
     private String imageUrl;
+
+    // Hai ảnh bổ sung — dùng ở trang chi tiết nhà hàng
+    @Size(max = 500, message = "URL ảnh không được vượt quá 500 ký tự")
+    private String imageUrl2;
+
+    @Size(max = 500, message = "URL ảnh không được vượt quá 500 ký tự")
+    private String imageUrl3;
+
+    @NotNull(message = "Danh mục nhà hàng không được để trống")
+    private CategoryStatus categoryStatus;
 }

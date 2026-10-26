@@ -43,6 +43,13 @@ class DeliveryDistanceServiceImplTest {
         assertEquals(ErrorCode.DELIVERY_DISTANCE_EXCEEDED, e.getErrorCode());
     }
 
+    @Test void sixKilometersOrMoreIsRejectedEvenWhenConfiguredRadiusIsLarger() {
+        Restaurant restaurant = restaurant(10, "10000", "1", "5000");
+        AppException error = assertThrows(AppException.class,
+                () -> service.calculateDelivery(restaurant, bd("10.825"), bd("106.69")));
+        assertEquals(ErrorCode.DELIVERY_DISTANCE_EXCEEDED, error.getErrorCode());
+    }
+
     @Test void missingGpsAndInvalidPolicyAreRejected() {
         Restaurant missing = restaurant(6, "10000", "2", "5000"); missing.setLatitude(null);
         assertEquals(ErrorCode.RESTAURANT_GPS_NOT_CONFIGURED,

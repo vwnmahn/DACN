@@ -50,6 +50,7 @@ class OrderManagementServiceImplTest {
         Restaurant restaurant = Restaurant.builder().id(2L).name("FCA").build();
         order = Order.builder().id(3L).account(owner).restaurant(restaurant)
                 .status(OrderStatus.PENDING)
+                .createdAt(LocalDateTime.now(clock))
                 .confirmationDeadline(LocalDateTime.now(clock).plusMinutes(10))
                 .subtotal(BigDecimal.TEN).deliveryFee(BigDecimal.ZERO)
                 .discountAmount(BigDecimal.ZERO).totalAmount(BigDecimal.TEN)
@@ -97,6 +98,7 @@ class OrderManagementServiceImplTest {
 
     @Test
     void expiredBatchCancelsAndReleasesVoucherExactlyOncePerSelection() {
+        order.setConfirmationDeadline(LocalDateTime.now(clock));
         when(orderRepository.findExpiredPendingForUpdate(any(), any())).thenReturn(List.of(order));
         when(paymentRepository.findByOrderIdForUpdate(3L)).thenReturn(List.of(payment));
         assertEquals(1, service.cancelExpiredManualOrders());
@@ -107,20 +109,106 @@ class OrderManagementServiceImplTest {
     }
 
     @Test
-    void paidLateCancellationRequiresRefundAndDoesNotClaimRefund() {
+    void autoOrderIsConfirmedAfterFifteenSeconds() {
+        order.setConfirmationDeadline(null);
+        order.setCreatedAt(LocalDateTime.now(clock).minusSeconds(15));
+        when(orderRepository.findAutoPendingForUpdate(any(), any())).thenReturn(List.of(order));
+        when(paymentRepository.findByOrderIdForUpdate(3L)).thenReturn(List.of(payment));
+
+        assertEquals(1, service.confirmEligibleAutoOrders());
+        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
+        assertEquals(ConfirmationSource.AUTO, order.getConfirmationSource());
+        assertEquals(LocalDateTime.now(clock), order.getAcceptedAt());
+        assertEquals(LocalDateTime.now(clock), order.getConfirmedAt());
+    }
+
+    @Test
+    void autoOrderIsNotConfirmedBeforeFifteenSeconds() {
+        order.setConfirmationDeadline(null);
+        order.setCreatedAt(LocalDateTime.now(clock).minusSeconds(14));
+        when(orderRepository.findAutoPendingForUpdate(any(), any())).thenReturn(List.of(order));
+
+        assertEquals(0, service.confirmEligibleAutoOrders());
+        assertEquals(OrderStatus.PENDING, order.getStatus());
+        verifyNoInteractions(paymentRepository);
+    }
+
+    @Test
+    void autoVnPayIsNotConfirmedBeforeSuccessfulPayment() {
+        order.setConfirmationDeadline(null);
+        order.setCreatedAt(LocalDateTime.now(clock).minusSeconds(15));
+        payment.setPaymentMethod(PaymentMethod.VNPAY);
+        payment.setPaymentStatus(PaymentStatus.PENDING);
+        when(orderRepository.findAutoPendingForUpdate(any(), any())).thenReturn(List.of(order));
+        when(paymentRepository.findByOrderIdForUpdate(3L)).thenReturn(List.of(payment));
+
+        assertEquals(0, service.confirmEligibleAutoOrders());
+        assertEquals(OrderStatus.PENDING, order.getStatus());
+        assertNull(order.getConfirmedAt());
+    }
+
+    @Test
+    void customerCanCancelManualOrderWithinFifteenSeconds() {
+        authenticate(owner);
+        order.setCreatedAt(LocalDateTime.now(clock).minusSeconds(14));
+        lockOrderAndPayment();
+
+        OrderResponse result = service.cancelMyOrder(3L);
+
+        assertEquals(OrderStatus.CANCELLED, result.getStatus());
+        assertEquals(OrderCancellationReason.CANCELLED_BY_USER, result.getCancellationReason());
+    }
+
+    @Test
+    void customerCannotCancelManualOrderAtOrAfterFifteenSeconds() {
+        authenticate(owner);
+        order.setCreatedAt(LocalDateTime.now(clock).minusSeconds(15));
+        when(orderRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(order));
+
+        AppException error = assertThrows(AppException.class, () -> service.cancelMyOrder(3L));
+
+        assertEquals(ErrorCode.ORDER_CANCELLATION_NOT_ALLOWED, error.getErrorCode());
+        verifyNoInteractions(paymentRepository);
+    }
+
+    @Test
+    void schedulerDoesNotOverwriteOrderWhoseStatusAlreadyChanged() {
+        order.setConfirmationDeadline(null);
+        order.setCreatedAt(LocalDateTime.now(clock).minusMinutes(1));
+        order.setStatus(OrderStatus.CONFIRMED);
+        when(orderRepository.findAutoPendingForUpdate(any(), any())).thenReturn(List.of(order));
+
+        assertEquals(0, service.confirmEligibleAutoOrders());
+        verifyNoInteractions(paymentRepository);
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void timeoutSchedulerDoesNotCancelConfirmedOrder() {
+        order.setStatus(OrderStatus.CONFIRMED);
+        order.setConfirmationDeadline(LocalDateTime.now(clock).minusSeconds(1));
+        when(orderRepository.findExpiredPendingForUpdate(any(), any())).thenReturn(List.of(order));
+
+        assertEquals(0, service.cancelExpiredManualOrders());
+        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
+        verifyNoInteractions(paymentRepository);
+    }
+
+    @Test
+    void customerCannotCancelOrderAfterCancellationWindow() {
         payment.setPaymentMethod(PaymentMethod.VNPAY);
         payment.setPaymentStatus(PaymentStatus.SUCCESS);
+        order.setCreatedAt(LocalDateTime.now(clock).minusSeconds(16));
         authenticate(owner);
-        lockOrderAndPayment();
-        var result = service.cancelMyOrder(3L);
-        assertTrue(result.getRefundRequired());
-        assertEquals(PaymentStatus.SUCCESS, payment.getPaymentStatus());
+        when(orderRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(order));
+        AppException error = assertThrows(AppException.class, () -> service.cancelMyOrder(3L));
+        assertEquals(ErrorCode.ORDER_CANCELLATION_NOT_ALLOWED, error.getErrorCode());
         verify(voucherService, never()).releaseForOrder(anyLong());
     }
 
     @Test
     void codCompletionRequiresCollectionConfirmation() {
-        order.setStatus(OrderStatus.DELIVERING);
+        order.setStatus(OrderStatus.ARRIVED);
         AppException error = assertThrows(AppException.class,
                 () -> service.completeCodByAdmin(3L, false));
         assertEquals(ErrorCode.COD_COLLECTION_REQUIRED, error.getErrorCode());
@@ -129,7 +217,7 @@ class OrderManagementServiceImplTest {
 
     @Test
     void codCompletionMarksPaymentSuccessAndAppliesVoucher() {
-        order.setStatus(OrderStatus.DELIVERING);
+        order.setStatus(OrderStatus.ARRIVED);
         lockOrderAndPayment();
         var result = service.completeCodByAdmin(3L, true);
         assertEquals(OrderStatus.COMPLETED, result.getStatus());
@@ -163,7 +251,7 @@ class OrderManagementServiceImplTest {
         assertEquals(OrderStatus.CANCELLED, result.getStatus());
         assertTrue(result.getRefundRequired());
         assertEquals(PaymentStatus.SUCCESS, payment.getPaymentStatus());
-        verify(voucherService, never()).releaseForOrder(3L);
+        verify(voucherService).releaseForOrder(3L);
         ArgumentCaptor<OrderStatusHistory> history = ArgumentCaptor.forClass(OrderStatusHistory.class);
         verify(historyRepository).save(history.capture());
         assertEquals(admin, history.getValue().getActorAccount());

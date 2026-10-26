@@ -68,8 +68,19 @@ public class Restaurant extends BaseEntity {
     private Boolean active = true;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "category_status", nullable = false, length = 30)
+    private CategoryStatus categoryStatus;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "order_confirmation_mode", nullable = false, length = 20)
     @Builder.Default
     private OrderConfirmationMode orderConfirmationMode = OrderConfirmationMode.MANUAL;
 
+    // Ảnh phụ 1 — dùng ở trang chi tiết nhà hàng
+    @Column(name = "image_url_2", length = 500)
+    private String imageUrl2;
+
+    // Ảnh phụ 2 — dùng ở trang chi tiết nhà hàng
+    @Column(name = "image_url_3", length = 500)
+    private String imageUrl3;
 }

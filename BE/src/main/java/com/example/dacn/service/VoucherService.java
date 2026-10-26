@@ -5,6 +5,7 @@ import com.example.dacn.dto.response.*;
 import org.springframework.data.domain.*;
 
 import java.math.BigDecimal;
+import com.example.dacn.entity.CategoryVoucher;
 
 public interface VoucherService {
     VoucherResponse create(VoucherRequest request);
@@ -12,8 +13,11 @@ public interface VoucherService {
     VoucherResponse updateStatus(Long id, boolean active);
     VoucherResponse getById(Long id);
     Page<VoucherResponse> getAll(Boolean active, Long restaurantId, Pageable pageable);
+    Page<VoucherResponse> getAll(Boolean active, Long restaurantId, CategoryVoucher category, Pageable pageable);
     Page<VoucherResponse> getAvailable(Long restaurantId, Pageable pageable);
+    Page<VoucherResponse> getAvailable(Long restaurantId, CategoryVoucher category, Pageable pageable);
     Page<VoucherResponse> getRedeemable(Pageable pageable);
+    Page<VoucherResponse> getRedeemable(CategoryVoucher category, Pageable pageable);
     java.util.List<VoucherRedemptionResponse> getMyRedemptions();
     VoucherRedemptionResponse redeem(Long voucherId);
     VoucherValidationResponse validate(VoucherValidateRequest request);

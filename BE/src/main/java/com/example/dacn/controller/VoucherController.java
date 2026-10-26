@@ -4,6 +4,7 @@ package com.example.dacn.controller;
 import com.example.dacn.dto.request.*;
 import com.example.dacn.dto.response.*;
 import com.example.dacn.service.VoucherService;
+import com.example.dacn.entity.CategoryVoucher;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -56,14 +57,15 @@ public class VoucherController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ApiResponse<PageResponse<VoucherResponse>> all(
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) Long restaurantId,
+            @RequestParam(required = false) CategoryVoucher category,
             @PageableDefault(size = 20) Pageable pageable) {
 
         Page<VoucherResponse> page =
-                service.getAll(active, restaurantId, pageable);
+                service.getAll(active, restaurantId, category, pageable);
 
         return ApiResponse.<PageResponse<VoucherResponse>>builder()
                 .code(1000)
@@ -73,7 +75,7 @@ public class VoucherController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public ApiResponse<VoucherResponse> one(
             @PathVariable Long id) {
 
@@ -106,10 +108,11 @@ public class VoucherController {
     @PreAuthorize("hasRole('USER')")
     public ApiResponse<PageResponse<VoucherResponse>> available(
             @RequestParam(required = false) Long restaurantId,
+            @RequestParam(required = false) CategoryVoucher category,
             @PageableDefault(size = 20) Pageable pageable) {
 
         Page<VoucherResponse> page =
-                service.getAvailable(restaurantId, pageable);
+                service.getAvailable(restaurantId, category, pageable);
 
         return ApiResponse.<PageResponse<VoucherResponse>>builder()
                 .code(1000)
@@ -121,10 +124,11 @@ public class VoucherController {
     @GetMapping("/redeemable")
     @PreAuthorize("hasRole('USER')")
     public ApiResponse<PageResponse<VoucherResponse>> redeemable(
+            @RequestParam(required = false) CategoryVoucher category,
             @PageableDefault(size = 20) Pageable pageable) {
 
         Page<VoucherResponse> page =
-                service.getRedeemable(pageable);
+                service.getRedeemable(category, pageable);
 
         return ApiResponse.<PageResponse<VoucherResponse>>builder()
                 .code(1000)

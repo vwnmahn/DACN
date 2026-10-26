@@ -1,5 +1,6 @@
 package com.example.dacn.dto.request;
 
+import com.example.dacn.entity.GenderStatus;
 import com.example.dacn.entity.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
@@ -27,7 +28,7 @@ public final class AccountRequest {
 
         private LocalDate dateOfBirth;
 
-        private Boolean gender;
+        private GenderStatus gender;
     }
 
     @Data
