@@ -19,6 +19,8 @@
   let profileConfirmOpen = false;
   let refreshAccessTokenPromise = null;
 
+
+
   function headers(json) {
     if (window.FCA_SHELL?.authHeaders) return window.FCA_SHELL.authHeaders(json);
     const result = json ? { 'Content-Type': 'application/json' } : {};
@@ -158,28 +160,40 @@
       </article>`).join('');
   }
 
-  async function loadReservations(force = false) {
-    if (reservationsLoading || (reservationsLoaded && !force)) return;
-    const status = document.getElementById('reservation-history-status');
-    reservationsLoading = true;
-    if (status) {
-      status.textContent = 'Đang tải lịch sử đặt bàn...';
-      status.classList.remove('hidden', 'text-error');
-    }
-    try {
-      const reservations = await request(`${API}/table-reservations/mine`);
-      renderReservations(reservations);
-      reservationsLoaded = true;
-    } catch (error) {
-      if (status) {
-        status.textContent = error.message;
-        status.classList.remove('hidden');
-        status.classList.add('text-error');
-      }
-    } finally {
-      reservationsLoading = false;
-    }
+async function loadReservations(force = false) {
+  if (reservationsLoading || (reservationsLoaded && !force)) return;
+
+  const status = document.getElementById('reservation-history-status');
+  const badge = document.getElementById('reservation-count-badge');
+
+  reservationsLoading = true;
+
+  if (status) {
+    status.textContent = 'Đang tải lịch sử đặt bàn...';
+    status.classList.remove('hidden', 'text-error');
   }
+
+  try {
+    const reservations = await request(`${API}/table-reservations/mine`);
+    const list = Array.isArray(reservations) ? reservations : [];
+
+    // Badge đếm tất cả lượt đặt bàn, bao gồm cả lượt đã hủy.
+    if (badge) {
+      badge.textContent = list.length;
+    }
+
+    renderReservations(list);
+    reservationsLoaded = true;
+  } catch (error) {
+    if (status) {
+      status.textContent = error.message;
+      status.classList.remove('hidden');
+      status.classList.add('text-error');
+    }
+  } finally {
+    reservationsLoading = false;
+  }
+}
 
 
   async function cancelReservation(reservationId, button) {
@@ -424,7 +438,7 @@
       pointsEl.innerHTML = `${(user.loyaltyPoints ?? 0).toLocaleString('vi-VN')} <span class="font-label-md text-label-md font-medium text-on-surface-variant">điểm</span>`;
     }
 
-    if (orderBadge) orderBadge.textContent = user.orderCount ?? 0;
+  
 
     if (voucherBadge) {
       voucherBadge.textContent = `${user.newVoucherCount ?? 0} mới`;
@@ -645,21 +659,50 @@
     }).join('');
   }
 
-  async function loadCompletedOrders(force = false) {
-    if (ordersLoading || (ordersLoaded && !force)) return;
-    ordersLoading = true;
-    const container = document.getElementById('recent-order-container');
-    if (container) container.innerHTML = '<p class="text-on-surface-variant">Đang tải lịch sử đơn hàng...</p>';
-    try {
-      const orders = await request(`${API}/orders`);
-      const list = Array.isArray(orders) ? orders : [];
-      renderActiveOrders(list.filter((order) => order.status !== 'COMPLETED' && order.status !== 'CANCELLED'));
-      renderRecentOrders(list.filter((order) => order.status === 'COMPLETED'));
-      ordersLoaded = true;
-    } catch (error) {
-      if (container) container.innerHTML = `<p class="text-error">${escapeHtml(error.message)}</p>`;
-    } finally { ordersLoading = false; }
+async function loadCompletedOrders(force = false) {
+  if (ordersLoading || (ordersLoaded && !force)) return;
+
+  ordersLoading = true;
+
+  const container = document.getElementById('recent-order-container');
+
+  if (container) {
+    container.innerHTML =
+      '<p class="text-on-surface-variant">Đang tải lịch sử đơn hàng...</p>';
   }
+
+  try {
+    const orders = await request(`${API}/orders`);
+    const list = Array.isArray(orders) ? orders : [];
+
+    // Badge đếm tất cả đơn hàng, bao gồm cả đơn đã hủy.
+    const orderBadge = document.getElementById('order-count-badge');
+    if (orderBadge) {
+      orderBadge.textContent = list.length;
+    }
+
+    renderActiveOrders(
+      list.filter(
+        (order) =>
+          order.status !== 'COMPLETED' &&
+          order.status !== 'CANCELLED'
+      )
+    );
+
+    renderRecentOrders(
+      list.filter((order) => order.status === 'COMPLETED')
+    );
+
+    ordersLoaded = true;
+  } catch (error) {
+    if (container) {
+      container.innerHTML =
+        `<p class="text-error">${escapeHtml(error.message)}</p>`;
+    }
+  } finally {
+    ordersLoading = false;
+  }
+}
 
   /* ---- 4.6 Render footer branches ---- */
   function renderFooterBranches(branches) {
