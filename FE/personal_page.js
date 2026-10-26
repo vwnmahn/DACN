@@ -10,6 +10,14 @@
   'use strict';
   const API = 'http://localhost:8080/api/v1';
   let currentAccount = null;
+  let reservationsLoaded = false;
+  let reservationsLoading = false;
+  let ordersLoaded = false;
+  let ordersLoading = false;
+  let ownedVouchersLoaded = false;
+  let profileSaving = false;
+  let profileConfirmOpen = false;
+  let refreshAccessTokenPromise = null;
 
   function headers(json) {
     if (window.FCA_SHELL?.authHeaders) return window.FCA_SHELL.authHeaders(json);
@@ -19,8 +27,38 @@
     return result;
   }
 
+  async function refreshAccessToken() {
+    if (refreshAccessTokenPromise) return refreshAccessTokenPromise;
+    refreshAccessTokenPromise = (async () => {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      const response = await fetch(`${API}/auth/refresh`, {
+        method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+      });
+      const payload = await response.json().catch(() => ({}));
+      const data = payload.data ?? payload;
+      if (!response.ok || !data?.accessToken) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.replace('login.html');
+        throw new Error(payload.message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      }
+      localStorage.setItem('accessToken', data.accessToken);
+      if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+      return data.accessToken;
+    })();
+    try { return await refreshAccessTokenPromise; }
+    finally { refreshAccessTokenPromise = null; }
+  }
+
   async function request(url, options = {}) {
-    const response = await fetch(url, { ...options, headers: { ...headers(options.json), ...(options.headers || {}) } });
+    const send = (token) => fetch(url, {
+      ...options,
+      headers: { ...headers(options.json), ...(options.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+    });
+    let response = await send(localStorage.getItem('accessToken'));
+    if (response.status === 401) response = await send(await refreshAccessToken());
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.message || 'Không thể kết nối hệ thống FCA.');
     return payload.data;
@@ -32,6 +70,212 @@
     element.classList.remove('hidden', 'text-error', 'text-primary');
     element.classList.add(error ? 'text-error' : 'text-primary');
   }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+  }
+
+  function setupPersonalPanels() {
+    const menuItems = document.querySelectorAll('[data-personal-panel]');
+    const panels = document.querySelectorAll('[data-personal-content]');
+
+    menuItems.forEach((item) => item.addEventListener('click', (event) => {
+      event.preventDefault();
+      const targetId = item.dataset.personalPanel;
+
+      panels.forEach((panel) => { panel.hidden = panel.id !== targetId; });
+      menuItems.forEach((menuItem) => {
+        const active = menuItem === item;
+        menuItem.classList.toggle('bg-primary', active);
+        menuItem.classList.toggle('text-on-primary', active);
+        menuItem.classList.toggle('shadow-sm', active);
+        menuItem.classList.toggle('text-on-surface', !active);
+        menuItem.classList.toggle('hover:bg-surface-container', !active);
+        if (active) menuItem.setAttribute('aria-current', 'page');
+        else menuItem.removeAttribute('aria-current');
+      });
+
+      if (targetId === 'reservation-history-panel' && !reservationsLoaded) {
+        loadReservations();
+      }
+      if (targetId === 'order-history-panel' && !ordersLoaded) loadCompletedOrders();
+      if (targetId === 'voucher-wallet-panel' && !ownedVouchersLoaded) {
+        loadOwnedVouchers().catch((error) => {
+          setMessage(document.getElementById('owned-vouchers-status'), error.message, true);
+        });
+      }
+    }));
+  }
+
+  function formatReservationDateTime(value, part) {
+    if (!value) return '—';
+    const [date = '', time = ''] = String(value).split('T');
+    if (part === 'date') {
+      const [year, month, day] = date.split('-');
+      return year && month && day ? `${day}/${month}/${year}` : date;
+    }
+    return time ? time.slice(0, 5) : '—';
+  }
+
+  function reservationStatusLabel(status) {
+    return ({
+      PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', CANCELLED: 'Đã hủy',
+      COMPLETED: 'Đã hoàn tất', NO_SHOW: 'Không đến'
+    })[status] || status || 'Không xác định';
+  }
+
+  function renderReservations(reservations) {
+    const container = document.getElementById('reservation-history-list');
+    const status = document.getElementById('reservation-history-status');
+    if (!container || !status) return;
+
+    container.replaceChildren();
+    if (!Array.isArray(reservations) || reservations.length === 0) {
+      status.textContent = 'Bạn chưa có lịch sử đặt bàn.';
+      status.classList.remove('hidden', 'text-error');
+      return;
+    }
+
+    status.classList.add('hidden');
+    container.innerHTML = reservations.map((reservation) => `
+      <article class="border border-surface-container-highest rounded-xl p-space-lg bg-surface">
+        <div class="flex items-start justify-between gap-space-md mb-space-md">
+          <div><h4 class="font-title-md text-title-md font-bold text-on-surface">${escapeHtml(reservation.restaurantName)}</h4>
+          <p class="font-body-sm text-body-sm text-outline">Mã đặt bàn #${escapeHtml(reservation.reservationId)}</p></div>
+          <span class="px-3 py-1 rounded-full bg-surface-container text-on-surface font-label-md text-label-md font-semibold">${escapeHtml(reservationStatusLabel(reservation.status))}</span>
+        </div>
+        <dl class="grid grid-cols-2 gap-space-md font-body-sm text-body-sm">
+          <div><dt class="text-outline">Ngày đặt bàn</dt><dd class="font-semibold text-on-surface">${escapeHtml(formatReservationDateTime(reservation.startTime, 'date'))}</dd></div>
+          <div><dt class="text-outline">Giờ đặt bàn</dt><dd class="font-semibold text-on-surface">${escapeHtml(formatReservationDateTime(reservation.startTime, 'time'))}</dd></div>
+          <div><dt class="text-outline">Số khách</dt><dd class="font-semibold text-on-surface">${escapeHtml(reservation.guestCount)} người</dd></div>
+          <div><dt class="text-outline">Tên người đặt</dt><dd class="font-semibold text-on-surface">${escapeHtml(reservation.customerName)}</dd></div>
+          <div><dt class="text-outline">Số điện thoại</dt><dd class="font-semibold text-on-surface">${escapeHtml(reservation.customerPhone)}</dd></div>
+          <div><dt class="text-outline">Ghi chú</dt><dd class="font-semibold text-on-surface">${escapeHtml(reservation.note || 'Không có')}</dd></div>
+        </dl>
+        ${reservation.cancellable ? `<div class="mt-space-md pt-space-md border-t border-surface-container-highest/60 text-right"><button class="cancel-reservation-btn px-4 py-2 rounded-lg border border-error text-error font-label-md text-label-md font-bold hover:bg-error-container/30" type="button" data-reservation-id="${escapeHtml(reservation.reservationId)}">Hủy đặt bàn</button></div>` : ''}
+      </article>`).join('');
+  }
+
+  async function loadReservations(force = false) {
+    if (reservationsLoading || (reservationsLoaded && !force)) return;
+    const status = document.getElementById('reservation-history-status');
+    reservationsLoading = true;
+    if (status) {
+      status.textContent = 'Đang tải lịch sử đặt bàn...';
+      status.classList.remove('hidden', 'text-error');
+    }
+    try {
+      const reservations = await request(`${API}/table-reservations/mine`);
+      renderReservations(reservations);
+      reservationsLoaded = true;
+    } catch (error) {
+      if (status) {
+        status.textContent = error.message;
+        status.classList.remove('hidden');
+        status.classList.add('text-error');
+      }
+    } finally {
+      reservationsLoading = false;
+    }
+  }
+
+
+  async function cancelReservation(reservationId, button) {
+    const modal = document.getElementById('cancel-reservation-modal');
+    const successModal = document.getElementById('cancel-reservation-success-modal');
+    const errorEl = document.getElementById('cancel-reservation-error');
+    const confirmBtn = document.getElementById('confirm-cancel-reservation-btn');
+    const keepBtn = document.getElementById('keep-reservation-btn');
+    const successCloseBtn = document.getElementById('close-cancel-reservation-success');
+
+    if (!modal || !successModal || !errorEl || !confirmBtn || !keepBtn || !successCloseBtn) {
+      window.alert('Không tìm thấy giao diện xác nhận hủy đặt bàn.');
+      return;
+    }
+
+    errorEl.hidden = true;
+    errorEl.textContent = '';
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Đồng ý hủy';
+    modal.hidden = false;
+    keepBtn.focus();
+
+    // Chờ người dùng chọn "Đồng ý hủy" hoặc "Không, giữ lại".
+    const confirmed = await new Promise((resolve) => {
+      const cleanup = () => {
+        confirmBtn.removeEventListener('click', onConfirm);
+        keepBtn.removeEventListener('click', onKeep);
+      };
+
+      const onConfirm = () => {
+        cleanup();
+        resolve(true);
+      };
+
+      const onKeep = () => {
+        cleanup();
+        resolve(false);
+      };
+
+      confirmBtn.addEventListener('click', onConfirm, { once: true });
+      keepBtn.addEventListener('click', onKeep, { once: true });
+    });
+
+    if (!confirmed) {
+      modal.hidden = true;
+      return;
+    }
+
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Đang hủy...';
+    button.disabled = true;
+    button.textContent = 'Đang hủy...';
+
+    try {
+      await request(
+        `${API}/table-reservations/${encodeURIComponent(reservationId)}/cancel`,
+        { method: 'PATCH' }
+      );
+
+      // Chỉ hiện thành công sau khi API hủy trả về thành công.
+      modal.hidden = true;
+      reservationsLoaded = false;
+      await loadReservations(true);
+
+      successModal.hidden = false;
+      successCloseBtn.focus();
+    } catch (error) {
+      errorEl.textContent = error.message || 'Hủy đặt bàn thất bại. Vui lòng thử lại.';
+      errorEl.hidden = false;
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Thử lại';
+      button.disabled = false;
+      button.textContent = 'Hủy đặt bàn';
+    }
+  }
+
+
+
+  function setupReservationHistory() {
+    document.getElementById('reload-reservations')
+      ?.addEventListener('click', () => loadReservations(true));
+
+    document.getElementById('reservation-history-list')
+      ?.addEventListener('click', (event) => {
+        const button = event.target.closest('.cancel-reservation-btn');
+        if (button && !button.disabled) {
+          cancelReservation(button.dataset.reservationId, button);
+        }
+      });
+
+    document.getElementById('close-cancel-reservation-success')
+      ?.addEventListener('click', () => {
+        document.getElementById('cancel-reservation-success-modal').hidden = true;
+      });
+  }
+
 
   /* ============================================================
      1. TASTE TAG TOGGLE
@@ -60,28 +304,66 @@
   window.handleProfileSave = async function () {
     const btn = document.getElementById('saveBtn');
     const alertBox = document.getElementById('saveAlert');
-    if (!btn || !alertBox) return;
+    if (!btn || !alertBox || profileSaving || profileConfirmOpen) return;
 
+    const email = document.getElementById('emailAddress').value.trim();
+    const address = document.getElementById('address')?.value.trim() || '';
+    const dateOfBirth = document.getElementById('dob')?.value || '';
+    const gender = document.querySelector('input[name="gender"]:checked')?.value || '';
+    const avatarFile = document.getElementById('avatar-input')?.files?.[0];
+    const changed = email !== (currentAccount?.email || '')
+      || address !== (currentAccount?.address || '')
+      || dateOfBirth !== (currentAccount?.dateOfBirth || '')
+      || gender.toUpperCase() !== String(currentAccount?.gender || '').toUpperCase()
+      || Boolean(avatarFile);
+    if (!changed) {
+      setMessage(alertBox, 'Bạn chưa thay đổi thông tin nào.', false);
+      return;
+    }
+
+    const modal = document.getElementById('profile-confirm-modal');
+    const cancelConfirm = document.getElementById('cancel-profile-confirm');
+    const confirmUpdate = document.getElementById('confirm-profile-update');
+    if (!modal || !cancelConfirm || !confirmUpdate) return;
+    profileConfirmOpen = true;
+    modal.hidden = false;
+    const confirmed = await new Promise((resolve) => {
+      const finish = (value) => {
+        cancelConfirm.removeEventListener('click', onCancel);
+        confirmUpdate.removeEventListener('click', onConfirm);
+        modal.hidden = true;
+        resolve(value);
+      };
+      const onCancel = () => finish(false);
+      const onConfirm = () => finish(true);
+      cancelConfirm.addEventListener('click', onCancel, { once: true });
+      confirmUpdate.addEventListener('click', onConfirm, { once: true });
+    });
+    profileConfirmOpen = false;
+    if (!confirmed) return;
+
+    profileSaving = true;
     btn.innerHTML =
       '<span class="material-symbols-outlined text-[20px] animate-spin">refresh</span><span>Đang lưu...</span>';
     btn.disabled = true;
+    confirmUpdate.disabled = true;
 
     const data = new FormData();
-    data.append('email', document.getElementById('emailAddress').value.trim());
-    const address = document.getElementById('address')?.value.trim();
-    const dateOfBirth = document.getElementById('dob')?.value;
-    const gender = document.querySelector('input[name="gender"]:checked')?.value;
+    data.append('email', email);
+
     if (address) data.append('address', address);
     if (dateOfBirth) data.append('dateOfBirth', dateOfBirth);
-    if (gender === 'true' || gender === 'false') data.append('gender', gender);
+    if (avatarFile) data.append('avatar', avatarFile);
+    if (gender) {
+    data.append('gender', gender);
+    }
     try {
       await request(`${API}/auth/update`, { method: 'PUT', body: data });
-      await loadAccount();
-      btn.innerHTML =
-        '<span class="material-symbols-outlined text-[20px]">save</span><span>Lưu thay đổi</span>';
-      btn.disabled = false;
-      setMessage(alertBox, 'Thông tin tài khoản đã được cập nhật thành công trên hệ thống FCA!', false);
+      sessionStorage.setItem('fca_profile_update_success', '1');
+      window.location.reload();
     } catch (error) {
+      profileSaving = false;
+      confirmUpdate.disabled = false;
       btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">save</span><span>Lưu thay đổi</span>';
       btn.disabled = false;
       setMessage(alertBox, error.message, true);
@@ -164,11 +446,13 @@
     if (available) available.textContent = (user.availablePoints ?? 0).toLocaleString('vi-VN');
 
     // Giới tính
-    if (user.gender !== null && user.gender !== undefined) {
-      const radio = document.querySelector(
-        `input[name="gender"][value="${String(user.gender)}"]`
-      );
-      if (radio) radio.checked = true;
+    // Hiển thị giới tính từ Backend (GenderStatus)
+    if (user.gender != null) {
+      const gender = String(user.gender).toUpperCase();
+
+      document.querySelectorAll('input[name="gender"]').forEach((radio) => {
+        radio.checked = radio.value.toUpperCase() === gender;
+      });
     }
   }
 
@@ -306,51 +590,75 @@
       .join('');
   }
 
-  /* ---- 4.5 Render recent order ---- */
+  /* ---- 4.5 Render lịch sử đơn đã giao ---- */
   function renderRecentOrders(orders) {
     const container = document.getElementById('recent-order-container');
     if (!container) return;
 
     if (!Array.isArray(orders) || orders.length === 0) {
-      container.innerHTML = '';
+      container.innerHTML = '<p class="text-on-surface-variant">Bạn chưa có đơn hàng đã giao thành công.</p>';
       return;
     }
+    container.className = 'flex flex-col gap-space-md';
+    container.innerHTML = orders.map((order) => {
+      const items = Array.isArray(order.items) ? order.items : [];
+      const itemText = items.map((item) => `${escapeHtml(item.itemName)} × ${Number(item.quantity) || 0}`).join(', ');
+      const createdAt = order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN') : '—';
+      return `<article class="bg-surface rounded-xl p-space-md shadow-sm">
+        <div class="flex items-start justify-between gap-3"><div>
+          <span class="font-mono text-outline">Đơn #${escapeHtml(order.id)}</span>
+          <h4 class="font-title-md text-title-md font-bold text-on-surface">${escapeHtml(order.restaurantName || 'FCA Culinary')}</h4>
+        </div><span class="px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container font-bold">Đã giao</span></div>
+        <p class="mt-2 text-on-surface-variant">${itemText || 'Không có chi tiết món'}</p>
+        <div class="mt-3 flex items-center justify-between gap-3"><span class="text-sm text-outline">${escapeHtml(createdAt)}</span>
+        <strong class="text-primary">${Number(order.totalAmount || 0).toLocaleString('vi-VN')}đ</strong></div>
+      </article>`;
+    }).join('');
+  }
 
-    // Chỉ render đơn gần nhất (order[0])
-    const o = orders[0];
-    container.innerHTML = `
-      <div class="bg-surface rounded-xl p-space-md flex flex-col md:flex-row items-start md:items-center justify-between gap-space-lg shadow-sm">
-        <div class="flex items-center gap-space-md">
-          <div class="w-20 h-20 rounded-xl overflow-hidden shrink-0 shadow-inner bg-surface-container">
-            ${o.image
-              ? `<img class="w-full h-full object-cover" src="${o.image}" alt="${o.title || ''}"/>`
-              : `<div class="w-full h-full flex items-center justify-center"><span class="material-symbols-outlined text-outline text-[32px]">restaurant</span></div>`
-            }
-          </div>
-          <div class="flex flex-col">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="font-label-caps text-label-caps font-mono text-outline">${o.orderCode || ''}</span>
-              ${o.status
-                ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-caps text-label-caps font-bold">
-                    <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-                    ${o.status}
-                  </span>`
-                : ''
-              }
-            </div>
-            <h4 class="font-title-md text-title-md font-bold text-on-surface">${o.title || ''}</h4>
-            <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">${o.time || ''} • ${o.address || ''}</p>
-            <span class="font-label-lg text-label-lg font-bold text-primary mt-1">${o.total || ''}</span>
-          </div>
-        </div>
-        <div class="flex items-center gap-space-sm w-full md:w-auto justify-end">
-          <a class="px-4 py-2.5 rounded-lg bg-surface-container-high hover:bg-surface-dim font-label-md text-label-md font-semibold text-on-surface transition-colors" href="#">Xem chi tiết</a>
-          <button class="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5" onclick="handleReorder('${o.orderCode || ''}')">
-            <span class="material-symbols-outlined text-[18px]">replay</span>
-            <span>Đặt lại đơn này</span>
-          </button>
-        </div>
-      </div>`;
+  function renderActiveOrders(orders) {
+    const container = document.getElementById('active-order-container');
+    if (!container) return;
+    if (!orders.length) {
+      container.innerHTML = '<p class="text-on-surface-variant">Hiện không có đơn đang xử lý.</p>';
+      return;
+    }
+    const steps = [
+      ['PENDING', 'Chờ xác nhận'], ['CONFIRMED', 'Đã xác nhận'], ['PREPARING', 'Chuẩn bị món'],
+      ['DELIVERING', 'Đang giao'], ['ARRIVED', 'Đã đến'], ['COMPLETED', 'Đã giao']
+    ];
+    const statusIndex = (status) => status === 'AWAITING_PAYMENT' ? 0
+      : status === 'READY_FOR_DELIVERY' ? 2 : steps.findIndex(([key]) => key === status);
+    container.innerHTML = orders.map((order) => {
+      const current = statusIndex(order.status);
+      const progress = steps.map(([key, label], index) => `
+        <li class="flex-1 min-w-[92px] ${index <= current ? 'text-primary' : 'text-outline'}">
+          <span class="block w-3 h-3 rounded-full mb-1 ${index <= current ? 'bg-primary' : 'bg-surface-container-highest'}"></span>
+          <span class="text-xs font-semibold">${label}</span>
+        </li>`).join('');
+      return `<article class="bg-surface rounded-xl p-space-md shadow-sm">
+        <div class="flex justify-between gap-3"><strong>Đơn #${escapeHtml(order.id)}</strong>
+        <strong class="text-primary">${Number(order.totalAmount || 0).toLocaleString('vi-VN')}đ</strong></div>
+        <p class="text-sm text-on-surface-variant mt-1">${escapeHtml(order.restaurantName || 'FCA Culinary')}</p>
+        <ol class="flex overflow-x-auto mt-4 gap-2" aria-label="Tiến trình đơn hàng">${progress}</ol>
+      </article>`;
+    }).join('');
+  }
+
+  async function loadCompletedOrders(force = false) {
+    if (ordersLoading || (ordersLoaded && !force)) return;
+    ordersLoading = true;
+    const container = document.getElementById('recent-order-container');
+    if (container) container.innerHTML = '<p class="text-on-surface-variant">Đang tải lịch sử đơn hàng...</p>';
+    try {
+      const orders = await request(`${API}/orders`);
+      const list = Array.isArray(orders) ? orders : [];
+      renderActiveOrders(list.filter((order) => order.status !== 'COMPLETED' && order.status !== 'CANCELLED'));
+      renderRecentOrders(list.filter((order) => order.status === 'COMPLETED'));
+      ordersLoaded = true;
+    } catch (error) {
+      if (container) container.innerHTML = `<p class="text-error">${escapeHtml(error.message)}</p>`;
+    } finally { ordersLoading = false; }
   }
 
   /* ---- 4.6 Render footer branches ---- */
@@ -390,7 +698,8 @@
       return;
     }
     status?.classList.add('hidden');
-    vouchers.forEach((voucher) => {
+    vouchers.forEach((redemption) => {
+      const voucher = redemption.voucher || redemption;
       const card = document.createElement('article');
       card.className = 'border border-surface-container-highest rounded-xl p-space-md flex items-center justify-between gap-space-md';
       const info = document.createElement('div');
@@ -427,16 +736,62 @@
     renderRedeemable(data?.content || []);
   }
 
+  function renderOwnedVouchers(vouchers) {
+    const container = document.getElementById('owned-vouchers-list');
+    const status = document.getElementById('owned-vouchers-status');
+    if (!container) return;
+    container.replaceChildren();
+    if (!vouchers.length) {
+      setMessage(status, 'Tài khoản hiện chưa có voucher.', false);
+      return;
+    }
+    status?.classList.add('hidden');
+    vouchers.forEach((redemption) => {
+      const voucher = redemption?.voucher;
+      if (!voucher) return;
+      const card = document.createElement('article');
+      card.className = 'rounded-xl border border-surface-container-highest p-space-md';
+      const code = document.createElement('strong');
+      code.className = 'block text-primary';
+      code.textContent = voucher.code || voucher.voucherCode || 'Voucher FCA';
+      const description = document.createElement('p');
+      description.className = 'mt-1 font-body-sm text-body-sm text-on-surface-variant';
+      description.textContent = voucher.description || voucher.name || 'Ưu đãi thuộc tài khoản của bạn';
+      card.append(code, description);
+      container.appendChild(card);
+    });
+  }
+
   async function loadOwnedVouchers() {
-    const vouchers = await request(`${API}/vouchers/mine`);
+    const result = await request(`${API}/vouchers/mine`);
+    const redemptions = Array.isArray(result) ? result : result?.content || [];
+    const vouchers = redemptions.filter((redemption) =>
+      redemption?.voucher && String(redemption.voucher.customerStatus || '').toUpperCase() === 'AVAILABLE'
+    );
     const badge = document.getElementById('voucher-badge');
     if (badge) {
       badge.dataset.count = String(vouchers.length);
       badge.textContent = String(vouchers.length);
     }
+    renderOwnedVouchers(vouchers);
+    ownedVouchersLoaded = true;
   }
 
   function setupProfileActions() {
+    const avatarInput = document.getElementById('avatar-input');
+    document.getElementById('change-avatar-btn')?.addEventListener('click', () => avatarInput?.click());
+    avatarInput?.addEventListener('change', () => {
+      const file = avatarInput.files?.[0];
+      if (!file) return;
+      const previewUrl = URL.createObjectURL(file);
+      const image = document.createElement('img');
+      image.className = 'w-full h-full object-cover';
+      image.alt = 'Ảnh đại diện mới đã chọn';
+      image.src = previewUrl;
+      image.addEventListener('load', () => URL.revokeObjectURL(previewUrl), { once: true });
+      document.getElementById('user-avatar')?.replaceChildren(image);
+    });
+    document.getElementById('reload-order-history')?.addEventListener('click', () => loadCompletedOrders(true));
     document.getElementById('cancelProfileBtn')?.addEventListener('click', () => {
       if (currentAccount) renderUserProfile(currentAccount);
     });
@@ -473,13 +828,22 @@
       window.location.href = 'login.html';
       return;
     }
+    setupPersonalPanels();
+    setupReservationHistory();
     setupProfileActions();
     try {
       await loadAccount();
       await Promise.all([loadRedeemable(), loadOwnedVouchers()]);
+      if (sessionStorage.getItem('fca_profile_update_success') === '1') {
+        sessionStorage.removeItem('fca_profile_update_success');
+        setMessage(document.getElementById('saveAlert'), 'Thông tin tài khoản đã được cập nhật thành công trên hệ thống FCA!', false);
+      }
     } catch (error) {
       if (/xác thực|token/i.test(error.message)) window.location.href = 'login.html';
-      else setMessage(document.getElementById('redeem-status'), error.message, true);
+      else {
+        setMessage(document.getElementById('redeem-status'), error.message, true);
+        setMessage(document.getElementById('owned-vouchers-status'), error.message, true);
+      }
     }
   }
 

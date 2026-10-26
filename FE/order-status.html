@@ -1,0 +1,258 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theo dõi đơn hàng | FCA Culinary Arts</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="order-status.css">
+    <link rel="stylesheet" href="site-shell.css">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+</head>
+
+<body class="bg-white font-sans text-slate-600 antialiased">
+<div data-site-header></div>
+
+<main class="page-container pt-28">
+    <div class="breadcrumb">
+        <a href="Home.html">Trang chủ</a>
+        <span>/</span>
+        <a href="order-status.html">Đơn hàng của tôi</a>
+        <span>/</span>
+        <strong>Chi tiết đơn hàng</strong>
+    </div>
+
+    <section class="page-heading">
+        <div>
+            <span class="eyebrow">FCA CULINARY ARTS</span>
+            <h1>Theo dõi đơn hàng</h1>
+            <p>Theo dõi tiến trình xử lý và giao đơn hàng của bạn.</p>
+        </div>
+
+        <button type="button" class="btn btn-outline" id="refreshBtn">
+            <span class="material-symbols-outlined" id="refreshIcon">sync</span>
+            Cập nhật trạng thái
+        </button>
+    </section>
+
+    <div class="notice" id="notice" role="status" hidden></div>
+
+    <section class="panel" id="order-list-panel">
+        <div class="section-heading"><div><span class="eyebrow">MY ORDERS</span><h2>Đơn hàng của tôi</h2></div></div>
+        <div class="order-list" id="orderList"><p class="empty-state">Đang tải danh sách đơn hàng...</p></div>
+    </section>
+
+    <!-- Thông tin đơn hàng -->
+    <section class="panel order-summary">
+        <div class="summary-top">
+            <div>
+                <span class="field-label">MÃ ĐƠN HÀNG</span>
+                <h2 id="orderCode">Đang tải...</h2>
+            </div>
+
+            <span class="status-badge status-waiting" id="currentStatus">
+                Đang tải trạng thái
+            </span>
+        </div>
+
+        <div class="summary-grid">
+            <div>
+                <span class="field-label">Ngày đặt hàng</span>
+                <strong id="orderDate">--</strong>
+            </div>
+            <div><span class="field-label">Quán ăn</span><strong id="restaurantName">--</strong></div>
+            <div>
+                <span class="field-label">Phương thức thanh toán</span>
+                <strong id="paymentMethod">--</strong>
+            </div>
+            <div>
+                <span class="field-label">Trạng thái thanh toán</span>
+                <strong id="paymentStatus">--</strong>
+            </div>
+            <div>
+                <span class="field-label">Tổng thanh toán</span>
+                <strong class="total-price" id="orderTotal">--</strong>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tiến trình đơn hàng -->
+    <section class="panel tracking-panel">
+        <div class="section-heading">
+            <div>
+                <span class="eyebrow">ORDER TRACKING</span>
+                <h2>Tiến trình đơn hàng</h2>
+            </div>
+            <span class="live-indicator">
+                <span></span>
+                Đồng bộ với hệ thống
+            </span>
+        </div>
+
+        <p class="section-description" id="statusDescription">
+            Đang lấy trạng thái đơn hàng từ hệ thống.
+        </p>
+        <div class="order-cancel-action" id="order-cancel-action" hidden>
+            <button type="button" class="btn btn-danger" id="cancel-order-btn">Hủy đơn hàng</button>
+            <span id="cancel-order-hint"></span>
+        </div>
+
+        <div class="tracking-steps" id="trackingSteps">
+            <div class="tracking-step" data-status="PENDING">
+                <div class="step-icon">
+                    <span class="material-symbols-outlined">schedule</span>
+                </div>
+                <div class="step-content">
+                    <h3>Chờ xác nhận</h3>
+                    <p>Đơn hàng đang chờ nhà hàng xác nhận.</p>
+                </div>
+            </div>
+
+            <div class="tracking-step" data-status="AWAITING_PAYMENT"><div class="step-icon"><span class="material-symbols-outlined">payments</span></div><div class="step-content"><h3>Chờ thanh toán</h3><p>Đơn hàng đang chờ xác nhận thanh toán.</p></div></div>
+
+            <div class="tracking-step" data-status="CONFIRMED">
+                <div class="step-icon">
+                    <span class="material-symbols-outlined">verified</span>
+                </div>
+                <div class="step-content">
+                    <h3>Xác nhận</h3>
+                    <p>Nhà hàng đã xác nhận đơn hàng.</p>
+                </div>
+            </div>
+
+            <div class="tracking-step" data-status="PREPARING">
+                <div class="step-icon">
+                    <span class="material-symbols-outlined">skillet</span>
+                </div>
+                <div class="step-content">
+                    <h3>Đang chuẩn bị món</h3>
+                    <p>Nhà bếp đang chuẩn bị món ăn.</p>
+                </div>
+            </div>
+
+            <div class="tracking-step" data-status="READY_FOR_DELIVERY"><div class="step-icon"><span class="material-symbols-outlined">takeout_dining</span></div><div class="step-content"><h3>Chờ giao hàng</h3><p>Đơn hàng đã chuẩn bị xong và đang chờ giao.</p></div></div>
+
+            <div class="tracking-step" data-status="DELIVERING">
+                <div class="step-icon">
+                    <span class="material-symbols-outlined">delivery_dining</span>
+                </div>
+                <div class="step-content">
+                    <h3>Đang giao</h3>
+                    <p>Đơn hàng đang được vận chuyển đến bạn.</p>
+                </div>
+            </div>
+
+            <div class="tracking-step" data-status="ARRIVED">
+                <div class="step-icon">
+                    <span class="material-symbols-outlined">location_on</span>
+                </div>
+                <div class="step-content">
+                    <h3>Đã đến</h3>
+                    <p>Đơn hàng đã đến địa chỉ nhận.</p>
+                </div>
+            </div>
+
+            <div class="tracking-step" data-status="COMPLETED">
+                <div class="step-icon">
+                    <span class="material-symbols-outlined">check_circle</span>
+                </div>
+                <div class="step-content">
+                    <h3>Giao hàng thành công</h3>
+                    <p>Đơn hàng đã được giao thành công.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="tracking-footer">
+            <span class="material-symbols-outlined">info</span>
+            <p id="lastUpdated">Chưa có dữ liệu cập nhật.</p>
+        </div>
+    </section>
+
+    <!-- Danh sách món ăn -->
+    <section class="panel">
+        <div class="section-heading">
+            <div>
+                <span class="eyebrow">YOUR ORDER</span>
+                <h2>Thông tin món ăn</h2>
+            </div>
+            <span class="item-count" id="itemCount">0 món</span>
+        </div>
+
+        <div id="orderItems" class="order-items">
+            <p class="empty-state">Đang tải danh sách món ăn...</p>
+        </div>
+
+        <div class="price-summary">
+            <div>
+                <span>Tạm tính</span>
+                <strong id="subtotal">--</strong>
+            </div>
+            <div>
+                <span>Phí giao hàng</span>
+                <strong id="shippingFee">--</strong>
+            </div>
+            <div>
+                <span>Ưu đãi</span>
+                <strong id="discount">--</strong>
+            </div>
+            <div class="grand-total">
+                <span>Tổng thanh toán</span>
+                <strong id="summaryTotal">--</strong>
+            </div>
+        </div>
+    </section>
+
+    <!-- Thông tin nhận hàng -->
+    <section class="panel">
+        <div class="section-heading">
+            <div>
+                <span class="eyebrow">DELIVERY INFORMATION</span>
+                <h2>Thông tin nhận hàng</h2>
+            </div>
+        </div>
+
+        <div class="customer-grid">
+            <div>
+                <span class="field-label">Người nhận</span>
+                <strong id="customerName">--</strong>
+            </div>
+            <div>
+                <span class="field-label">Số điện thoại</span>
+                <strong id="customerPhone">--</strong>
+            </div>
+            <div class="address-field">
+                <span class="field-label">Địa chỉ nhận hàng</span>
+                <strong id="deliveryAddress">--</strong>
+            </div>
+            <div class="address-field">
+                <span class="field-label">Ghi chú</span>
+                <strong id="orderNote">Không có ghi chú</strong>
+            </div>
+        </div>
+    </section>
+
+    <div class="bottom-actions">
+        <a href="cart.html" class="btn btn-outline">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Quay lại giỏ hàng
+        </a>
+        <a href="Home.html" class="btn btn-primary">
+            <span class="material-symbols-outlined">restaurant_menu</span>
+            Tiếp tục đặt món
+        </a>
+    </div>
+</main>
+
+<div data-site-footer></div>
+<script src="site-shell.js"></script>
+<script src="order-status.js"></script>
+</body>
+</html>

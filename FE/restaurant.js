@@ -1,916 +1,1130 @@
 
 (() => {
-    "use strict";
+  "use strict";
 
-    /* ==========================================
-       1. API CONFIGURATION
+  // =====================================================
+  // CONFIG
+  // =====================================================
 
-       THAY 2 ENDPOINT BẰNG API BACKEND THỰC TẾ.
-       Không sử dụng fake data.
-    ========================================== */
+  const API_BASE_URL = "http://localhost:8080";
+  const CART_STORAGE_KEY = "fca_cart";
 
-    const API_BASE_URL = "http://localhost:8080";
+  const API = {
+    restaurant: id =>
+      `${API_BASE_URL}/api/v1/restaurants/${encodeURIComponent(id)}`,
 
-    const API = {
-        restaurant: (id) =>
-            `${API_BASE_URL}/api/v1/restaurants/${encodeURIComponent(id)}`,
+    menu: id =>
+      `${API_BASE_URL}/api/v1/menu-items/restaurant/${encodeURIComponent(id)}?availableOnly=true`
+  };
 
-        menu: (id) =>
-            `${API_BASE_URL}/api/v1/restaurants/${encodeURIComponent(id)}/menu`
+  const $ = id => document.getElementById(id);
+
+  let currentRestaurant = null;
+  let allDishes = [];
+  let activeCategory = "Tất cả";
+  let searchKeyword = "";
+  let showAvailableOnly = true;
+
+  // =====================================================
+  // CART STORAGE
+  // =====================================================
+
+  function getCart() {
+    try {
+      const data = JSON.parse(
+        localStorage.getItem(CART_STORAGE_KEY) || "[]"
+      );
+
+      if (!Array.isArray(data)) return [];
+
+      return data.filter(item =>
+        item &&
+        item.id != null &&
+        item.restaurantId != null &&
+        Number(item.quantity) > 0
+      );
+    } catch (error) {
+      console.error("Không đọc được giỏ hàng:", error);
+      return [];
+    }
+  }
+
+  function saveCart(items) {
+    try {
+      localStorage.setItem(
+        CART_STORAGE_KEY,
+        JSON.stringify(items)
+      );
+      updateCartBadge(items);
+      return true;
+    } catch (error) {
+      console.error("Không lưu được giỏ hàng:", error);
+      showToast("Không thể lưu giỏ hàng. Hãy kiểm tra trình duyệt.");
+      return false;
+    }
+  }
+
+  function updateCartBadge(items = getCart()) {
+    const badge = $("cart-count-badge");
+    if (!badge) return;
+
+    const count = items.reduce(
+      (sum, item) => sum + (Number(item.quantity) || 0),
+      0
+    );
+
+    badge.textContent = count > 99 ? "99+" : String(count);
+    badge.classList.toggle("hidden", count === 0);
+    badge.classList.toggle("flex", count > 0);
+    badge.dataset.count = String(count);
+  }
+
+  // =====================================================
+  // API HELPERS
+  // =====================================================
+
+  async function fetchJson(url) {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json"
+      }
+    });
+
+    const contentType =
+      response.headers.get("content-type") || "";
+
+    let result;
+
+    if (contentType.includes("application/json")) {
+      result = await response.json();
+    } else {
+      const text = await response.text();
+      result = text ? { message: text } : null;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        result?.message ||
+        result?.error ||
+        `Lỗi HTTP ${response.status} khi gọi API`
+      );
+    }
+
+    if (
+      result &&
+      typeof result === "object" &&
+      Object.prototype.hasOwnProperty.call(result, "data")
+    ) {
+      return result.data;
+    }
+
+    return result;
+  }
+
+  function normalizeText(value) {
+    return String(value ?? "").trim();
+  }
+
+  function getFirstValue(object, keys, fallback = "") {
+    for (const key of keys) {
+      const value = object?.[key];
+
+      if (
+        value !== null &&
+        value !== undefined &&
+        value !== ""
+      ) {
+        return value;
+      }
+    }
+
+    return fallback;
+  }
+
+  function normalizeRestaurant(raw) {
+    if (Array.isArray(raw)) {
+      return raw[0] || null;
+    }
+
+    if (raw && typeof raw === "object") {
+      return raw.restaurant ?? raw;
+    }
+
+    return null;
+  }
+
+  function normalizeMenu(raw) {
+    let items = raw;
+
+    if (!Array.isArray(items)) {
+      if (Array.isArray(items?.content)) {
+        items = items.content;
+      } else if (Array.isArray(items?.items)) {
+        items = items.items;
+      } else if (Array.isArray(items?.menuItems)) {
+        items = items.menuItems;
+      } else if (Array.isArray(items?.dishes)) {
+        items = items.dishes;
+      } else if (Array.isArray(items?.data)) {
+        items = items.data;
+      } else {
+        items = [];
+      }
+    }
+
+    return items.map(item => {
+      const categoryValue = getFirstValue(
+        item,
+        ["categoryName", "category", "menuCategory"],
+        ""
+      );
+
+      return {
+        id: item.id ?? item.menuItemId ?? item.dishId,
+
+        name: normalizeText(
+          getFirstValue(
+            item,
+            ["name", "menuItemName", "dishName"]
+          )
+        ),
+
+        description: normalizeText(
+          getFirstValue(item, ["description", "detail"])
+        ),
+
+        price: Number(item.price ?? item.unitPrice ?? 0),
+
+        image: normalizeText(
+          getFirstValue(item, [
+            "imageUrl",
+            "imageURL",
+            "image",
+            "thumbnail"
+          ])
+        ),
+
+        category:
+          typeof categoryValue === "object"
+            ? normalizeText(categoryValue?.name)
+            : normalizeText(categoryValue),
+
+        available:
+          item.available ??
+          item.isAvailable ??
+          item.active ??
+          true,
+
+        active: item.active ?? true,
+
+        restaurantId:
+          item.restaurantId ??
+          item.restaurant?.id ??
+          item.restaurant?.restaurantId ??
+          null,
+
+        original: item
+      };
+    });
+  }
+
+  // =====================================================
+  // STATUS / TOAST
+  // =====================================================
+
+  function setStatus(message, isError = false) {
+    const element = $("restaurant-status");
+    if (!element) return;
+
+    element.textContent = message;
+
+    element.classList.remove(
+      "hidden",
+      "text-red-600",
+      "text-emerald-700"
+    );
+
+    element.classList.add(
+      isError ? "text-red-600" : "text-emerald-700"
+    );
+  }
+
+  function hideStatus() {
+    const element = $("restaurant-status");
+    if (element) element.classList.add("hidden");
+  }
+
+  function showToast(message) {
+    const toast = $("restaurant-toast");
+
+    if (!toast) {
+      console.info(message);
+      return;
+    }
+
+    toast.textContent = message;
+    toast.classList.add("show");
+
+    window.clearTimeout(showToast.timer);
+
+    showToast.timer = window.setTimeout(() => {
+      toast.classList.remove("show");
+    }, 2800);
+  }
+
+  // =====================================================
+  // GENERAL DOM HELPERS
+  // =====================================================
+
+  function setText(id, value, fallback = "") {
+    const element = $(id);
+    if (!element) return;
+
+    element.textContent =
+      normalizeText(value) || fallback;
+  }
+
+  function setVisible(id, visible, displayClass = "flex") {
+    const element = $(id);
+    if (!element) return;
+
+    element.classList.toggle("hidden", !visible);
+
+    if (visible && displayClass) {
+      element.classList.add(displayClass);
+    } else if (displayClass) {
+      element.classList.remove(displayClass);
+    }
+  }
+
+  function setImageBackground(id, url) {
+    const element = $(id);
+    if (!element) return;
+
+    element.style.backgroundImage = "";
+
+    if (url) {
+      const safeUrl = String(url).replace(/"/g, '\\"');
+
+      element.style.backgroundImage =
+        `linear-gradient(rgba(0,0,0,0.02), rgba(0,0,0,0.02)), url("${safeUrl}")`;
+    }
+  }
+
+  function formatPrice(price) {
+    const value = Number(price);
+
+    if (!Number.isFinite(value)) return "Liên hệ";
+
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0
+    }).format(value);
+  }
+
+  function appendIconText(container, iconName, text) {
+    const wrapper = document.createElement("span");
+    wrapper.className = "inline-flex items-center gap-1";
+
+    const icon = document.createElement("span");
+    icon.className = "material-symbols-outlined text-[18px]";
+    icon.textContent = iconName;
+
+    const label = document.createElement("span");
+    label.textContent = text;
+
+    wrapper.append(icon, label);
+    container.appendChild(wrapper);
+  }
+
+  // =====================================================
+  // RENDER RESTAURANT
+  // =====================================================
+
+  function renderRestaurant(restaurant) {
+    if (!restaurant) {
+      throw new Error("API không trả về thông tin nhà hàng.");
+    }
+
+    currentRestaurant = restaurant;
+
+    const name = getFirstValue(
+      restaurant,
+      ["name", "restaurantName", "title"],
+      "Nhà hàng"
+    );
+
+    const description = getFirstValue(
+      restaurant,
+      ["description", "introduction", "detail"],
+      ""
+    );
+
+    const address = getFirstValue(
+      restaurant,
+      ["address", "fullAddress", "location"],
+      ""
+    );
+
+    const phone = getFirstValue(
+      restaurant,
+      ["phone", "phoneNumber", "hotline"],
+      ""
+    );
+
+    const cuisine = getFirstValue(
+      restaurant,
+      ["cuisineType", "cuisine", "categoryName", "restaurantType"],
+      ""
+    );
+
+    const rating = getFirstValue(
+      restaurant,
+      ["rating", "averageRating", "avgRating"],
+      null
+    );
+
+    const priceRange = getFirstValue(
+      restaurant,
+      ["priceRange", "averagePrice", "priceDescription"],
+      ""
+    );
+
+    const preparationTime = getFirstValue(
+      restaurant,
+      [
+        "preparationTime",
+        "averagePreparationTime",
+        "estimatedPreparationTime"
+      ],
+      null
+    );
+
+    const mainImage = getFirstValue(
+      restaurant,
+      [
+        "imageUrl",
+        "imageURL",
+        "coverImage",
+        "thumbnail",
+        "image"
+      ],
+      ""
+    );
+
+    const sideImage1 = getFirstValue(
+      restaurant,
+      ["imageUrl2", "image2", "galleryImage1"],
+      mainImage
+    );
+
+    const sideImage2 = getFirstValue(
+      restaurant,
+      ["imageUrl3", "image3", "galleryImage2"],
+      mainImage
+    );
+
+    setText("restaurant-name", name);
+    setText("breadcrumb-name", name);
+
+    const breadcrumbRegion = $("breadcrumb-region");
+
+    if (breadcrumbRegion) {
+      breadcrumbRegion.textContent = getFirstValue(
+        restaurant,
+        ["city", "province", "region"],
+        ""
+      );
+    }
+
+    setImageBackground("restaurant-main-image", mainImage);
+    setImageBackground("restaurant-side-image-1", sideImage1);
+    setImageBackground("restaurant-side-image-2", sideImage2);
+
+    const meta = $("restaurant-meta");
+
+    if (meta) {
+      meta.replaceChildren();
+
+      if (rating !== null && rating !== "") {
+        appendIconText(meta, "star", `Đánh giá: ${rating}`);
+      }
+
+      if (cuisine) {
+        appendIconText(meta, "restaurant", String(cuisine));
+      }
+
+      if (priceRange) {
+        appendIconText(meta, "payments", String(priceRange));
+      }
+    }
+
+    setText("restaurant-address", address);
+    setVisible("restaurant-address-row", Boolean(address));
+
+    const phoneLink = $("restaurant-phone");
+
+    if (phoneLink) {
+      phoneLink.textContent = phone || "";
+      phoneLink.href = phone ? `tel:${phone}` : "#";
+    }
+
+    setVisible("restaurant-phone-row", Boolean(phone));
+
+    if (preparationTime !== null && preparationTime !== "") {
+      setText(
+        "restaurant-preparation",
+        typeof preparationTime === "number"
+          ? `${preparationTime} phút`
+          : preparationTime
+      );
+
+      setVisible("restaurant-preparation-row", true);
+    } else {
+      setVisible("restaurant-preparation-row", false);
+    }
+
+    const facilities = $("restaurant-facilities");
+
+    if (facilities) {
+      facilities.replaceChildren();
+
+      if (description) {
+        const descriptionElement = document.createElement("p");
+        descriptionElement.className = "text-sm";
+        descriptionElement.textContent = description;
+        facilities.appendChild(descriptionElement);
+      }
+    }
+
+    const overview = $("restaurant-overview");
+    if (overview) overview.classList.remove("hidden");
+
+    const separator = $("breadcrumb-separator");
+
+    if (separator && breadcrumbRegion?.textContent) {
+      separator.classList.remove("hidden");
+    }
+  }
+
+  // =====================================================
+  // MENU CATEGORIES
+  // =====================================================
+
+  function getCategories() {
+    const categories = [
+      ...new Set(
+        allDishes
+          .map(dish => dish.category)
+          .filter(Boolean)
+      )
+    ];
+
+    return ["Tất cả", ...categories];
+  }
+
+  function renderCategories() {
+    const navigation = $("menu-category-navigation");
+    if (!navigation) return;
+
+    navigation.replaceChildren();
+
+    getCategories().forEach(category => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = category;
+
+      button.className =
+        "px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold transition-colors " +
+        (
+          activeCategory === category
+            ? "bg-primary text-white"
+            : "bg-surface-container-low text-on-surface hover:bg-surface-container"
+        );
+
+      button.addEventListener("click", () => {
+        activeCategory = category;
+        renderCategories();
+        renderMenu();
+      });
+
+      navigation.appendChild(button);
+    });
+  }
+
+  // =====================================================
+  // MENU FILTERING
+  // =====================================================
+
+  function getFilteredDishes() {
+    const keyword = searchKeyword.toLocaleLowerCase("vi");
+
+    return allDishes.filter(dish => {
+      if (
+        showAvailableOnly &&
+        (!dish.available || !dish.active)
+      ) {
+        return false;
+      }
+
+      if (
+        activeCategory !== "Tất cả" &&
+        dish.category !== activeCategory
+      ) {
+        return false;
+      }
+
+      if (!keyword) return true;
+
+      return (
+        dish.name.toLocaleLowerCase("vi").includes(keyword) ||
+        dish.description.toLocaleLowerCase("vi").includes(keyword) ||
+        dish.category.toLocaleLowerCase("vi").includes(keyword)
+      );
+    });
+  }
+
+  // =====================================================
+  // ADD DISH TO CART
+  // =====================================================
+
+  function addToCart(dish, quantityInput) {
+    if (!dish || dish.id == null) {
+      showToast("Không xác định được món ăn.");
+      return;
+    }
+
+    if (!dish.active || !dish.available) {
+      showToast("Món ăn hiện không khả dụng.");
+      return;
+    }
+
+    const quantity = Number(quantityInput?.value);
+
+    if (
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > 100
+    ) {
+      showToast("Vui lòng nhập số lượng từ 1 đến 100.");
+      quantityInput?.focus();
+      return;
+    }
+
+    const restaurantId =
+      currentRestaurant?.id ??
+      currentRestaurant?.restaurantId ??
+      dish.restaurantId;
+
+    if (restaurantId == null) {
+      showToast("Không xác định được ID nhà hàng.");
+      return;
+    }
+
+    let items = getCart();
+
+    // Không trộn món từ hai nhà hàng.
+    if (
+      items.length > 0 &&
+      items.some(
+        item => String(item.restaurantId) !== String(restaurantId)
+      )
+    ) {
+      const confirmed = window.confirm(
+        "Giỏ hàng đang có món của nhà hàng khác.\n\n" +
+        "Bạn có muốn xóa giỏ cũ và thêm món của nhà hàng này không?"
+      );
+
+      if (!confirmed) return;
+
+      items = [];
+    }
+
+    const existing = items.find(
+      item =>
+        String(item.id) === String(dish.id) &&
+        String(item.restaurantId) === String(restaurantId)
+    );
+
+    if (existing) {
+      if (Number(existing.quantity) + quantity > 100) {
+        showToast("Mỗi món chỉ được thêm tối đa 100 phần.");
+        return;
+      }
+
+      existing.quantity = Number(existing.quantity) + quantity;
+    } else {
+      items.push({
+        id: dish.id,
+        restaurantId,
+        restaurantName: getFirstValue(
+          currentRestaurant,
+          ["name", "restaurantName", "title"],
+          "Nhà hàng"
+        ),
+        name: dish.name,
+        price: Number(dish.price) || 0,
+        image: dish.image,
+        quantity
+      });
+    }
+
+    if (!saveCart(items)) return;
+
+    // Reset số lượng về 0 sau khi thêm thành công.
+    if (quantityInput) {
+      quantityInput.value = "0";
+    }
+
+    showToast(
+      `Đã thêm ${quantity} phần "${dish.name}" vào giỏ hàng.`
+    );
+  }
+
+  // =====================================================
+  // CREATE DISH CARD
+  // =====================================================
+
+  function createDishCard(dish) {
+    const card = document.createElement("article");
+
+card.className =
+  "w-full sm:w-fit sm:max-w-full bg-white border border-slate-200 " +
+  "rounded-xl overflow-hidden shadow-sm flex flex-col sm:flex-row " +
+  "gap-4 p-4";
+    // Dish image
+    const imageContainer = document.createElement("div");
+
+    imageContainer.className =
+      "w-full sm:w-40 h-40 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100";
+
+    function showImagePlaceholder() {
+      imageContainer.replaceChildren();
+
+      const placeholder = document.createElement("div");
+      placeholder.className =
+        "w-full h-full flex flex-col items-center justify-center text-slate-400";
+
+      const icon = document.createElement("span");
+      icon.className = "material-symbols-outlined text-4xl";
+      icon.textContent = "restaurant";
+
+      const text = document.createElement("span");
+      text.className = "text-xs";
+      text.textContent = "Chưa có ảnh";
+
+      placeholder.append(icon, text);
+      imageContainer.appendChild(placeholder);
+    }
+
+    if (dish.image) {
+      const image = document.createElement("img");
+
+      image.src = dish.image;
+      image.alt = dish.name;
+      image.loading = "lazy";
+      image.className = "w-full h-full object-cover";
+
+      image.onerror = showImagePlaceholder;
+
+      imageContainer.appendChild(image);
+    } else {
+      showImagePlaceholder();
+    }
+
+    // Dish content
+    const content = document.createElement("div");
+    content.className = "flex-1 min-w-0 flex flex-col";
+
+    const title = document.createElement("h3");
+    title.className = "text-lg font-semibold text-slate-900";
+    title.textContent = dish.name || "Chưa có tên món";
+
+    const description = document.createElement("p");
+    description.className = "mt-1 text-sm text-slate-600";
+    description.textContent =
+      dish.description || "Chưa có mô tả món ăn.";
+
+    const bottom = document.createElement("div");
+
+    bottom.className =
+      "mt-auto pt-4 flex items-center justify-start gap-6 flex-wrap";
+
+    const price = document.createElement("span");
+    price.className = "text-base font-bold text-emerald-700";
+    price.textContent = formatPrice(dish.price);
+
+    const status = document.createElement("span");
+
+    status.className =
+      "text-xs font-semibold px-3 py-1 rounded-full " +
+      (
+        dish.available && dish.active
+          ? "bg-emerald-50 text-emerald-700"
+          : "bg-slate-100 text-slate-500"
+      );
+
+    status.textContent =
+      dish.available && dish.active
+        ? "Đang phục vụ"
+        : "Tạm hết";
+
+    bottom.append(price, status);
+
+// Quantity input - compact
+    const quantityLabel = document.createElement("label");
+
+    quantityLabel.className =
+    "menu-item-quantity flex flex-col gap-1 text-xs font-medium text-slate-600";
+
+    quantityLabel.textContent = "Số lượng";
+
+    const quantityInput = document.createElement("input");
+
+    quantityInput.type = "number";
+    quantityInput.min = "0";
+    quantityInput.max = "100";
+    quantityInput.step = "1";
+    quantityInput.value = "0";
+    quantityInput.inputMode = "numeric";
+
+    quantityInput.setAttribute(
+    "aria-label",
+    `Số lượng ${dish.name}`
+    );
+
+    quantityInput.className =
+    "w-16 h-9 px-2 rounded-lg border border-slate-300 " +
+    "bg-white text-slate-900 text-sm " +
+    "focus:outline-none focus:ring-2 focus:ring-emerald-500";
+
+    quantityInput.disabled = !dish.active || !dish.available;
+
+    quantityLabel.appendChild(quantityInput);
+
+    // Add to cart - compact layout
+    const addButton = document.createElement("button");
+
+    addButton.type = "button";
+    addButton.className =
+    "h-9 px-3 rounded-lg bg-primary text-white " +
+    "font-semibold text-xs whitespace-nowrap " +
+    "hover:opacity-90 transition-opacity " +
+    "disabled:opacity-50 disabled:cursor-not-allowed";
+
+    addButton.textContent = "Thêm vào giỏ";
+    addButton.disabled = !dish.active || !dish.available;
+
+    addButton.addEventListener("click", () => {
+    addToCart(dish, quantityInput);
+    });
+
+    // Quantity + button on the same row
+    const actions = document.createElement("div");
+    actions.className =
+    "menu-item-actions flex items-end gap-2 mt-3";
+
+    actions.append(quantityLabel, addButton);
+
+    content.append(
+    title,
+    description,
+    bottom,
+    actions
+    );
+
+    card.append(imageContainer, content);
+
+    return card;
+  }
+
+  // =====================================================
+  // RENDER MENU
+  // =====================================================
+
+  function renderMenu() {
+    const container = $("menu-items-container");
+    if (!container) return;
+
+    container.replaceChildren();
+
+    const dishes = getFilteredDishes();
+
+    if (dishes.length === 0) {
+      const empty = document.createElement("div");
+
+      empty.className =
+        "p-8 text-center bg-white border border-slate-200 rounded-xl";
+
+      const heading = document.createElement("h3");
+
+      heading.className = "font-semibold text-slate-800";
+
+      heading.textContent = allDishes.length
+        ? "Không tìm thấy món phù hợp"
+        : "Nhà hàng chưa có món ăn khả dụng";
+
+      const description = document.createElement("p");
+
+      description.className = "text-sm text-slate-500 mt-2";
+
+      description.textContent = allDishes.length
+        ? "Hãy thử từ khóa hoặc danh mục khác."
+        : "Danh sách món ăn hiện chưa có dữ liệu để hiển thị.";
+
+      empty.append(heading, description);
+      container.appendChild(empty);
+      return;
+    }
+
+    const groups = new Map();
+
+    dishes.forEach(dish => {
+      const category = dish.category || "Món ăn";
+
+      if (!groups.has(category)) {
+        groups.set(category, []);
+      }
+
+      groups.get(category).push(dish);
+    });
+
+    groups.forEach((items, category) => {
+      const section = document.createElement("section");
+      section.className = "flex flex-col gap-4";
+
+      const heading = document.createElement("h2");
+      heading.className = "text-xl font-bold text-slate-900";
+      heading.textContent = category;
+
+      const cards = document.createElement("div");
+      cards.className = "grid grid-cols-1 xl:grid-cols-2 gap-4";
+
+      items.forEach(dish => {
+        cards.appendChild(createDishCard(dish));
+      });
+
+      section.append(heading, cards);
+      container.appendChild(section);
+    });
+  }
+
+  // =====================================================
+  // FILTER CHIPS
+  // =====================================================
+
+  function renderFilterChips() {
+    const chips = $("menu-filter-chips");
+    if (!chips) return;
+
+    chips.replaceChildren();
+
+    const label = document.createElement("span");
+
+    label.className =
+      "font-label-caps text-label-caps text-on-surface-variant mr-1";
+
+    label.textContent = "Bộ lọc nhanh:";
+
+    const button = document.createElement("button");
+
+    button.type = "button";
+
+    button.className =
+      "px-3 py-1 rounded-full text-sm border border-slate-200 " +
+      "hover:bg-slate-100";
+
+    button.textContent = showAvailableOnly
+      ? "Chỉ món đang phục vụ ✓"
+      : "Hiện tất cả món";
+
+    button.addEventListener("click", () => {
+      showAvailableOnly = !showAvailableOnly;
+      renderFilterChips();
+      renderMenu();
+    });
+
+    chips.append(label, button);
+    chips.classList.remove("hidden");
+  }
+
+  function renderMenuPage() {
+    renderCategories();
+    renderFilterChips();
+    renderMenu();
+
+    const toolbar = $("menu-toolbar");
+    const section = $("menu-section");
+
+    if (toolbar) toolbar.classList.remove("hidden");
+    if (section) section.classList.remove("hidden");
+  }
+
+  // =====================================================
+  // EVENTS
+  // =====================================================
+
+  function bindEvents() {
+    // Menu search
+    const searchInput = $("menu-search");
+
+    if (searchInput) {
+      searchInput.addEventListener("input", event => {
+        searchKeyword = event.target.value.trim();
+        renderMenu();
+      });
+    }
+
+    // Menu filter
+    const filterButton = $("menu-filter-button");
+
+    if (filterButton) {
+      filterButton.addEventListener("click", () => {
+        showAvailableOnly = !showAvailableOnly;
+
+        renderFilterChips();
+        renderMenu();
+
+        showToast(
+          showAvailableOnly
+            ? "Đang chỉ hiển thị món đang phục vụ."
+            : "Đang hiển thị tất cả món."
+        );
+      });
+    }
+
+    // Cart button in the header
+    const cartButton = $("cart-button");
+
+    if (cartButton) {
+      cartButton.addEventListener("click", event => {
+        event.preventDefault();
+        window.location.href = "cart.html";
+      });
+    }
+
+    // Booking button
+    const bookingButton = $("book-table-button");
+
+    if (bookingButton) {
+      bookingButton.addEventListener("click", () => {
+        const restaurantId = getRestaurantIdFromUrl();
+
+        if (!restaurantId) {
+          showToast("Không xác định được nhà hàng để đặt bàn.");
+          return;
+        }
+
+        window.location.href =
+          "table-reservation.html?restaurantId=" +
+          encodeURIComponent(restaurantId);
+      });
+    }
+  }
+
+  // =====================================================
+  // LOAD RESTAURANT
+  // =====================================================
+
+  function getRestaurantIdFromUrl() {
+    const params = new URLSearchParams(
+      window.location.search
+    );
+
+    return (
+      params.get("restaurantId") ||
+      params.get("id") ||
+      params.get("restaurant_id")
+    );
+  }
+
+  async function loadRestaurantDetail(restaurantId) {
+    if (!restaurantId) {
+      throw new Error(
+        "Không tìm thấy ID nhà hàng trên URL. " +
+        "Hãy mở trang bằng ?id=1 hoặc ?restaurantId=1."
+      );
+    }
+
+    const [restaurantRaw, menuRaw] = await Promise.all([
+      fetchJson(API.restaurant(restaurantId)),
+      fetchJson(API.menu(restaurantId))
+    ]);
+
+    const restaurant = normalizeRestaurant(restaurantRaw);
+
+    if (!restaurant) {
+      throw new Error(
+        "API không trả về dữ liệu nhà hàng hợp lệ."
+      );
+    }
+
+    allDishes = normalizeMenu(menuRaw);
+
+    renderRestaurant(restaurant);
+    renderMenuPage();
+    hideStatus();
+
+    updateCartBadge();
+
+    console.log("Thông tin nhà hàng:", restaurant);
+    console.log("Danh sách món ăn:", allDishes);
+
+    return {
+      restaurant,
+      dishes: allDishes
     };
+  }
 
-    const params = new URLSearchParams(window.location.search);
-    const restaurantId = params.get("id");
+  // =====================================================
+  // INITIALIZE
+  // =====================================================
 
-    let currentRestaurant = null;
-    let allDishes = [];
-    let currentCategory = "all";
-    let currentSearch = "";
-    let toastTimeout = null;
+  async function init() {
+    bindEvents();
+    updateCartBadge();
 
-    /* ==========================================
-       2. DOM HELPERS
-    ========================================== */
+    const restaurantId = getRestaurantIdFromUrl();
 
-    const $ = (selector) => document.querySelector(selector);
+    try {
+      setStatus("Đang tải thông tin nhà hàng...");
 
-    function setText(selector, value) {
-        const element = $(selector);
+      await loadRestaurantDetail(restaurantId);
+    } catch (error) {
+      console.error("Lỗi tải trang nhà hàng:", error);
 
-        if (!element) return;
+      setStatus(
+        `Không thể tải thông tin nhà hàng. ${error.message}`,
+        true
+      );
 
-        element.textContent = value ?? "";
-    }
+      const toolbar = $("menu-toolbar");
+      if (toolbar) toolbar.classList.remove("hidden");
 
-    function escapeHtml(value) {
-        return String(value ?? "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#39;");
-    }
+      const section = $("menu-section");
 
-    function unwrapResponse(response) {
-        if (response && typeof response === "object" && "data" in response) {
-            return response.data;
+      if (section) {
+        section.classList.remove("hidden");
+
+        const container = $("menu-items-container");
+
+        if (container) {
+          container.replaceChildren();
+
+          const message = document.createElement("p");
+
+          message.className =
+            "p-6 bg-white border border-red-200 rounded-xl text-red-600";
+
+          message.textContent = error.message;
+
+          container.appendChild(message);
         }
-
-        return response;
+      }
     }
+  }
 
-    function showStatus(message, isError = false) {
-        const status = $("#restaurant-status");
-
-        if (!status) return;
-
-        status.textContent = message;
-        status.classList.remove("hidden");
-        status.classList.toggle("restaurant-error", isError);
-    }
-
-    function hideStatus() {
-        $("#restaurant-status")?.classList.add("hidden");
-    }
-
-    function showToast(message) {
-        const toast = $("#restaurant-toast");
-
-        if (!toast) return;
-
-        clearTimeout(toastTimeout);
-
-        toast.textContent = message;
-        toast.classList.add("show");
-
-        toastTimeout = setTimeout(() => {
-            toast.classList.remove("show");
-        }, 3000);
-    }
-
-    function setVisible(selector, visible, displayClass = "flex") {
-        const element = $(selector);
-
-        if (!element) return;
-
-        element.classList.toggle("hidden", !visible);
-
-        if (visible) {
-            element.classList.add(displayClass);
-        } else {
-            element.classList.remove(displayClass);
-        }
-    }
-
-    function setImage(selector, imageUrl) {
-        const element = $(selector);
-
-        if (!element) return;
-
-        element.style.backgroundImage = "";
-
-        if (typeof imageUrl === "string" && imageUrl.trim()) {
-            const url = resolveImageUrl(imageUrl);
-
-            if (url) {
-                // Avoid interpolating untrusted values into CSS.
-                const image = new Image();
-
-                image.onload = () => {
-                    element.style.backgroundImage = `url("${url.replace(/"/g, "%22")}")`;
-                };
-
-                image.src = url;
-            }
-        }
-    }
-
-    function resolveImageUrl(value) {
-        if (!value || typeof value !== "string") return "";
-
-        try {
-            const url = new URL(value, API_BASE_URL);
-
-            if (!["http:", "https:"].includes(url.protocol)) {
-                return "";
-            }
-
-            return url.href;
-        } catch {
-            return "";
-        }
-    }
-
-    function formatPrice(price) {
-        if (price === null || price === undefined || price === "") {
-            return "";
-        }
-
-        const number = Number(price);
-
-        if (!Number.isFinite(number)) return "";
-
-        return `${number.toLocaleString("vi-VN")}đ`;
-    }
-
-    /* ==========================================
-       3. FETCH API
-    ========================================== */
-
-    async function fetchJson(url) {
-        const response = await fetch(url, {
-            method: "GET",
-            headers: {
-                Accept: "application/json"
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        return unwrapResponse(await response.json());
-    }
-
-    /* ==========================================
-       4. NORMALIZE RESTAURANT DATA
-    ========================================== */
-
-    function normalizeRestaurant(raw) {
-        if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-            throw new Error("Dữ liệu nhà hàng không hợp lệ.");
-        }
-
-        return {
-            id: raw.id ?? raw.restaurantId,
-            name: raw.name ?? raw.restaurantName ?? "",
-            address: raw.address ?? "",
-            phone: raw.phone ?? raw.phoneNumber ?? "",
-            region: raw.regionName ?? raw.city ?? "",
-            rating: raw.rating ?? raw.averageRating ?? null,
-            reviewCount: raw.reviewCount ?? null,
-            cuisine: raw.cuisine ?? raw.categoryName ?? "",
-            priceRange: raw.priceRange ?? "",
-            openingHours: raw.openingHours ?? "",
-            isOpen: raw.isOpen ?? null,
-            preparationTime: raw.preparationTime ?? "",
-            imageUrl: raw.imageUrl ?? raw.image ?? "",
-            images: Array.isArray(raw.images) ? raw.images : [],
-            facilities: Array.isArray(raw.facilities)
-                ? raw.facilities
-                : [],
-            certifications: Array.isArray(raw.certifications)
-                ? raw.certifications
-                : []
-        };
-    }
-
-    /* ==========================================
-       5. RENDER RESTAURANT OVERVIEW
-    ========================================== */
-
-    function renderRestaurant(restaurant) {
-        currentRestaurant = restaurant;
-
-        setText("#restaurant-name", restaurant.name);
-        setText("#breadcrumb-name", restaurant.name);
-        setText("#breadcrumb-region", restaurant.region);
-
-        setVisible(
-            "#breadcrumb-separator",
-            Boolean(restaurant.region),
-            "inline"
-        );
-
-        document.title = restaurant.name
-            ? `${restaurant.name} - FCA Culinary Arts`
-            : "FCA Culinary Arts";
-
-        renderGallery(restaurant);
-        renderBadges(restaurant);
-        renderMeta(restaurant);
-        renderContact(restaurant);
-        renderFacilities(restaurant);
-
-        $("#restaurant-overview")?.classList.remove("hidden");
-
-        hideStatus();
-    }
-
-    /* ==========================================
-       6. GALLERY - ORIGINAL 8/4 LAYOUT
-    ========================================== */
-
-    function getGalleryImages(restaurant) {
-        const images = [];
-
-        if (restaurant.imageUrl) {
-            images.push({
-                url: restaurant.imageUrl,
-                label: ""
-            });
-        }
-
-        restaurant.images.forEach((item) => {
-            const url = typeof item === "string"
-                ? item
-                : item.url ?? item.imageUrl ?? "";
-
-            const label = typeof item === "string"
-                ? ""
-                : item.label ?? "";
-
-            if (url && !images.some((image) => image.url === url)) {
-                images.push({ url, label });
-            }
-        });
-
-        return images;
-    }
-
-    function renderGallery(restaurant) {
-        const images = getGalleryImages(restaurant);
-
-        setImage("#restaurant-main-image", images[0]?.url);
-        setImage("#restaurant-side-image-1", images[1]?.url);
-        setImage("#restaurant-side-image-2", images[2]?.url);
-
-        [1, 2].forEach((index) => {
-            const label = images[index]?.label ?? "";
-
-            setText(`#restaurant-side-label-${index}`, label);
-
-            $(`#restaurant-side-label-${index}`)
-                ?.classList.toggle("hidden", !label);
-        });
-    }
-
-    /* ==========================================
-       7. STATUS AND CERTIFICATIONS
-    ========================================== */
-
-    function renderBadges(restaurant) {
-        const container = $("#restaurant-badges");
-
-        if (!container) return;
-
-        const badges = [];
-
-        if (restaurant.isOpen !== null) {
-            badges.push(`
-                <span class="px-space-sm py-space-xs rounded-full bg-primary text-on-primary font-label-caps text-label-caps flex items-center gap-1">
-                    ${restaurant.isOpen ? "Đang mở cửa" : "Đã đóng cửa"}
-                    ${restaurant.openingHours
-                        ? `: ${escapeHtml(restaurant.openingHours)}`
-                        : ""}
-                </span>
-            `);
-        }
-
-        restaurant.certifications.forEach((item) => {
-            const name = typeof item === "string"
-                ? item
-                : item.name ?? "";
-
-            if (!name) return;
-
-            badges.push(`
-                <span class="px-space-sm py-space-xs rounded-full bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-caps text-label-caps flex items-center gap-1">
-                    <span class="material-symbols-outlined text-primary text-[14px]">
-                        verified
-                    </span>
-                    ${escapeHtml(name)}
-                </span>
-            `);
-        });
-
-        container.innerHTML = badges.join("");
-    }
-
-    /* ==========================================
-       8. RESTAURANT META
-    ========================================== */
-
-    function renderMeta(restaurant) {
-        const container = $("#restaurant-meta");
-
-        if (!container) return;
-
-        const items = [];
-
-        if (restaurant.rating !== null) {
-            const rating = Number(restaurant.rating);
-
-            if (Number.isFinite(rating)) {
-                items.push(`
-                    <div class="flex items-center gap-1 text-on-surface font-semibold">
-                        <span class="material-symbols-outlined text-primary text-[18px]">
-                            star
-                        </span>
-                        <span>${rating.toFixed(1)}</span>
-                        ${restaurant.reviewCount !== null
-                            ? `<span class="text-on-surface-variant font-normal">
-                                (${escapeHtml(restaurant.reviewCount)} đánh giá)
-                               </span>`
-                            : ""}
-                    </div>
-                `);
-            }
-        }
-
-        if (restaurant.cuisine) {
-            items.push(`
-                <div class="flex items-center gap-1">
-                    <span class="material-symbols-outlined text-primary text-[18px]">
-                        restaurant
-                    </span>
-                    <span>${escapeHtml(restaurant.cuisine)}</span>
-                </div>
-            `);
-        }
-
-        if (restaurant.priceRange) {
-            items.push(`
-                <div class="flex items-center gap-1">
-                    <span class="material-symbols-outlined text-primary text-[18px]">
-                        payments
-                    </span>
-                    <span>${escapeHtml(restaurant.priceRange)}</span>
-                </div>
-            `);
-        }
-
-        container.innerHTML = items.join(`
-            <span class="text-outline-variant">•</span>
-        `);
-    }
-
-    /* ==========================================
-       9. CONTACT
-    ========================================== */
-
-    function renderContact(restaurant) {
-        setText("#restaurant-address", restaurant.address);
-
-        setVisible(
-            "#restaurant-address-row",
-            Boolean(restaurant.address)
-        );
-
-        if (restaurant.phone) {
-            const phone = $("#restaurant-phone");
-
-            phone.textContent = restaurant.phone;
-
-            phone.href = `tel:${String(restaurant.phone).replace(/[^\d+]/g, "")}`;
-        }
-
-        setVisible(
-            "#restaurant-phone-row",
-            Boolean(restaurant.phone)
-        );
-
-        setText(
-            "#restaurant-preparation",
-            restaurant.preparationTime
-        );
-
-        setVisible(
-            "#restaurant-preparation-row",
-            Boolean(restaurant.preparationTime)
-        );
-    }
-
-    /* ==========================================
-       10. FACILITIES
-    ========================================== */
-
-    function renderFacilities(restaurant) {
-        const container = $("#restaurant-facilities");
-
-        if (!container) return;
-
-        container.innerHTML = restaurant.facilities.map((item) => {
-            const name = typeof item === "string"
-                ? item
-                : item.name ?? "";
-
-            const icon = typeof item === "string"
-                ? "check_circle"
-                : item.icon ?? "check_circle";
-
-            if (!name) return "";
-
-            return `
-                <div class="flex items-center gap-1.5 px-space-sm py-1 rounded bg-surface-container-low text-on-surface font-label-md text-label-md">
-                    <span class="material-symbols-outlined text-primary text-[16px]">
-                        ${escapeHtml(icon)}
-                    </span>
-                    ${escapeHtml(name)}
-                </div>
-            `;
-        }).join("");
-    }
-
-    /* ==========================================
-       11. NORMALIZE MENU DATA
-    ========================================== */
-
-    function normalizeMenu(raw) {
-        let items = [];
-
-        if (Array.isArray(raw)) {
-            items = raw;
-        } else if (Array.isArray(raw?.content)) {
-            items = raw.content;
-        } else if (Array.isArray(raw?.items)) {
-            items = raw.items;
-        } else if (Array.isArray(raw?.dishes)) {
-            items = raw.dishes;
-        } else if (Array.isArray(raw?.categories)) {
-            items = raw.categories.flatMap((category) => {
-                const dishes = category.dishes ?? category.items ?? [];
-
-                return dishes.map((dish) => ({
-                    ...dish,
-                    categoryId: category.id,
-                    categoryName: category.name
-                }));
-            });
-        }
-
-        return items.map((item) => ({
-            id: item.id ?? item.dishId ?? item.menuItemId,
-            name: item.name ?? item.dishName ?? "",
-            description: item.description ?? "",
-            price: item.price ?? null,
-            originalPrice: item.originalPrice ?? null,
-            imageUrl: item.imageUrl ?? item.image ?? "",
-            categoryId: item.categoryId ?? item.category?.id ?? "",
-            categoryName:
-                item.categoryName ??
-                item.category?.name ??
-                "",
-            available: item.available ?? item.isAvailable ?? true,
-            badge: item.badge ?? "",
-            preparationTime: item.preparationTime ?? ""
-        })).filter((dish) => dish.id != null && dish.name);
-    }
-
-    /* ==========================================
-       12. CATEGORY NAVIGATION
-    ========================================== */
-
-    function getCategories(dishes) {
-        const categories = new Map();
-
-        dishes.forEach((dish) => {
-            const key = String(dish.categoryId || dish.categoryName || "other");
-
-            if (!categories.has(key)) {
-                categories.set(key, {
-                    id: key,
-                    name: dish.categoryName || "Danh mục khác"
-                });
-            }
-        });
-
-        return [...categories.values()];
-    }
-
-    function renderCategoryNavigation(dishes) {
-        const container = $("#menu-category-navigation");
-
-        if (!container) return;
-
-        const categories = getCategories(dishes);
-
-        container.innerHTML = categories.map((category, index) => `
-            <button
-                type="button"
-                class="menu-category-button px-space-md py-space-xs rounded-full ${index === 0
-                    ? "bg-primary text-on-primary shadow-sm"
-                    : "bg-surface-container-low text-on-surface hover:bg-surface-container"} font-label-md text-label-md whitespace-nowrap transition-colors"
-                data-category="${escapeHtml(category.id)}"
-            >
-                ${escapeHtml(category.name)}
-            </button>
-        `).join("");
-
-        container.querySelectorAll(".menu-category-button").forEach((button) => {
-            button.addEventListener("click", () => {
-                const categoryId = button.dataset.category;
-
-                const section = document.getElementById(
-                    `category-${CSS.escape(categoryId)}`
-                );
-
-                section?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start"
-                });
-
-                container.querySelectorAll(".menu-category-button").forEach((tab) => {
-                    tab.classList.remove(
-                        "bg-primary",
-                        "text-on-primary",
-                        "shadow-sm"
-                    );
-
-                    tab.classList.add(
-                        "bg-surface-container-low",
-                        "text-on-surface"
-                    );
-                });
-
-                button.classList.remove(
-                    "bg-surface-container-low",
-                    "text-on-surface"
-                );
-
-                button.classList.add(
-                    "bg-primary",
-                    "text-on-primary",
-                    "shadow-sm"
-                );
-            });
-        });
-    }
-
-    /* ==========================================
-       13. DISH CARD
-
-       Preserve original card styling.
-    ========================================== */
-
-    function renderDishCard(dish) {
-        const imageUrl = resolveImageUrl(dish.imageUrl);
-
-        return `
-            <article
-                class="flex flex-col bg-surface-container-lowest rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group"
-                data-dish-id="${escapeHtml(dish.id)}"
-            >
-
-                <div class="relative h-48 w-full overflow-hidden bg-surface-container-low">
-
-                    ${imageUrl
-                        ? `<img
-                            class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            src="${escapeHtml(imageUrl)}"
-                            alt="${escapeHtml(dish.name)}"
-                            loading="lazy"
-                           >`
-                        : ""}
-
-                    ${dish.badge
-                        ? `<span class="absolute top-3 left-3 px-space-xs py-0.5 rounded-full bg-primary text-on-primary font-label-caps text-label-caps font-bold shadow-sm">
-                            ${escapeHtml(dish.badge)}
-                           </span>`
-                        : ""}
-
-                    ${dish.preparationTime
-                        ? `<span class="absolute bottom-3 right-3 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-white font-label-caps text-label-caps">
-                            ${escapeHtml(dish.preparationTime)}
-                           </span>`
-                        : ""}
-
-                </div>
-
-                <div class="p-space-md flex flex-col flex-1 justify-between gap-space-sm">
-
-                    <div>
-
-                        <div class="flex items-start justify-between gap-2 mb-1">
-
-                            <h3 class="font-title-md text-title-md text-on-surface group-hover:text-primary transition-colors">
-                                ${escapeHtml(dish.name)}
-                            </h3>
-
-                        </div>
-
-                        ${dish.description
-                            ? `<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
-                                ${escapeHtml(dish.description)}
-                               </p>`
-                            : ""}
-
-                    </div>
-
-                    <div class="flex items-center justify-between pt-space-xs mt-auto">
-
-                        <div class="flex flex-col">
-
-                            <span class="font-title-lg text-title-lg text-on-surface font-bold text-primary">
-                                ${formatPrice(dish.price)}
-                            </span>
-
-                            ${dish.originalPrice !== null
-                                ? `<span class="font-body-sm text-body-sm text-on-surface-variant line-through text-[11px]">
-                                    ${formatPrice(dish.originalPrice)}
-                                   </span>`
-                                : ""}
-
-                        </div>
-
-                        <button
-                            type="button"
-                            class="add-to-cart-button h-9 px-space-md rounded-lg bg-primary hover:bg-secondary text-on-primary font-label-md text-label-md shadow-sm flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                            data-dish-id="${escapeHtml(dish.id)}"
-                            ${dish.available ? "" : "disabled"}
-                        >
-
-                            <span class="material-symbols-outlined text-[18px]">
-                                add
-                            </span>
-
-                            <span>
-                                ${dish.available ? "Thêm" : "Hết món"}
-                            </span>
-
-                        </button>
-
-                    </div>
-
-                </div>
-
-            </article>
-        `;
-    }
-
-    /* ==========================================
-       14. RENDER MENU
-    ========================================== */
-
-    function renderMenu(dishes) {
-        const container = $("#menu-items-container");
-
-        if (!container) return;
-
-        const filtered = dishes.filter((dish) => {
-            const text = `${dish.name} ${dish.description}`.toLowerCase();
-
-            return text.includes(currentSearch);
-        });
-
-        if (filtered.length === 0) {
-            container.innerHTML = `
-                <div class="restaurant-empty">
-                    Không tìm thấy món ăn phù hợp.
-                </div>
-            `;
-
-            return;
-        }
-
-        const categories = getCategories(filtered);
-
-        container.innerHTML = categories.map((category) => {
-            const categoryDishes = filtered.filter((dish) => {
-                const key = String(
-                    dish.categoryId || dish.categoryName || "other"
-                );
-
-                return key === category.id;
-            });
-
-            return `
-                <div
-                    class="flex flex-col gap-space-md scroll-mt-36"
-                    id="category-${escapeHtml(category.id)}"
-                >
-
-                    <div class="flex items-center justify-between pb-space-xs">
-
-                        <div class="flex items-center gap-space-xs">
-
-                            <span class="w-2.5 h-6 rounded-full bg-primary"></span>
-
-                            <h2 class="font-headline-sm text-headline-sm text-on-surface">
-                                ${escapeHtml(category.name)}
-                            </h2>
-
-                        </div>
-
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md lg:grid-cols-3 2xl:grid-cols-4">
-
-                        ${categoryDishes.map(renderDishCard).join("")}
-
-                    </div>
-
-                </div>
-            `;
-        }).join("");
-    }
-
-    /* ==========================================
-       15. LOAD RESTAURANT
-    ========================================== */
-
-    async function loadRestaurant() {
-        if (!restaurantId) {
-            showStatus(
-                "Thiếu mã nhà hàng. Vui lòng chọn nhà hàng từ trang chủ.",
-                true
-            );
-            return;
-        }
-
-        showStatus("Đang tải thông tin nhà hàng...");
-
-        try {
-            const raw = await fetchJson(API.restaurant(restaurantId));
-
-            const restaurant = normalizeRestaurant(raw);
-
-            renderRestaurant(restaurant);
-        } catch (error) {
-            console.error("[FCA] Restaurant API error:", error);
-
-            showStatus(
-                "Không thể tải thông tin nhà hàng. Vui lòng thử lại.",
-                true
-            );
-        }
-    }
-
-    /* ==========================================
-       16. LOAD MENU
-    ========================================== */
-
-    async function loadMenu() {
-        if (!restaurantId) return;
-
-        try {
-            const raw = await fetchJson(API.menu(restaurantId));
-
-            allDishes = normalizeMenu(raw);
-
-            if (allDishes.length === 0) {
-                $("#menu-toolbar")?.classList.add("hidden");
-                $("#menu-section")?.classList.remove("hidden");
-
-                $("#menu-items-container").innerHTML = `
-                    <div class="restaurant-empty">
-                        Nhà hàng hiện chưa có món ăn.
-                    </div>
-                `;
-
-                return;
-            }
-
-            $("#menu-toolbar")?.classList.remove("hidden");
-            $("#menu-section")?.classList.remove("hidden");
-
-            renderCategoryNavigation(allDishes);
-            renderMenu(allDishes);
-
-        } catch (error) {
-            console.error("[FCA] Menu API error:", error);
-
-            $("#menu-section")?.classList.remove("hidden");
-
-            $("#menu-items-container").innerHTML = `
-                <div class="restaurant-empty restaurant-error">
-                    Không thể tải thực đơn từ hệ thống.
-                </div>
-            `;
-        }
-    }
-
-    /* ==========================================
-       17. SEARCH
-    ========================================== */
-
-    function setupSearch() {
-        const menuSearch = $("#menu-search");
-
-        menuSearch?.addEventListener("input", (event) => {
-            currentSearch = event.target.value
-                .trim()
-                .toLowerCase();
-
-            renderMenu(allDishes);
-        });
-
-        $("#header-search")?.addEventListener("keydown", (event) => {
-            if (event.key !== "Enter") return;
-
-            const value = event.target.value.trim();
-
-            if (!value) return;
-
-            if (menuSearch) {
-                menuSearch.value = value;
-                currentSearch = value.toLowerCase();
-
-                renderMenu(allDishes);
-
-                $("#menu-section")?.scrollIntoView({
-                    behavior: "smooth"
-                });
-            }
-        });
-    }
-
-    /* ==========================================
-       18. CART / BOOKING
-
-       Do not fake successful actions.
-    ========================================== */
-
-    function setupActions() {
-        $("#menu-items-container")?.addEventListener("click", (event) => {
-            const button = event.target.closest(".add-to-cart-button");
-
-            if (!button) return;
-
-            const dishId = button.dataset.dishId;
-
-            const dish = allDishes.find(
-                (item) => String(item.id) === dishId
-            );
-
-            if (!dish || !dish.available) return;
-
-            // Chưa có API giỏ hàng thực tế.
-            // Không tự tăng cart-count hoặc báo thêm thành công.
-            showToast("Chức năng giỏ hàng chưa được kết nối.");
-        });
-
-        $("#book-table-button")?.addEventListener("click", () => {
-            showToast("Chức năng đặt bàn chưa được kết nối.");
-        });
-
-        $("#menu-filter-button")?.addEventListener("click", () => {
-            showToast("Bộ lọc nâng cao chưa được kết nối.");
-        });
-    }
-
-    /* ==========================================
-       19. INITIALIZATION
-    ========================================== */
-
-    async function init() {
-        setupSearch();
-        setupActions();
-
-        if (!restaurantId) {
-            showStatus(
-                "Không tìm thấy mã nhà hàng trên đường dẫn.",
-                true
-            );
-            return;
-        }
-
-        await Promise.all([
-            loadRestaurant(),
-            loadMenu()
-        ]);
-    }
-
-    document.addEventListener("DOMContentLoaded", init);
-
+  document.addEventListener("DOMContentLoaded", init);
 })();

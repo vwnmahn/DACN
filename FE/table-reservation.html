@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#006b2c">
+    <title>Đặt bàn | FCA</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+    <link rel="stylesheet" href="site-shell.css">
+    <link rel="stylesheet" href="table-reservation.css">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <script src="site-shell.js" defer></script>
+    <script src="table-reservation.js" defer></script>
+</head>
+
+<body>
+<!-- ==================== HEADER ==================== -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-[0_1px_6px_rgba(0,0,0,0.03)]">
+  <div class="fca-layout-container fca-site-header-inner h-20 max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-6 flex-shrink-0">
+      <a class="flex items-center gap-3" data-path="trang-chu" href="Home.html">
+        <div class="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-lg tracking-tight shadow-sm shadow-emerald-600/30">FCA</div>
+        <div class="hidden sm:flex flex-col">
+          <span class="text-base text-slate-900 font-bold leading-tight tracking-tight">FCA CULINARY</span>
+          <span class="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Food &amp; Delivery</span>
+        </div>
+      </a>
+
+      <div class="header-location-dropdown hidden md:block" id="header-location">
+        <button type="button" class="location-trigger" id="location-trigger" aria-expanded="false" aria-controls="location-menu">
+          <span class="material-symbols-outlined location-icon">location_on</span>
+          <span class="location-trigger-copy">
+            <span id="selected-delivery-address">Chọn địa chỉ giao hàng</span>
+          </span>
+          <span class="material-symbols-outlined location-chevron">expand_more</span>
+        </button>
+
+        <div class="location-menu delivery-location-menu" id="location-menu" hidden>
+          <button type="button" class="delivery-location-gps" id="use-current-location">
+            <span class="material-symbols-outlined">my_location</span>
+            <span>Dùng vị trí hiện tại</span>
+          </button>
+          <p class="delivery-location-status" id="delivery-location-status" aria-live="polite"></p>
+          <p class="mt-1 text-[10px] text-slate-400">
+            Dữ liệu địa chỉ © <a class="underline hover:text-emerald-700" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>
+          </p>
+          <div class="delivery-location-divider"><span>hoặc</span></div>
+          <label class="delivery-location-field" for="delivery-address-input">Địa chỉ giao hàng</label>
+          <input class="delivery-location-input" id="delivery-address-input" type="text" autocomplete="street-address" placeholder="Nhập số nhà, đường, phường/xã, quận/huyện...">
+          <button type="button" class="delivery-location-confirm" id="confirm-delivery-address">Xác nhận địa chỉ</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex-1 max-w-xl mx-4 hidden lg:block">
+      <div class="relative flex items-center w-full">
+        <span class="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">search</span>
+        <input class="w-full h-10 pl-10 pr-4 rounded-full bg-slate-100 border border-transparent focus:border-emerald-500 focus:bg-white text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" id="restaurant-search" placeholder="Tìm kiếm món ngon, ẩm thực nghệ thuật, chi nhánh FCA..." type="text">
+      </div>
+    </div>
+
+    <div class="flex items-center gap-4 flex-shrink-0">
+      <nav class="hidden xl:flex items-center gap-1.5 px-1">
+        <a class="site-nav-link px-3.5 py-1.5 rounded-full text-sm font-medium text-slate-600 hover:text-emerald-700 hover:bg-slate-100 transition-colors" data-site-nav="home" href="Home.html">Trang chủ</a>
+        <a class="site-nav-link px-3.5 py-1.5 rounded-full text-sm font-medium text-slate-600 hover:text-emerald-700 hover:bg-slate-100 transition-colors" data-site-nav="voucher" href="voucher.html">Voucher</a>
+      </nav>
+      <div class="flex items-center gap-2">
+        <a class="relative p-2 rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors flex items-center justify-center border border-slate-200/70" data-path="gio-hang" id="cart-button" href="cart.html" aria-label="Giỏ hàng">
+          <span class="material-symbols-outlined text-[22px]">shopping_bag</span>
+          <span class="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-600 text-white text-[10px] font-bold items-center justify-center leading-none hidden" id="cart-count-badge" data-count="0" aria-live="polite"></span>
+        </a>
+        <a class="flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full hover:bg-slate-100 border border-slate-200/70 transition-colors" data-path="tai-khoan" href="personal_page.html">
+          <div class="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+            <span class="material-symbols-outlined text-[16px]">person</span>
+          </div>
+          <span class="hidden sm:inline text-xs text-slate-700 font-medium">Tài khoản</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="reservation-page pt-20">
+    <div class="container">
+        <nav class="breadcrumb" aria-label="Đường dẫn">
+            <a href="restaurant.html">Trang chủ</a>
+            <span class="material-symbols-outlined">chevron_right</span>
+            <span aria-current="page">Đặt bàn</span>
+        </nav>
+
+        <section class="page-intro">
+            <span class="eyebrow">
+                <span class="material-symbols-outlined">restaurant</span>
+                FCA TABLE RESERVATION
+            </span>
+            <h1>Đặt bàn tại FCA</h1>
+            <p>Chọn ngày, giờ, số lượng khách và cung cấp thông tin liên hệ để gửi yêu cầu đặt bàn.</p>
+        </section>
+
+        <div id="reservation-message"
+             class="notice"
+             role="status"
+             aria-live="polite"
+             hidden></div>
+
+        <div class="reservation-layout">
+            <form id="reservation-form" class="reservation-form">
+                <section class="form-card">
+                    <div class="section-heading">
+                        <span class="section-icon material-symbols-outlined">event_available</span>
+                        <div>
+                            <h2>Thông tin đặt bàn</h2>
+                            <p>Chọn lịch phù hợp với kế hoạch của bạn.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label for="restaurant-name">Nhà hàng <span class="required">*</span></label>
+                            <input id="restaurant-id" name="restaurantId" type="hidden">
+                            <input id="restaurant-name" type="text" readonly value="Chưa chọn nhà hàng">
+                            <small class="field-hint">
+                                Nhà hàng được lấy từ trang chi tiết bạn đã chọn.
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reservation-date">Ngày đặt bàn <span class="required">*</span></label>
+                            <input id="reservation-date"
+                                   name="date"
+                                   type="date"
+                                   required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reservation-time">Giờ đến <span class="required">*</span></label>
+                            <input id="reservation-time"
+                                   name="time"
+                                   type="time"
+                                   required>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="guest-count">Số lượng khách <span class="required">*</span></label>
+                            <div class="guest-control">
+                                <button type="button"
+                                        id="guest-decrease"
+                                        class="stepper-button"
+                                        aria-label="Giảm số lượng khách">
+                                    <span class="material-symbols-outlined">remove</span>
+                                </button>
+
+                                <input id="guest-count"
+                                       name="guestCount"
+                                       type="number"
+                                       min="1"
+                                       max="50"
+                                       value="2"
+                                       required
+                                       inputmode="numeric">
+
+                                <button type="button"
+                                        id="guest-increase"
+                                        class="stepper-button"
+                                        aria-label="Tăng số lượng khách">
+                                    <span class="material-symbols-outlined">add</span>
+                                </button>
+                            </div>
+                            <small class="field-hint">Nhập tổng số người trong đoàn.</small>
+                        </div>
+                    </div>
+
+                    <div class="availability-panel">
+                        <div class="availability-copy">
+                            <span class="material-symbols-outlined">event_seat</span>
+                            <div>
+                                <h3>Kiểm tra tình trạng bàn</h3>
+                                <p>Kiểm tra theo nhà hàng, ngày, giờ và số lượng khách.</p>
+                            </div>
+                        </div>
+
+                        <button type="button"
+                                id="check-availability"
+                                class="button button-secondary">
+                            Kiểm tra bàn
+                        </button>
+
+                        <div id="availability-message"
+                             class="availability-message"
+                             role="status"
+                             aria-live="polite"
+                             hidden></div>
+                    </div>
+                </section>
+
+                <section class="form-card">
+                    <div class="section-heading">
+                        <span class="section-icon material-symbols-outlined">person</span>
+                        <div>
+                            <h2>Thông tin liên hệ</h2>
+                            <p>Thông tin để nhà hàng tiếp nhận yêu cầu đặt bàn.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label for="customer-name">Họ và tên <span class="required">*</span></label>
+                            <input id="customer-name"
+                                   name="customerName"
+                                   type="text"
+                                   maxlength="150"
+                                   autocomplete="name"
+                                   required
+                                   placeholder="Nhập họ và tên">
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="customer-phone">Số điện thoại <span class="required">*</span></label>
+                            <input id="customer-phone"
+                                   name="customerPhone"
+                                   type="tel"
+                                   maxlength="20"
+                                   autocomplete="tel"
+                                   required
+                                   placeholder="Nhập số điện thoại liên hệ">
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="reservation-note">Ghi chú</label>
+                            <textarea id="reservation-note"
+                                      name="note"
+                                      rows="4"
+                                      maxlength="500"
+                                      placeholder="Yêu cầu thêm (nếu có)"></textarea>
+                            <small class="field-hint">Không bắt buộc.</small>
+                        </div>
+                    </div>
+
+                    <div class="submit-area">
+                        <button type="submit" id="submit-reservation" class="button button-primary">
+                            <span class="material-symbols-outlined">event_available</span>
+                            <span>Đặt bàn</span>
+                        </button>
+                        <p>Yêu cầu chỉ được xem là gửi thành công khi hệ thống phản hồi thành công từ máy chủ.</p>
+                    </div>
+                </section>
+            </form>
+
+            <aside class="reservation-sidebar">
+                <section class="summary-card">
+                    <div class="summary-header">
+                        <span class="material-symbols-outlined">receipt_long</span>
+                        <div>
+                            <h2>Tóm tắt đặt bàn</h2>
+                            <p>Thông tin bạn đã chọn</p>
+                        </div>
+                    </div>
+
+                    <div class="summary-body">
+                        <div class="summary-item">
+                            <span class="summary-label">
+                                <span class="material-symbols-outlined">store</span>
+                                Nhà hàng
+                            </span>
+                            <strong id="summary-restaurant">Chưa chọn</strong>
+                        </div>
+
+                        <div class="summary-item">
+                            <span class="summary-label">
+                                <span class="material-symbols-outlined">calendar_month</span>
+                                Ngày
+                            </span>
+                            <strong id="summary-date">Chưa chọn</strong>
+                        </div>
+
+                        <div class="summary-item">
+                            <span class="summary-label">
+                                <span class="material-symbols-outlined">schedule</span>
+                                Giờ
+                            </span>
+                            <strong id="summary-time">Chưa chọn</strong>
+                        </div>
+
+                        <div class="summary-item">
+                            <span class="summary-label">
+                                <span class="material-symbols-outlined">groups</span>
+                                Số khách
+                            </span>
+                            <strong id="summary-guests">2 người</strong>
+                        </div>
+                    </div>
+
+                    <div class="summary-footer">
+                        <span class="material-symbols-outlined">info</span>
+                        <p>Đây là thông tin tóm tắt yêu cầu, chưa phải xác nhận đặt bàn.</p>
+                    </div>
+                </section>
+
+                <section class="policy-card">
+                    <h3>
+                        <span class="material-symbols-outlined">lightbulb</span>
+                        Lưu ý
+                    </h3>
+                    <ul>
+                        <li>Kiểm tra kỹ ngày và giờ trước khi gửi yêu cầu.</li>
+                        <li>Vui lòng nhập số điện thoại có thể liên hệ.</li>
+                        <li>Nếu hệ thống báo lỗi, hãy kiểm tra lại thông tin hoặc thử lại sau.</li>
+                    </ul>
+                </section>
+            </aside>
+        </div>
+    </div>
+</main>
+
+<div class="reservation-confirm-modal" id="reservation-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="reservation-confirm-title" aria-hidden="true" hidden>
+  <div class="reservation-confirm-backdrop"></div>
+  <div class="reservation-confirm-dialog">
+    <section id="reservation-confirm-question">
+      <span class="material-symbols-outlined reservation-confirm-icon">help</span>
+      <h2 id="reservation-confirm-title">Bạn chắc chắn muốn đặt bàn này không?</h2>
+      <div class="reservation-confirm-actions">
+        <button class="button button-secondary" id="cancel-reservation-confirm" type="button">Hủy</button>
+        <button class="button button-primary" id="continue-reservation-confirm" type="button">Xác nhận đặt bàn</button>
+      </div>
+    </section>
+
+    <section id="reservation-confirm-details" hidden>
+      <h2>Xác nhận thông tin đặt bàn</h2>
+      <dl class="reservation-confirm-list">
+        <div><dt>Quán ăn</dt><dd id="confirm-restaurant-name"></dd></div>
+        <div><dt>Ngày đặt</dt><dd id="confirm-date"></dd></div>
+        <div><dt>Giờ đặt</dt><dd id="confirm-time"></dd></div>
+        <div><dt>Số khách</dt><dd id="confirm-guests"></dd></div>
+        <div><dt>Tên người đặt</dt><dd id="confirm-customer-name"></dd></div>
+        <div><dt>Số điện thoại</dt><dd id="confirm-customer-phone"></dd></div>
+        <div><dt>Ghi chú</dt><dd id="confirm-note"></dd></div>
+      </dl>
+      <p class="reservation-confirm-error" id="reservation-confirm-error" role="alert" hidden></p>
+      <div class="reservation-confirm-actions">
+        <button class="button button-secondary" id="back-reservation-confirm" type="button">Quay lại</button>
+        <button class="button button-primary" id="final-reservation-confirm" type="button">Xác nhận đặt bàn</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+
+<!-- Hộp thoại đặt bàn thành công -->
+<div id="reservation-success-modal"
+     class="reservation-success-modal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="reservation-success-title"
+     aria-hidden="true"
+     hidden>
+    <div class="reservation-success-backdrop"></div>
+
+    <section class="reservation-success-dialog">
+        <div class="reservation-success-check">
+            <span class="material-symbols-outlined">check_circle</span>
+        </div>
+
+        <h2 id="reservation-success-title">ĐẶT BÀN THÀNH CÔNG!</h2>
+        <p class="reservation-success-description">
+            Yêu cầu đặt bàn của bạn đã được ghi nhận.
+        </p>
+
+        <div class="reservation-success-info">
+            <h3>Thông tin đặt bàn</h3>
+
+            <div class="reservation-success-row">
+                <span>Quán ăn</span>
+                <strong id="success-restaurant"></strong>
+            </div>
+            <div class="reservation-success-row">
+                <span>Ngày đặt</span>
+                <strong id="success-date"></strong>
+            </div>
+            <div class="reservation-success-row">
+                <span>Giờ đặt</span>
+                <strong id="success-time"></strong>
+            </div>
+            <div class="reservation-success-row">
+                <span>Số khách</span>
+                <strong id="success-guests"></strong>
+            </div>
+            <div class="reservation-success-row">
+                <span>Người đặt</span>
+                <strong id="success-customer-name"></strong>
+            </div>
+            <div class="reservation-success-row">
+                <span>Số điện thoại</span>
+                <strong id="success-customer-phone"></strong>
+            </div>
+            <div class="reservation-success-row">
+                <span>Ghi chú</span>
+                <strong id="success-note"></strong>
+            </div>
+            <div class="reservation-success-row" id="success-code-row" hidden>
+                <span>Mã đặt bàn</span>
+                <strong id="success-code"></strong>
+            </div>
+        </div>
+
+        <button type="button"
+                id="close-reservation-success"
+                class="button button-primary reservation-success-button">
+            Hoàn tất
+        </button>
+    </section>
+</div>
+
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="w-full bg-slate-900 text-slate-400 pt-14 pb-8">
+  <div class="fca-layout-container max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 pb-12">
+      <div class="lg:col-span-2 flex flex-col gap-4 pr-0 lg:pr-8">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-base shadow-sm">FCA</div>
+          <span class="text-lg text-white font-bold">FCA Culinary Arts</span>
+        </div>
+        <p class="text-sm text-slate-400 leading-relaxed max-w-sm">Hệ thống ẩm thực cao cấp và giao nhận mỹ vị chuẩn nghệ thuật. Tinh hoa ẩm thực Việt giao hòa phong cách ẩm thực đương đại tại các đô thị trọng điểm toàn quốc.</p>
+        <div class="flex items-center gap-2 pt-1">
+          <span class="material-symbols-outlined p-1 rounded-full bg-slate-800 text-emerald-400 text-[18px]">verified</span>
+          <span class="text-xs text-slate-300 font-medium">Tiêu chuẩn An toàn &amp; Vệ sinh Thượng đỉnh F&amp;B</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-3">
+        <h4 class="text-xs text-white font-bold uppercase tracking-wider">Hệ thống chi nhánh</h4>
+        <ul class="flex flex-col gap-2 text-sm">
+          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-emerald-400">pin_drop</span><span>TP. Hồ Chí Minh</span></li>
+          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-emerald-400">pin_drop</span><span>Hà Nội</span></li>
+          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-emerald-400">pin_drop</span><span>Đà Nẵng</span></li>
+          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-emerald-400">pin_drop</span><span>Cần Thơ &amp; Hải Phòng</span></li>
+        </ul>
+      </div>
+      <div class="flex flex-col gap-3">
+        <h4 class="text-xs text-white font-bold uppercase tracking-wider">Dịch vụ &amp; Nghệ thuật</h4>
+        <ul class="flex flex-col gap-2 text-sm">
+          <li><a class="hover:text-emerald-400 transition-colors" data-path="kham-pha-quan-an" href="#">Thực đơn Bếp trưởng FCA</a></li>
+          <li><a class="hover:text-emerald-400 transition-colors" data-path="uu-dai-khu-vuc" href="#">Giao tiệc tận nơi VIP</a></li>
+          <li><a class="hover:text-emerald-400 transition-colors" href="#">Nghệ thuật Trình bày (Arts)</a></li>
+          <li><a class="hover:text-emerald-400 transition-colors" href="#">Đặt bàn sự kiện &amp; Hội nghị</a></li>
+        </ul>
+      </div>
+      <div class="flex flex-col gap-3">
+        <h4 class="text-xs text-white font-bold uppercase tracking-wider">Hỗ trợ &amp; Đối tác</h4>
+        <ul class="flex flex-col gap-2 text-sm">
+          <li><span class="font-medium text-slate-300">Hotline toàn quốc:</span> 1900 8899</li>
+          <li><span class="font-medium text-slate-300">Email:</span> contact@fca-culinary.vn</li>
+          <li><a class="hover:text-emerald-400 transition-colors" href="#">Chính sách thành viên FCA Club</a></li>
+          <li><a class="hover:text-emerald-400 transition-colors" href="#">Gia nhập hệ thống Đối tác F&amp;B</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="pt-6 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
+      <p class="text-xs text-slate-500">© 2025 FCA - Food &amp; Culinary Arts System. Bản quyền thuộc về Tập đoàn F&amp;B FCA.</p>
+      <div class="flex items-center gap-5 text-xs text-slate-400">
+        <a class="hover:text-emerald-400 transition-colors" href="#">Điều khoản dịch vụ</a>
+        <a class="hover:text-emerald-400 transition-colors" href="#">Bảo mật thông tin</a>
+        <a class="hover:text-emerald-400 transition-colors" href="#">Quy chuẩn ẩm thực</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

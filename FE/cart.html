@@ -17,7 +17,7 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
 <link rel="stylesheet" href="site-shell.css"/>
 <script src="site-shell.js" defer></script>
 </head>
-<body class="bg-surface font-body-md text-body-md text-on-surface">
+<body class="min-h-screen flex flex-col bg-surface font-body-md text-body-md text-on-surface">
 
 <!-- ==================== HEADER ==================== -->
 <header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-[0_1px_6px_rgba(0,0,0,0.03)]">
@@ -46,37 +46,32 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
             location_on
         </span>
 
-        <span id="selected-city">TP. Hồ Chí Minh</span>
+        <span class="location-trigger-copy">
+          
+            <span id="selected-delivery-address">Chọn địa chỉ giao hàng</span>
+        </span>
 
         <span class="material-symbols-outlined location-chevron">
             expand_more
         </span>
     </button>
 
-    <div class="location-menu" id="location-menu" hidden>
-        <button type="button" class="location-option active"
-                data-city="hcm">
-            TP. Hồ Chí Minh
+    <div class="location-menu delivery-location-menu" id="location-menu" hidden>
+        <button type="button" class="delivery-location-gps" id="use-current-location">
+            <span class="material-symbols-outlined">my_location</span>
+            <span>Dùng vị trí hiện tại</span>
         </button>
-
-        <button type="button" class="location-option"
-                data-city="hn">
-            Hà Nội
-        </button>
-
-        <button type="button" class="location-option"
-                data-city="dn">
-            Đà Nẵng
-        </button>
-
-        <button type="button" class="location-option"
-                data-city="ct">
-            Cần Thơ
-        </button>
-
-        <button type="button" class="location-option"
-                data-city="hp">
-            Hải Phòng
+        <p class="delivery-location-status" id="delivery-location-status" aria-live="polite"></p>
+        <p class="mt-1 text-[10px] text-slate-400">
+            Dữ liệu địa chỉ © <a class="underline hover:text-emerald-700" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>
+        </p>
+        <div class="delivery-location-divider"><span>hoặc</span></div>
+        <label class="delivery-location-field" for="delivery-address-input">Địa chỉ giao hàng</label>
+        <input class="delivery-location-input" id="delivery-address-input" type="text"
+               autocomplete="street-address"
+               placeholder="Nhập số nhà, đường, phường/xã, quận/huyện..."/>
+        <button type="button" class="delivery-location-confirm" id="confirm-delivery-address">
+            Xác nhận địa chỉ
         </button>
     </div>
 
@@ -111,7 +106,7 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
   </div>
 </header>
 
-<main class="w-full pt-20 bg-surface min-h-[calc(100vh-280px)]">
+<main class="flex-1 w-full pt-20 bg-surface">
 <div class="flex flex-col w-full">
 
 <!-- ==================== SUB-HEADER: BREADCRUMB ==================== -->
@@ -146,7 +141,7 @@ Trang chủ
 <div class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-md text-label-md font-bold">1</div>
 <div>
 <p class="font-label-lg text-label-lg text-on-surface font-bold leading-none">Giỏ hàng (<span id="cart-total-count">0</span> món)</p>
-<p class="font-body-sm text-body-sm text-outline mt-1" id="progress-subtitle">Đang tải thông tin giỏ hàng...</p>
+<p class="font-body-sm text-body-sm text-outline mt-1" id="progress-subtitle"></p>
 </div>
 </div>
 <div class="hidden md:block flex-1 max-w-xs h-1 bg-surface-container rounded-full mx-4 overflow-hidden">
@@ -225,29 +220,82 @@ Ghi chú riêng cho nhà bếp:
 <span class="font-title-md text-title-md text-on-surface font-bold">Tóm tắt đơn hàng</span>
 <span class="bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded font-label-caps text-label-caps font-bold">GIAO TẬN NƠI</span>
 </div>
-<!-- Coupon Input -->
-<div class="flex flex-col gap-1.5">
-<label class="font-label-md text-label-md font-semibold text-on-surface flex items-center gap-1">
-<span class="material-symbols-outlined text-primary text-[18px]">confirmation_number</span>
-Mã giảm giá FCA Voucher
-</label>
-<div class="flex gap-2">
-<div class="relative flex-1">
-<input class="w-full h-11 px-3 uppercase font-label-lg text-label-lg bg-surface-container-low rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20" id="voucher-code" placeholder="Nhập mã ưu đãi..." type="text"/>
+
+<!-- Voucher Selection -->
+<div class="flex flex-col gap-2">
+  <label class="font-label-md text-label-md font-semibold text-on-surface flex items-center gap-1">
+    <span class="material-symbols-outlined text-primary text-[18px]">confirmation_number</span>
+    FCA Voucher
+  </label>
+
+  <button
+    type="button"
+    id="open-voucher-menu-btn"
+    class="w-full h-11 px-3 flex items-center justify-between bg-surface-container-low rounded-lg text-on-surface hover:bg-surface-container transition-all"
+  >
+    <span class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-primary">local_activity</span>
+      <span class="font-label-lg text-label-lg">Chọn voucher của bạn</span>
+    </span>
+    <span class="material-symbols-outlined">chevron_right</span>
+  </button>
+
+  <!-- Voucher Menu -->
+  <div
+    id="voucher-menu"
+    class="hidden border border-outline-variant rounded-xl p-3 bg-surface"
+  >
+    <div class="flex items-center justify-between gap-2 mb-3">
+      <h3 class="font-label-lg text-label-lg font-bold text-on-surface">
+        Voucher khả dụng
+      </h3>
+      <button
+        type="button"
+        id="close-voucher-menu-btn"
+        class="text-outline hover:text-error"
+        aria-label="Đóng danh sách voucher"
+      >
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <div id="cart-voucher-list" class="flex flex-col gap-3">
+      <p class="text-sm text-on-surface-variant">
+        Nhấn để tải danh sách voucher.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      id="confirm-selected-voucher-btn"
+      disabled
+      class="w-full h-11 mt-3 rounded-lg bg-primary text-on-primary font-label-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      Áp dụng voucher đã chọn
+    </button>
+  </div>
+
+  <!-- Applied Voucher -->
+  <div
+    class="hidden items-center justify-between bg-primary-container/10 px-3 py-2 rounded-lg"
+    id="voucher-applied-tag"
+  >
+    <div class="flex items-center gap-1.5 text-primary font-label-md text-label-md">
+      <span class="material-symbols-outlined text-[16px]">verified</span>
+      <span id="voucher-applied-text"></span>
+    </div>
+    <button
+      type="button"
+      class="text-outline hover:text-error text-xs flex items-center"
+      id="voucher-remove-btn"
+      aria-label="Bỏ voucher"
+    >
+      <span class="material-symbols-outlined text-[16px]">close</span>
+    </button>
+  </div>
 </div>
-<button class="px-4 h-11 bg-surface-container-lowest text-primary rounded-lg font-label-lg text-label-lg font-bold shadow-xs hover:bg-primary hover:text-on-primary transition-all shrink-0" id="apply-voucher-btn">Áp dụng</button>
-</div>
-<!-- Applied Voucher Pill - Hidden by default -->
-<div class="hidden items-center justify-between bg-primary-container/10 px-3 py-1.5 rounded-lg mt-1" id="voucher-applied-tag">
-<div class="flex items-center gap-1.5 text-primary font-label-md text-label-md">
-<span class="material-symbols-outlined text-[16px]">verified</span>
-<span id="voucher-applied-text"></span>
-</div>
-<button class="text-outline hover:text-error text-xs flex items-center" id="voucher-remove-btn">
-<span class="material-symbols-outlined text-[16px]">close</span>
-</button>
-</div>
-</div>
+
+
 <!-- Price Calculation Rows -->
 <div class="flex flex-col gap-3 py-3 font-body-md text-body-md">
 <div class="flex items-center justify-between">
@@ -405,6 +453,42 @@ Tiến hành thanh toán
   </div>
 </footer>
 
+
+
+  <!-- Popup xác nhận xóa giỏ hàng -->
+  <div id="delete-confirm-modal" class="delete-modal" aria-hidden="true">
+    <div class="delete-modal__backdrop" data-close-delete-modal></div>
+
+    <div
+      class="delete-modal__box"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-modal-title"
+      aria-describedby="delete-modal-message"
+    >
+      <div class="delete-modal__icon">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 7h16M10 11v6M14 11v6M5.5 7l1 14h11l1-14M9 7V4h6v3"
+            stroke="currentColor" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <h3 id="delete-modal-title">Xác nhận xóa</h3>
+      <p id="delete-modal-message">
+        Bạn có chắc chắn muốn xóa món này khỏi giỏ hàng không?
+      </p>
+
+      <div class="delete-modal__actions">
+        <button type="button" id="cancel-delete-btn" class="delete-modal__cancel">
+          Hủy
+        </button>
+        <button type="button" id="confirm-delete-btn" class="delete-modal__confirm">
+          Xóa
+        </button>
+      </div>
+    </div>
+  </div>
 <script src="cart.js"></script>
 </body>
 </html>

@@ -422,14 +422,12 @@
                             <div class="flex flex-col gap-1.5">
                                 <label for="gender-input" class="font-label-md text-label-md text-on-surface">Giới tính (không bắt buộc)</label>
 
-                                <select
-                                    id="gender-input"
-                                    name="gender"
-                                    class="w-full h-11 px-3 rounded-lg bg-surface-container-low text-on-surface font-body-md focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary focus:outline-none transition-all">
-                                    <option value="">Không muốn cung cấp</option>
-                                    <option value="true">Nam</option>
-                                    <option value="false">Nữ</option>
-                                </select>
+                            <select id="gender-input" name="gender">
+                                <option value="">Chọn giới tính</option>
+                                <option value="FEMALE">Nữ</option>
+                                <option value="MALE">Nam</option>
+                                <option value="OTHER">Khác</option>
+                            </select>
                             </div>
                             <!-- Ngày Sinh -->
                             <div class="flex flex-col gap-1.5">

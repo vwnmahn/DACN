@@ -89,37 +89,32 @@ tailwind.config = {
             location_on
         </span>
 
-        <span id="selected-city">TP. Hồ Chí Minh</span>
+        <span class="location-trigger-copy">
+           
+            <span id="selected-delivery-address">Chọn địa chỉ giao hàng</span>
+        </span>
 
         <span class="material-symbols-outlined location-chevron">
             expand_more
         </span>
     </button>
 
-    <div class="location-menu" id="location-menu" hidden>
-        <button type="button" class="location-option active"
-                data-city="hcm">
-            TP. Hồ Chí Minh
+    <div class="location-menu delivery-location-menu" id="location-menu" hidden>
+        <button type="button" class="delivery-location-gps" id="use-current-location">
+            <span class="material-symbols-outlined">my_location</span>
+            <span>Dùng vị trí hiện tại</span>
         </button>
-
-        <button type="button" class="location-option"
-                data-city="hn">
-            Hà Nội
-        </button>
-
-        <button type="button" class="location-option"
-                data-city="dn">
-            Đà Nẵng
-        </button>
-
-        <button type="button" class="location-option"
-                data-city="ct">
-            Cần Thơ
-        </button>
-
-        <button type="button" class="location-option"
-                data-city="hp">
-            Hải Phòng
+        <p class="delivery-location-status" id="delivery-location-status" aria-live="polite"></p>
+        <p class="mt-1 text-[10px] text-slate-400">
+            Dữ liệu địa chỉ © <a class="underline hover:text-emerald-700" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>
+        </p>
+        <div class="delivery-location-divider"><span>hoặc</span></div>
+        <label class="delivery-location-field" for="delivery-address-input">Địa chỉ giao hàng</label>
+        <input class="delivery-location-input" id="delivery-address-input" type="text"
+               autocomplete="street-address"
+               placeholder="Nhập số nhà, đường, phường/xã, quận/huyện..."/>
+        <button type="button" class="delivery-location-confirm" id="confirm-delivery-address">
+            Xác nhận địa chỉ
         </button>
     </div>
 
@@ -130,7 +125,7 @@ tailwind.config = {
     <div class="flex-1 max-w-xl mx-4 hidden lg:block">
       <div class="relative flex items-center w-full">
         <span class="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">search</span>
-        <input class="w-full h-10 pl-10 pr-4 rounded-full bg-slate-100 border border-transparent focus:border-emerald-500 focus:bg-white text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" id="header-search" placeholder="Tìm kiếm món ngon, ẩm thực nghệ thuật, chi nhánh FCA..." type="text"/>
+        <input class="w-full h-10 pl-10 pr-4 rounded-full bg-slate-100 border border-transparent focus:border-emerald-500 focus:bg-white text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" id="restaurant-search" placeholder="Tìm kiếm món ngon, ẩm thực nghệ thuật, chi nhánh FCA..." type="text"/>
       </div>
     </div>
     <div class="flex items-center gap-4 flex-shrink-0">
@@ -186,40 +181,93 @@ tailwind.config = {
             <button class="category-scroll-button category-scroll-button-left is-hidden" id="category-scroll-left" type="button" aria-label="Cuộn danh mục sang trái" disabled>
               <span class="material-symbols-outlined text-[20px]">chevron_left</span>
             </button>
-            <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none" id="restaurant-category-list" role="tablist" aria-label="Danh mục quán ăn">
-            <button class="restaurant-category-tab active flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="all" role="tab" aria-selected="true">
-              <span class="material-symbols-outlined text-[18px]">storefront</span>
-              <span>Tất cả quán ăn</span>
-            </button>
-            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="fast-food" role="tab" aria-selected="false">
-              <span class="material-symbols-outlined text-[18px]">fastfood</span>
-              <span>Quán ăn nhanh</span>
-            </button>
-            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="dessert" role="tab" aria-selected="false">
-              <span class="material-symbols-outlined text-[18px]">cookie</span>
-              <span>Quán tráng miệng</span>
-            </button>
-            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="ice-cream" role="tab" aria-selected="false">
-              <span class="material-symbols-outlined text-[18px]">icecream</span>
-              <span>Quán kem</span>
-            </button>
-            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="birthday-cake" role="tab" aria-selected="false">
-              <span class="material-symbols-outlined text-[18px]">cake</span>
-              <span>Tiệm bánh sinh nhật</span>
-            </button>
-            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="milk-tea" role="tab" aria-selected="false">
-              <span class="material-symbols-outlined text-[18px]">emoji_food_beverage</span>
-              <span>Quán trà sữa</span>
-            </button>
-            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="coffee" role="tab" aria-selected="false">
-              <span class="material-symbols-outlined text-[18px]">local_cafe</span>
-              <span>Quán cà phê</span>
-            </button>
-            <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer" type="button" data-category="pastry" role="tab" aria-selected="false">
-              <span class="material-symbols-outlined text-[18px]">bakery_dining</span>
-              <span>Tiệm bánh ngọt</span>
-            </button>
-            </div>
+<div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none"
+     id="restaurant-category-list"
+     role="tablist"
+     aria-label="Danh mục quán ăn">
+
+  <button class="restaurant-category-tab active flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer"
+          type="button"
+          data-category="all"
+          role="tab"
+          aria-selected="true">
+    <span class="material-symbols-outlined text-[18px]">storefront</span>
+    <span>Tất cả quán ăn</span>
+  </button>
+
+  <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer"
+          type="button"
+          data-category-status="RESTAURANT"
+          role="tab"
+          aria-selected="false">
+    <span class="material-symbols-outlined text-[18px]">restaurant</span>
+    <span>Nhà hàng</span>
+  </button>
+
+  <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer"
+          type="button"
+          data-category-status="FAST_FOOD"
+          role="tab"
+          aria-selected="false">
+    <span class="material-symbols-outlined text-[18px]">fastfood</span>
+    <span>Quán ăn nhanh</span>
+  </button>
+
+  <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer"
+          type="button"
+          data-category-status="DESSERT"
+          role="tab"
+          aria-selected="false">
+    <span class="material-symbols-outlined text-[18px]">cookie</span>
+    <span>Quán tráng miệng</span>
+  </button>
+
+  <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer"
+          type="button"
+          data-category-status="ICE_CREAM"
+          role="tab"
+          aria-selected="false">
+    <span class="material-symbols-outlined text-[18px]">icecream</span>
+    <span>Quán kem</span>
+  </button>
+
+  <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer"
+          type="button"
+          data-category-status="BIRTHDAY_CAKE"
+          role="tab"
+          aria-selected="false">
+    <span class="material-symbols-outlined text-[18px]">cake</span>
+    <span>Tiệm bánh sinh nhật</span>
+  </button>
+
+  <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer"
+          type="button"
+          data-category-status="MILK_TEA"
+          role="tab"
+          aria-selected="false">
+    <span class="material-symbols-outlined text-[18px]">emoji_food_beverage</span>
+    <span>Quán trà sữa</span>
+  </button>
+
+  <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer"
+          type="button"
+          data-category-status="COFFEE"
+          role="tab"
+          aria-selected="false">
+    <span class="material-symbols-outlined text-[18px]">local_cafe</span>
+    <span>Quán cà phê</span>
+  </button>
+
+  <button class="restaurant-category-tab flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold flex-shrink-0 cursor-pointer"
+          type="button"
+          data-category-status="PASTRY"
+          role="tab"
+          aria-selected="false">
+    <span class="material-symbols-outlined text-[18px]">bakery_dining</span>
+    <span>Tiệm bánh ngọt</span>
+  </button>
+
+</div>
             <button class="category-scroll-button category-scroll-button-right is-hidden" id="category-scroll-right" type="button" aria-label="Cuộn danh mục sang phải" disabled>
               <span class="material-symbols-outlined text-[20px]">chevron_right</span>
             </button>
@@ -291,11 +339,6 @@ tailwind.config = {
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
 
-            <div class="mt-auto pt-2 flex items-center justify-between text-slate-500 text-xs font-medium">
-              <span>Xem chi nhánh</span>
-              <span class="material-symbols-outlined text-[18px] text-emerald-600 group-hover:translate-x-1 transition-transform">arrow_forward</span>
-            </div>
-          </div>
         </div>
       </div>
     </section>

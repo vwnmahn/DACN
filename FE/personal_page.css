@@ -77,6 +77,10 @@
   background-color: #f2f3ff;
 }
 
+[data-personal-content][hidden] {
+  display: none !important;
+}
+
 /* Footer branches rỗng */
 #footer-branches:empty::before {
   content: "Đang tải danh sách chi nhánh...";
@@ -88,4 +92,170 @@
 /* Voucher badge ẩn khi count = 0 */
 #voucher-badge[data-count="0"] {
   display: none;
+}
+/* Modal xác nhận và thông báo hủy đặt bàn */
+.reservation-modal[hidden] {
+    display: none !important;
+}
+
+.reservation-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.reservation-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+}
+
+.reservation-modal-dialog {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    padding: 28px 24px;
+    border-radius: 18px;
+    background: #fff;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.2);
+    animation: reservation-modal-appear 160ms ease-out;
+}
+
+.reservation-modal-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.reservation-modal-icon .material-symbols-outlined {
+    font-size: 36px;
+}
+
+.reservation-modal-icon-warning {
+    color: #b45309;
+    background: #fef3c7;
+}
+
+.reservation-modal-icon-success {
+    color: #047857;
+    background: #d1fae5;
+}
+
+.reservation-modal-dialog h2 {
+    margin: 0 0 12px;
+    color: #132238;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.reservation-modal-dialog > p {
+    margin: 0;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.reservation-modal-dialog .reservation-modal-hint {
+    margin-top: 8px;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.reservation-modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.reservation-modal-btn {
+    min-height: 42px;
+    padding: 10px 18px;
+    border: 0;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+}
+
+.reservation-modal-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.reservation-modal-btn-secondary {
+    color: #334155;
+    background: #e2e8f0;
+}
+
+.reservation-modal-btn-secondary:hover {
+    background: #cbd5e1;
+}
+
+.reservation-modal-btn-danger {
+    color: #fff;
+    background: #dc2626;
+}
+
+.reservation-modal-btn-danger:hover {
+    background: #b91c1c;
+}
+
+.reservation-modal-btn-primary {
+    min-width: 140px;
+    margin-top: 24px;
+    color: #fff;
+    background: #047857;
+}
+
+.reservation-modal-btn-primary:hover {
+    background: #065f46;
+}
+
+.reservation-modal-error {
+    margin-top: 14px !important;
+    color: #b91c1c !important;
+    font-size: 13px !important;
+}
+
+@keyframes reservation-modal-appear {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 480px) {
+    .reservation-modal-dialog {
+        padding: 24px 18px;
+    }
+
+    .reservation-modal-actions {
+        flex-direction: column-reverse;
+    }
+
+    .reservation-modal-btn {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reservation-modal-dialog {
+        animation: none;
+    }
 }

@@ -577,18 +577,8 @@ async function handleRegister(fields) {
   // DTO Backend sẽ xử lý validation.
 
   // Giữ nguyên logic chuyển giới tính sang Boolean.
-  let gender = null;
+  const gender = genderInput?.value.trim() || null;
 
-  if (genderInput && genderInput.value !== "") {
-    if (
-      genderInput.value === "true" ||
-      genderInput.value === "false"
-    ) {
-      gender = genderInput.value === "true";
-    } else {
-      throw new Error("Giá trị giới tính không hợp lệ.");
-    }
-  }
 
   // Giữ nguyên kiểm tra điều khoản đăng ký.
   const termsCheckbox = document.querySelector(
@@ -621,7 +611,7 @@ async function handleRegister(fields) {
     }
 
     if (gender !== null) {
-      formData.append("gender", String(gender));
+      formData.append("gender", gender);
     }
 
     formData.append("avatar", avatarFile);
@@ -639,7 +629,8 @@ async function handleRegister(fields) {
       email,
       phoneNumber,
       address: address || null,
-      gender
+      gender,
+      dateOfBirth: birthDateInput?.value || null
     };
 
     result = await callAuthApi("register", payload);

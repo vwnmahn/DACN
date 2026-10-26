@@ -75,3 +75,150 @@
   font-size: 48px;
   margin-bottom: 0.5rem;
 }
+
+/* Popup xác nhận xóa */
+
+/* ===== POPUP XÁC NHẬN XÓA - TỐI ƯU HIỆU NĂNG ===== */
+.delete-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+
+  transition:
+    opacity 0.12s ease,
+    visibility 0s linear 0.12s;
+}
+
+.delete-modal.is-open {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+
+  transition:
+    opacity 0.12s ease,
+    visibility 0s;
+}
+
+/* Bỏ blur để tránh tốn tài nguyên render */
+.delete-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.delete-modal__box {
+  position: relative;
+  width: 100%;
+  max-width: 390px;
+  padding: 26px 24px 22px;
+
+  background: #fff;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+
+  transform: translateY(5px);
+  transition: transform 0.12s ease;
+}
+
+.delete-modal.is-open .delete-modal__box {
+  transform: translateY(0);
+}
+
+.delete-modal__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 14px;
+
+  color: #dc2626;
+  background: #fef2f2;
+  border-radius: 50%;
+}
+
+.delete-modal__icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.delete-modal__box h3 {
+  margin: 0 0 10px;
+  color: #111827;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.delete-modal__box p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.delete-modal__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.delete-modal__actions button {
+  flex: 1;
+  min-height: 44px;
+  padding: 10px 14px;
+
+  border: 0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  transition: background-color 0.1s ease;
+}
+
+.delete-modal__cancel {
+  color: #374151;
+  background: #f3f4f6;
+}
+
+.delete-modal__cancel:hover {
+  background: #e5e7eb;
+}
+
+.delete-modal__confirm {
+  color: #fff;
+  background: #dc2626;
+}
+
+.delete-modal__confirm:hover {
+  background: #b91c1c;
+}
+
+.delete-modal__actions button:active {
+  transform: scale(0.98);
+}
+
+body.delete-modal-open {
+  overflow: hidden;
+}
+
+/* Tôn trọng cài đặt giảm chuyển động */
+@media (prefers-reduced-motion: reduce) {
+  .delete-modal,
+  .delete-modal__box,
+  .delete-modal__actions button {
+    transition: none !important;
+  }
+}
+

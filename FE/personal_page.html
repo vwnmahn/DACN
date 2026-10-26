@@ -15,7 +15,7 @@
 tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-variant":"#bdcaba","error":"#ba1a1a","on-surface-variant":"#3e4a3d","on-primary-container":"#f7fff2","surface-container":"#eaedff","on-error-container":"#93000a","on-primary":"#ffffff","on-tertiary":"#ffffff","on-secondary":"#ffffff","surface-dim":"#d2d9f4","inverse-on-surface":"#eef0ff","on-tertiary-fixed-variant":"#00513a","secondary":"#006d30","error-container":"#ffdad6","primary-container":"#00873a","secondary-container":"#92f5a4","inverse-primary":"#62df7d","secondary-fixed-dim":"#79db8d","on-secondary-fixed":"#00210a","on-surface":"#131b2e","outline":"#6e7b6c","on-error":"#ffffff","surface-bright":"#faf8ff","on-primary-fixed-variant":"#005320","on-secondary-container":"#007233","tertiary-fixed-dim":"#7bd8b1","background":"#faf8ff","secondary-fixed":"#95f8a7","on-background":"#131b2e","tertiary":"#00694c","primary-fixed-dim":"#62df7d","surface-container-low":"#f2f3ff","on-tertiary-fixed":"#002115","surface-container-highest":"#dae2fd","surface-variant":"#dae2fd","primary":"#006b2c","tertiary-fixed":"#97f5cc","primary-fixed":"#7ffc97","inverse-surface":"#283044","surface-tint":"#006e2d","tertiary-container":"#1e8462","on-primary-fixed":"#002109","on-secondary-fixed-variant":"#005323","surface-container-lowest":"#ffffff","surface-container-high":"#e2e7ff","on-tertiary-container":"#f5fff7","surface":"#faf8ff"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-xl":"2rem","margin-mobile":"1rem","margin-desktop":"3rem","gutter-mobile":"1rem","space-2xl":"3rem","space-md":"1rem","gutter":"1.5rem","gutter-desktop":"2rem","space-3xl":"4.5rem","space-xs":"0.25rem","space-lg":"1.5rem","margin":"1.5rem","space-sm":"0.5rem"},"fontFamily":{"label-md":["Be Vietnam Pro"],"label-caps":["Be Vietnam Pro"],"body-lg":["Be Vietnam Pro"],"body-sm":["Be Vietnam Pro"],"title-lg":["Be Vietnam Pro"],"display-hero":["Be Vietnam Pro"],"title-md":["Be Vietnam Pro"],"label-lg":["Be Vietnam Pro"],"body-md":["Be Vietnam Pro"],"headline-lg":["Be Vietnam Pro"],"display-hero-mobile":["Be Vietnam Pro"],"headline-sm":["Be Vietnam Pro"],"headline-lg-mobile":["Be Vietnam Pro"],"headline-md":["Be Vietnam Pro"]},"fontSize":{"label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"600"}],"label-caps":["11px",{"lineHeight":"16px","letterSpacing":"0.08em","fontWeight":"700"}],"body-lg":["16px",{"lineHeight":"26px","letterSpacing":"0em","fontWeight":"400"}],"body-sm":["12px",{"lineHeight":"18px","letterSpacing":"0.01em","fontWeight":"400"}],"title-lg":["20px",{"lineHeight":"28px","letterSpacing":"-0.005em","fontWeight":"600"}],"display-hero":["56px",{"lineHeight":"64px","letterSpacing":"-0.02em","fontWeight":"700"}],"title-md":["18px",{"lineHeight":"26px","letterSpacing":"0em","fontWeight":"600"}],"label-lg":["14px",{"lineHeight":"20px","letterSpacing":"0.01em","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"22px","letterSpacing":"0em","fontWeight":"400"}],"headline-lg":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}],"display-hero-mobile":["36px",{"lineHeight":"44px","letterSpacing":"-0.015em","fontWeight":"700"}],"headline-sm":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-lg-mobile":["28px",{"lineHeight":"36px","letterSpacing":"-0.01em","fontWeight":"700"}],"headline-md":["30px",{"lineHeight":"38px","letterSpacing":"-0.015em","fontWeight":"600"}]}}}};
 </script>
 <link rel="stylesheet" href="site-shell.css"/>
-<script src="site-shell.js" defer></script>
+
 </head>
 <body class="bg-surface font-body-md text-body-md text-on-surface">
 
@@ -32,9 +32,9 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
       </a>
 
 
+
 <!-- LOCATION DROPDOWN -->
 <div class="header-location-dropdown hidden md:block" id="header-location">
-
     <button
         type="button"
         class="location-trigger"
@@ -46,41 +46,36 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
             location_on
         </span>
 
-        <span id="selected-city">TP. Hồ Chí Minh</span>
+        <span class="location-trigger-copy">
+
+            <span id="selected-delivery-address">Chọn địa chỉ giao hàng</span>
+        </span>
 
         <span class="material-symbols-outlined location-chevron">
             expand_more
         </span>
     </button>
 
-    <div class="location-menu" id="location-menu" hidden>
-        <button type="button" class="location-option active"
-                data-city="hcm">
-            TP. Hồ Chí Minh
+    <div class="location-menu delivery-location-menu" id="location-menu" hidden>
+        <button type="button" class="delivery-location-gps" id="use-current-location">
+            <span class="material-symbols-outlined">my_location</span>
+            <span>Dùng vị trí hiện tại</span>
         </button>
-
-        <button type="button" class="location-option"
-                data-city="hn">
-            Hà Nội
-        </button>
-
-        <button type="button" class="location-option"
-                data-city="dn">
-            Đà Nẵng
-        </button>
-
-        <button type="button" class="location-option"
-                data-city="ct">
-            Cần Thơ
-        </button>
-
-        <button type="button" class="location-option"
-                data-city="hp">
-            Hải Phòng
+        <p class="delivery-location-status" id="delivery-location-status" aria-live="polite"></p>
+        <p class="mt-1 text-[10px] text-slate-400">
+            Dữ liệu địa chỉ © <a class="underline hover:text-emerald-700" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>
+        </p>
+        <div class="delivery-location-divider"><span>hoặc</span></div>
+        <label class="delivery-location-field" for="delivery-address-input">Địa chỉ giao hàng</label>
+        <input class="delivery-location-input" id="delivery-address-input" type="text"
+               autocomplete="street-address"
+               placeholder="Nhập số nhà, đường, phường/xã, quận/huyện..."/>
+        <button type="button" class="delivery-location-confirm" id="confirm-delivery-address">
+            Xác nhận địa chỉ
         </button>
     </div>
-
 </div>
+
 
 
     </div>
@@ -119,12 +114,12 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
 
 <!-- ==================== BREADCRUMB ==================== -->
 <nav aria-label="Breadcrumb" class="flex items-center gap-space-xs text-outline mb-space-lg">
-<a class="font-label-md text-label-md hover:text-primary transition-colors flex items-center gap-1" data-path="trang-chu" href="#">
+<a class="font-label-md text-label-md hover:text-primary transition-colors flex items-center gap-1" data-path="trang-chu" href="Home.html">
 <span class="material-symbols-outlined text-[16px]">home</span>
 <span>Trang chủ</span>
 </a>
 <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-<a class="font-label-md text-label-md hover:text-primary transition-colors" data-path="tai-khoan" href="#">Tài khoản của tôi</a>
+<a class="font-label-md text-label-md hover:text-primary transition-colors" data-path="tai-khoan" href="personal_page.html">Tài khoản của tôi</a>
 <span class="material-symbols-outlined text-[14px]">chevron_right</span>
 <span aria-current="page" class="font-label-md text-label-md text-on-surface font-semibold">Thông tin cá nhân</span>
 </nav>
@@ -142,9 +137,10 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
 <div class="w-24 h-24 rounded-full overflow-hidden shadow-md ring-4 ring-surface-container-lowest bg-surface-container flex items-center justify-center" id="user-avatar">
 <span class="material-symbols-outlined text-outline text-[48px]">person</span>
 </div>
-<button class="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-md hover:bg-primary-container transition-transform hover:scale-105" title="Thay đổi ảnh đại diện">
+<button class="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-md hover:bg-primary-container transition-transform hover:scale-105" id="change-avatar-btn" type="button" title="Thay đổi ảnh đại diện" aria-label="Thay đổi ảnh đại diện">
 <span class="material-symbols-outlined text-[16px]">photo_camera</span>
 </button>
+<input class="hidden" id="avatar-input" type="file" accept="image/jpeg,image/png"/>
 </div>
 <h2 class="font-title-lg text-title-lg text-on-surface font-bold" id="user-display-name">—</h2>
 <p class="font-body-sm text-body-sm text-outline mt-0.5" id="user-display-email">—</p>
@@ -166,35 +162,37 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
 
 <!-- Navigation Menu -->
 <nav class="bg-surface-container-lowest rounded-xl shadow-sm p-space-sm flex flex-col gap-1">
-<a class="flex items-center justify-between px-space-md py-3 rounded-lg bg-primary text-on-primary font-label-lg text-label-lg shadow-sm transition-colors" href="#">
+<a class="personal-menu-item flex items-center justify-between px-space-md py-3 rounded-lg bg-primary text-on-primary font-label-lg text-label-lg shadow-sm transition-colors" href="#" data-personal-panel="profile-panel" aria-current="page">
 <div class="flex items-center gap-3">
 <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">person</span>
 <span>Thông tin cá nhân</span>
 </div>
 <span class="material-symbols-outlined text-[18px]">chevron_right</span>
 </a>
-<a class="flex items-center justify-between px-space-md py-3 rounded-lg text-on-surface hover:bg-surface-container font-label-lg text-label-lg transition-colors group" href="#">
+<a class="personal-menu-item flex items-center justify-between px-space-md py-3 rounded-lg text-on-surface hover:bg-surface-container font-label-lg text-label-lg transition-colors group" href="#" data-personal-panel="order-history-panel">
 <div class="flex items-center gap-3">
 <span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[20px]">receipt_long</span>
 <span>Lịch sử đơn hàng</span>
 </div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface font-label-caps text-label-caps" id="order-count-badge">0</span>
+<span class="material-symbols-outlined text-outline group-hover:text-on-surface text-[18px]">chevron_right</span>
 </a>
-<a class="flex items-center justify-between px-space-md py-3 rounded-lg text-on-surface hover:bg-surface-container font-label-lg text-label-lg transition-colors group" href="#">
+<a class="personal-menu-item flex items-center justify-between px-space-md py-3 rounded-lg text-on-surface hover:bg-surface-container font-label-lg text-label-lg transition-colors group" href="#" data-personal-panel="reservation-history-panel">
 <div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[20px]">location_on</span>
-<span>Sổ địa chỉ nhận món</span>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[20px]">event_seat</span>
+<span>Lịch sử đặt bàn</span>
 </div>
 <span class="material-symbols-outlined text-outline group-hover:text-on-surface text-[18px]">chevron_right</span>
 </a>
-<a class="flex items-center justify-between px-space-md py-3 rounded-lg text-on-surface hover:bg-surface-container font-label-lg text-label-lg transition-colors group" href="#">
+
+<a class="personal-menu-item flex items-center justify-between px-space-md py-3 rounded-lg text-on-surface hover:bg-surface-container font-label-lg text-label-lg transition-colors group" href="#" data-personal-panel="voucher-wallet-panel">
 <div class="flex items-center gap-3">
 <span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[20px]">confirmation_number</span>
 <span>Kho Voucher &amp; Ưu đãi</span>
 </div>
+<span class="material-symbols-outlined text-outline group-hover:text-on-surface text-[18px]">chevron_right</span>
 <span class="hidden px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-caps text-label-caps font-bold" id="voucher-badge">0</span>
 </a>
-<a class="flex items-center justify-between px-space-md py-3 rounded-lg text-on-surface hover:bg-surface-container font-label-lg text-label-lg transition-colors group" href="#">
+<a class="personal-menu-item flex items-center justify-between px-space-md py-3 rounded-lg text-on-surface hover:bg-surface-container font-label-lg text-label-lg transition-colors group" href="#" data-personal-panel="payment-methods-panel">
 <div class="flex items-center gap-3">
 <span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[20px]">credit_card</span>
 <span>Phương thức thanh toán đã lưu</span>
@@ -265,6 +263,7 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
 </div>
 
 <!-- Profile Form Section -->
+<div class="contents" id="profile-panel" data-personal-content>
 <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-xl">
 <div class="flex items-center justify-between mb-space-lg pb-space-sm border-b border-surface-container-highest/60">
 <div>
@@ -310,25 +309,19 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
 <label class="font-label-lg text-label-lg font-semibold text-on-surface">Giới tính</label>
 <div class="flex items-center gap-space-xl">
 <label class="flex items-center gap-2 cursor-pointer font-body-md text-body-md text-on-surface">
-<input class="w-4 h-4 text-primary accent-primary" name="gender" type="radio" value="false"/>
+<input class="w-4 h-4 text-primary accent-primary" name="gender" type="radio" value="FEMALE"/>
 <span>Nữ</span>
 </label>
 <label class="flex items-center gap-2 cursor-pointer font-body-md text-body-md text-on-surface">
-<input class="w-4 h-4 text-primary accent-primary" name="gender" type="radio" value="true"/>
+<input class="w-4 h-4 text-primary accent-primary" name="gender" type="radio" value="MALE"/>
 <span>Nam</span>
 </label>
 <label class="flex items-center gap-2 cursor-pointer font-body-md text-body-md text-on-surface">
-<input class="w-4 h-4 text-primary accent-primary" name="gender" type="radio" value=""/>
-<span>Không cung cấp</span>
+<input class="w-4 h-4 text-primary accent-primary" name="gender" type="radio" value="OTHER"/>
+<span>Khác</span>
 </label>
 </div>
-<div class="flex flex-col gap-1.5">
-<label class="font-label-lg text-label-lg font-semibold text-on-surface" for="address">Địa chỉ</label>
-<div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-3 text-outline text-[20px]">location_on</span>
-<input class="w-full h-11 pl-10 pr-4 bg-surface rounded-lg font-body-md text-body-md text-on-surface border border-surface-container-highest focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" id="address" name="address" maxlength="255" type="text" placeholder="Nhập địa chỉ"/>
-</div>
-</div>
+
 </div>
 <!-- Taste Tags - empty, render from DB -->
 <div class="flex flex-col gap-2 pt-2">
@@ -393,21 +386,55 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
 </div>
 </div>
 
+<!-- Profile content end -->
+</div>
+
 <!-- Recent Order Section - EMPTY (render from DB) -->
+<section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-xl" id="voucher-wallet-panel" data-personal-content hidden>
+  <h3 class="font-title-lg text-title-lg font-bold text-on-surface">Kho Voucher &amp; Ưu đãi</h3>
+  <p class="mt-1 font-body-sm text-body-sm text-on-surface-variant" id="owned-vouchers-status" role="status">Đang tải voucher...</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md mt-space-lg" id="owned-vouchers-list"></div>
+</section>
+
+<section class="bg-surface-container-lowest rounded-xl shadow-sm p-space-xl" id="payment-methods-panel" data-personal-content hidden>
+  <h3 class="font-title-lg text-title-lg font-bold text-on-surface">Phương thức thanh toán được hỗ trợ</h3>
+  <p class="mt-1 font-body-sm text-body-sm text-on-surface-variant">Hệ thống chưa lưu phương thức mặc định; bạn chọn phương thức khi thanh toán.</p>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md mt-space-lg">
+    <article class="rounded-xl border border-surface-container-highest p-space-md"><strong class="text-on-surface">COD</strong><p class="mt-1 text-on-surface-variant">Thanh toán khi nhận hàng</p></article>
+    <article class="rounded-xl border border-surface-container-highest p-space-md"><strong class="text-on-surface">VNPay</strong><p class="mt-1 text-on-surface-variant">Thanh toán qua VNPay</p></article>
+  </div>
+</section>
+
+<div class="contents" id="order-history-panel" data-personal-content hidden>
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-xl mb-space-lg">
+<h3 class="font-title-lg text-title-lg font-bold text-on-surface">Theo dõi đơn đang xử lý</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">Tiến trình lấy trực tiếp từ trạng thái đơn hàng trên hệ thống</p>
+<div class="flex flex-col gap-space-md" id="active-order-container"></div>
+</div>
 <div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-xl">
 <div class="flex items-center justify-between mb-space-md">
 <div>
-<h3 class="font-title-lg text-title-lg font-bold text-on-surface">Đơn hàng gần nhất</h3>
-<p class="font-body-sm text-body-sm text-on-surface-variant">Theo dõi và đặt lại các bữa tiệc yêu thích</p>
+<h3 class="font-title-lg text-title-lg font-bold text-on-surface">Lịch sử đơn hàng đã giao</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Chỉ hiển thị các đơn đã giao thành công</p>
 </div>
-<a class="font-label-md text-label-md text-primary font-semibold hover:underline flex items-center gap-1" href="#">
-<span>Xem tất cả</span>
-<span class="material-symbols-outlined text-[16px]">chevron_right</span>
-</a>
+<button class="font-label-md text-label-md text-primary font-semibold hover:underline" id="reload-order-history" type="button">Tải lại</button>
 </div>
 <div id="recent-order-container">
 <!-- EMPTY: render từ DB -->
 </div>
+</div>
+</div>
+
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-xl" id="reservation-history-panel" data-personal-content hidden>
+<div class="flex items-center justify-between mb-space-lg pb-space-sm border-b border-surface-container-highest/60">
+<div>
+<h3 class="font-title-lg text-title-lg font-bold text-on-surface">Lịch sử đặt bàn</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Các phiếu đặt bàn của tài khoản đang đăng nhập</p>
+</div>
+<button class="px-4 py-2 rounded-lg border border-primary text-primary font-label-md text-label-md font-bold hover:bg-primary/5" id="reload-reservations" type="button">Tải lại</button>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant" id="reservation-history-status" role="status">Chọn mục Lịch sử đặt bàn để tải dữ liệu.</p>
+<div class="flex flex-col gap-space-md" id="reservation-history-list"></div>
 </div>
 
 </section>
@@ -469,7 +496,57 @@ tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"outline-varian
     </div>
   </div>
 </footer>
+<!-- Modal xác nhận hủy đặt bàn -->
+<div id="cancel-reservation-modal" class="reservation-modal" hidden>
+    <div class="reservation-modal-backdrop"></div>
+    <section class="reservation-modal-dialog" role="dialog" aria-modal="true"
+             aria-labelledby="cancel-reservation-title">
+        <div class="reservation-modal-icon reservation-modal-icon-warning">
+            <span class="material-symbols-outlined">event_busy</span>
+        </div>
+        <h2 id="cancel-reservation-title">XÁC NHẬN HỦY ĐẶT BÀN</h2>
+        <p>Bạn có chắc chắn muốn hủy phiếu đặt bàn này không?</p>
+        <p class="reservation-modal-hint">Sau khi xác nhận, trạng thái đặt bàn sẽ được cập nhật.</p>
+        <div class="reservation-modal-actions">
+            <button type="button" id="keep-reservation-btn" class="reservation-modal-btn reservation-modal-btn-secondary">
+                Không, giữ lại
+            </button>
+            <button type="button" id="confirm-cancel-reservation-btn" class="reservation-modal-btn reservation-modal-btn-danger">
+                Đồng ý hủy
+            </button>
+        </div>
+        <p id="cancel-reservation-error" class="reservation-modal-error" role="alert" hidden></p>
+    </section>
+</div>
 
+<!-- Modal hủy đặt bàn thành công -->
+<div id="cancel-reservation-success-modal" class="reservation-modal" hidden>
+    <div class="reservation-modal-backdrop"></div>
+    <section class="reservation-modal-dialog" role="dialog" aria-modal="true"
+             aria-labelledby="cancel-reservation-success-title">
+        <div class="reservation-modal-icon reservation-modal-icon-success">
+            <span class="material-symbols-outlined">check_circle</span>
+        </div>
+        <h2 id="cancel-reservation-success-title">HỦY ĐẶT BÀN THÀNH CÔNG!</h2>
+        <p>Phiếu đặt bàn của bạn đã được hủy thành công.</p>
+        <p class="reservation-modal-hint">Thông tin lịch sử đặt bàn đã được cập nhật.</p>
+        <button type="button" id="close-cancel-reservation-success"
+                class="reservation-modal-btn reservation-modal-btn-primary">
+            Hoàn tất
+        </button>
+    </section>
+</div>
+<div id="profile-confirm-modal" class="reservation-modal" hidden>
+  <div class="reservation-modal-backdrop"></div>
+  <section class="reservation-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-confirm-title">
+    <div class="reservation-modal-icon reservation-modal-icon-warning"><span class="material-symbols-outlined">edit_note</span></div>
+    <h2 id="profile-confirm-title">Xác nhận thay đổi thông tin</h2>
+    <p>Bạn có chắc chắn muốn cập nhật thông tin cá nhân không?</p>
+    <div class="reservation-modal-actions"><button type="button" id="cancel-profile-confirm" class="reservation-modal-btn reservation-modal-btn-secondary">Hủy</button><button type="button" id="confirm-profile-update" class="reservation-modal-btn reservation-modal-btn-primary">Xác nhận thay đổi</button></div>
+  </section>
+</div>
+<script src="site-shell.js"></script>
 <script src="personal_page.js"></script>
+
 </body>
 </html>

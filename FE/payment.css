@@ -70,3 +70,34 @@
 #cart-count-badge[data-count="0"] {
   display: none;
 }
+
+.delivery-saved-addresses:not(:empty) {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.delivery-saved-address {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.625rem;
+  background: #fff;
+  color: #131b2e;
+  text-align: left;
+  cursor: pointer;
+}
+
+.delivery-saved-address:hover,
+.delivery-saved-address:focus-visible {
+  border-color: #16a34a;
+  outline: none;
+}
+
+.delivery-saved-address small {
+  display: block;
+  margin-top: 0.125rem;
+  color: #64748b;
+}

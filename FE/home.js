@@ -7,6 +7,9 @@
 
 (function () {
   'use strict';
+  let allRestaurants = [];
+let currentCategory = 'all';
+let currentSearchQuery = '';
 
   /* ============================================================
      1. RESTAURANT CATEGORY SWITCHING
@@ -57,8 +60,11 @@
       activeCategoryTab = selectedTab;
       selectedTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
 
-      // Dữ liệu nhà hàng hiện chưa có trường phân loại đáng tin cậy.
-      // Chỉ cập nhật giao diện; không suy diễn hoặc tạo kết quả lọc giả.
+    currentCategory =
+      selectedTab.dataset.categoryStatus ||
+      selectedTab.dataset.category ||
+      'all';
+      applyRestaurantFilters();
     });
 
     [scrollLeftButton, scrollRightButton].forEach((button, index) => {
@@ -134,23 +140,9 @@
   const searchInput = document.getElementById('restaurant-search');
 
   if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      const query = e.target.value.toLowerCase().trim();
-      const cards = document.querySelectorAll(
-        '#restaurant-cards-container article'
-      );
-
-      cards.forEach((card) => {
-        const text = card.textContent.toLowerCase();
-        if (!query || text.includes(query)) {
-          card.style.display = 'flex';
-        } else {
-          card.style.display = 'none';
-        }
-      });
-
-      // TODO: có thể gọi API/DB với query
-      console.log('[FCA] Search query:', query);
+    searchInput.addEventListener('input', (event) => {
+      currentSearchQuery = event.target.value.toLowerCase().trim();
+      applyRestaurantFilters();
     });
   }
 
@@ -169,6 +161,28 @@
    *   { id, name, address, image, rating, reviewCount,
    *     openHours, distanceKm, deliveryTime, tags[], signatureDish }
    */
+  function applyRestaurantFilters() {
+  const filteredRestaurants = allRestaurants.filter((restaurant) => {
+    const category = String(restaurant.categoryStatus || '')
+      .toUpperCase();
+
+    const matchesCategory =
+      currentCategory === 'all' ||
+      category === currentCategory.toUpperCase();
+
+    const searchText = [
+      restaurant.name,
+      restaurant.address,
+      ...(restaurant.tags || [])
+    ].join(' ').toLowerCase();
+
+    const matchesSearch = searchText.includes(currentSearchQuery);
+
+    return matchesCategory && matchesSearch;
+  });
+
+  renderRestaurants(filteredRestaurants);
+}
   function renderRestaurants(restaurants) {
     const container = document.getElementById('restaurant-cards-container');
     if (!container) return;
@@ -214,14 +228,25 @@
             `).join('')}
           </div>
           <div class="mt-auto pt-2 grid grid-cols-2 gap-2.5">
-            <button class="py-2.5 px-3 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm hover:border-emerald-500 hover:text-emerald-700 hover:bg-emerald-50/50 transition-colors font-semibold flex items-center justify-center gap-1 cursor-pointer">
+
+            <button
+              type="button"
+              onclick="window.location.href='restaurant.html?id=${encodeURIComponent(r.id)}'"
+              class="py-2.5 px-3 rounded-xl bg-white border border-slate-200 text-slate-700 text-sm hover:border-emerald-500 hover:text-emerald-700 hover:bg-emerald-50/50 transition-colors font-semibold flex items-center justify-center gap-1 cursor-pointer">
               <span class="material-symbols-outlined text-[18px]">restaurant_menu</span>
               <span>Xem menu</span>
             </button>
-            <button class="py-2.5 px-3 rounded-xl bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition-colors font-semibold flex items-center justify-center gap-1 shadow-sm shadow-emerald-600/30 cursor-pointer">
-              <span class="material-symbols-outlined text-[18px]">table_bar</span>
-              <span>Đặt bàn / Giao ngay</span>
-            </button>
+
+<button
+  type="button"
+  onclick="window.location.href='table-reservation.html?restaurantId=${encodeURIComponent(r.id)}'"
+  class="py-2.5 px-3 rounded-xl bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition-colors font-semibold flex items-center justify-center gap-1 shadow-sm shadow-emerald-600/30 cursor-pointer"
+>
+  <span class="material-symbols-outlined text-[18px]">table_bar</span>
+  <span>Đặt bàn</span>
+</button>
+
+
           </div>
         </div>
       </article>`
@@ -280,6 +305,65 @@
   window.FCA.renderRestaurants = renderRestaurants;
   window.FCA.renderNearby = renderNearby;
 
+  // Tải danh sách nhà hàng từ BE
+  async function loadRestaurantsFromApi() {
+    const container = document.getElementById('restaurant-cards-container');
+    if (!container) {
+      console.warn('[FCA] Không tìm thấy #restaurant-cards-container');
+      return;
+    }
+
+    container.innerHTML = '<p>Chưa có nhà hàng nào</p>';
+
+    try {
+      const response = await fetch(
+        'http://localhost:8080/api/v1/restaurants/active'
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.code !== 1000 || !Array.isArray(result.data)) {
+        throw new Error(result.message || 'Dữ liệu API không hợp lệ');
+      }
+
+      // Chuyển tên trường BE sang cấu trúc mà hàm render đang sử dụng.
+      allRestaurants = result.data.map((r) => ({
+        id: r.id,
+        name: r.name,
+        address: r.address,
+        image: r.imageUrl,
+        rating: r.averageRating,
+        reviewCount: r.reviewCount,
+        categoryStatus: r.categoryStatus,
+        openHours: r.openingTime && r.closingTime
+          ? `${String(r.openingTime).slice(0, 5)} - ${String(r.closingTime).slice(0, 5)}`
+          : '',
+        distanceKm: null,
+        deliveryTime: '',
+        tags: []
+      }));
+
+      applyRestaurantFilters();
+
+      console.log('[FCA] Đã tải nhà hàng từ BE:', allRestaurants);
+    } catch (error) {
+      console.error('[FCA] Không tải được danh sách nhà hàng:', error);
+      container.innerHTML =
+        '<p>Không tải được danh sách nhà hàng. Vui lòng thử lại sau.</p>';
+    }
+  }
+
+  // Chạy sau khi DOM đã sẵn sàng.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadRestaurantsFromApi);
+  } else {
+    loadRestaurantsFromApi();
+  }
+
   /* ============================================================
      5. VÍ DỤ CÁCH NẠP TỪ DB (bỏ comment khi dùng thật)
      ------------------------------------------------------------
@@ -292,4 +376,6 @@
        .catch((err) => console.error('[FCA] Load failed:', err));
      ============================================================ */
 
+
+     
 })();

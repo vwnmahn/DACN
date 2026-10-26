@@ -89,6 +89,32 @@
     border-color: #cbd5e1;
 }
 
+.location-trigger-copy {
+    display: flex;
+    min-width: 0;
+    max-width: 210px;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.15;
+}
+
+.location-trigger-label {
+    color: #64748b;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+#selected-delivery-address {
+    display: block;
+    max-width: 190px;
+    overflow: hidden;
+    color: #334155;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .location-trigger:focus-visible {
     outline: 2px solid #10b981;
     outline-offset: 2px;
@@ -127,6 +153,107 @@
     display: none !important;
 }
 
+.delivery-location-menu {
+    width: 360px;
+    padding: 14px;
+}
+
+.delivery-location-gps,
+.delivery-location-confirm {
+    display: flex;
+    width: 100%;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 10px;
+    background: #059669;
+    color: #fff;
+    font-family: "Be Vietnam Pro", sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+}
+
+.delivery-location-gps:hover,
+.delivery-location-confirm:hover {
+    background: #047857;
+}
+
+.delivery-location-gps:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.delivery-location-status {
+    min-height: 18px;
+    margin: 8px 2px 0;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.delivery-location-status.is-error {
+    color: #b91c1c;
+}
+
+.delivery-location-status.is-success {
+    color: #047857;
+}
+
+.delivery-location-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0;
+    color: #94a3b8;
+    font-size: 10px;
+}
+
+.delivery-location-divider::before,
+.delivery-location-divider::after {
+    height: 1px;
+    flex: 1;
+    background: #e2e8f0;
+    content: "";
+}
+
+.delivery-location-field {
+    display: block;
+    margin-bottom: 6px;
+    color: #334155;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.delivery-location-input {
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    color: #0f172a;
+    font-family: "Be Vietnam Pro", sans-serif;
+    font-size: 12px;
+}
+
+.delivery-location-input:focus {
+    border-color: #10b981;
+    outline: 2px solid rgba(16, 185, 129, 0.18);
+    outline-offset: 0;
+}
+
+.delivery-location-confirm {
+    margin-top: 10px;
+    background: #334155;
+}
+
+.delivery-location-confirm:hover {
+    background: #1e293b;
+}
+
 .location-option {
     display: block;
     width: 100%;
@@ -163,6 +290,10 @@
     .location-trigger,
     .location-chevron,
     .location-option {
+        transition: none;
+    }
+    .delivery-location-gps,
+    .delivery-location-confirm {
         transition: none;
     }
     .account-menu-item { transition: none; }

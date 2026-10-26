@@ -1,457 +1,1766 @@
+
 /* ============================================================
-   FCA CULINARY - CART PAGE SCRIPT
-   - Quantity +/-, remove item, clear all
-   - Recalculate totals
-   - Voucher apply/remove
-   - Upsell add
-   - Render functions (nạp DB)
+   FCA CULINARY - CART PAGE
+   - Giỏ hàng: tăng/giảm số lượng, xóa món, xóa toàn bộ
+   - Tính tổng tiền và đồng bộ badge
+   - Tải / áp dụng / bỏ voucher qua Spring Boot API
+   - Refresh access token khi nhận HTTP 401
+   - Món gợi ý, popup xác nhận xóa
+   - Không yêu cầu GPS khi áp dụng voucher
+   - Giữ giao diện voucher ổn định trong lúc validate
    ============================================================ */
 
-(function () {
-  'use strict';
+(() => {
+  "use strict";
 
-  /* ============================================================
-     STATE
-     ============================================================ */
+  /* ========================== CONFIG ========================== */
+
+  const CART_STORAGE_KEY = "fca_cart";
+  const API_BASE_URL = "http://localhost:8080";
+  const AUTH_REFRESH_URL = `${API_BASE_URL}/api/v1/auth/refresh`;
+
+  const API = {
+    voucherList: `${API_BASE_URL}/api/v1/vouchers`,
+    validateVoucher: `${API_BASE_URL}/api/v1/vouchers/validate`,
+    deliveryAvailability: `${API_BASE_URL}/api/v1/checkout/delivery-availability`,
+    updateCart: null,
+    removeCartItem: null,
+    clearCart: null,
+    upsells: null
+  };
+
+  const VOUCHER_VALIDATE_DEBOUNCE_MS = 400;
+  const $ = id => document.getElementById(id);
+
   const state = {
-    items: [],          // { id, name, image, price, quantity, note, badge }
-    upsells: [],        // { id, name, image, price, description }
+    items: [],
+    upsells: [],
     subtotal: 0,
     shipping: 0,
     discount: 0,
     couponCode: null,
-    activeBranch: null, // { name }
+    activeBranch: null,
     estimatedTime: null,
-    loyalty: null,      // { tier, discountNext, points }
+    loyalty: null,
+    originalShipping: 0,
+    deliveryLatitude: null,
+    deliveryLongitude: null,
+    voucherOriginalShipping: null,
+    freeShipping: false
   };
 
-  /* ============================================================
-     HELPERS
-     ============================================================ */
+  let refreshPromise = null;
+  let voucherRequestId = 0;
+  let voucherRevalidateTimer = null;
+
+  let availableVouchers = [];
+  let selectedVoucherCode = null;
+  let voucherListLoaded = false;
+  let voucherListLoading = false;
+  let voucherValidationPending = false;
+  let voucherValidationError = false;
+
+  /* ========================== HELPERS ========================== */
+
   function formatCurrency(amount) {
-    return new Intl.NumberFormat('vi-VN').format(amount || 0) + 'đ';
+    const value = Number(amount);
+    return new Intl.NumberFormat("vi-VN").format(
+      Number.isFinite(value) ? value : 0
+    ) + "đ";
   }
 
-  function escapeHtml(str) {
-    return String(str || '').replace(/[&<>"']/g, (m) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[m]));
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[char]);
   }
 
-  /* ============================================================
-     CART CALCULATION
-     ============================================================ */
-  function recalculateCart() {
-    const items = document.querySelectorAll('.cart-item');
-    let subtotal = 0;
-    let totalCount = 0;
-
-    items.forEach((item) => {
-      const price = parseInt(item.getAttribute('data-price'), 10) || 0;
-      const countSpan = item.querySelector('.qty-count');
-      const qty = parseInt(countSpan ? countSpan.textContent : '1', 10) || 1;
-      const lineTotal = price * qty;
-
-      const totalSpan = item.querySelector('.item-total');
-      if (totalSpan) totalSpan.textContent = formatCurrency(lineTotal);
-
-      subtotal += lineTotal;
-      totalCount += qty;
-    });
-
-    const discountAmount = state.discount || 0;
-    const shippingFee = state.shipping || 0;
-    const grandTotal = Math.max(0, subtotal + shippingFee - discountAmount);
-
-    // Update UI
-    const subtotalElem = document.getElementById('summary-subtotal');
-    const grandTotalElem = document.getElementById('summary-grand-total');
-    const ctaPriceElem = document.getElementById('cta-button-price');
-    const countElem = document.getElementById('summary-item-count');
-    const cartCountBadge = document.getElementById('cart-count-badge');
-    const cartTotalCount = document.getElementById('cart-total-count');
-    const checkoutCta = document.getElementById('checkout-cta');
-
-    if (subtotalElem) subtotalElem.textContent = formatCurrency(subtotal);
-    if (grandTotalElem) grandTotalElem.textContent = formatCurrency(grandTotal);
-    if (ctaPriceElem) {
-      ctaPriceElem.innerHTML =
-        formatCurrency(grandTotal) +
-        ' <span class="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>';
-    }
-    if (countElem) countElem.textContent = totalCount;
-    if (cartTotalCount) cartTotalCount.textContent = totalCount;
-    if (cartCountBadge) {
-      cartCountBadge.textContent = totalCount;
-      cartCountBadge.setAttribute('data-count', String(totalCount));
-    }
-    if (checkoutCta) {
-      checkoutCta.setAttribute('aria-disabled', String(totalCount === 0));
-    }
-
-    // Nếu giỏ trống → hiện empty state
-    if (items.length === 0) {
-      renderEmptyCart();
-    }
+  function getItemId(item) {
+    return String(item?.id ?? "");
   }
 
-  const checkoutCta = document.getElementById('checkout-cta');
-  if (checkoutCta) {
-    checkoutCta.addEventListener('click', (event) => {
-      const hasCartItems = document.querySelectorAll('#cart-item-list .cart-item').length > 0;
+  function getRestaurantId(item) {
+    return item?.restaurantId ??
+      item?.restaurant?.id ??
+      item?.restaurant?.restaurantId ??
+      null;
+  }
 
-      if (!hasCartItems) {
-        event.preventDefault();
-        checkoutCta.setAttribute('aria-disabled', 'true');
+  function getItemQuantity(item) {
+    const value = Number(item?.quantity);
+    return Number.isInteger(value) && value > 0
+      ? Math.min(value, 100)
+      : 1;
+  }
+
+  function getItemPrice(item) {
+    const value = Number(item?.price);
+    return Number.isFinite(value) && value >= 0 ? value : 0;
+  }
+
+  function normalizeCartItems(items) {
+    if (!Array.isArray(items)) return [];
+
+    return items
+      .filter(item => item && item.id != null && getRestaurantId(item) != null)
+      .map(item => ({
+        ...item,
+        id: item.id,
+        restaurantId: getRestaurantId(item),
+        name: String(item.name ?? item.menuItemName ?? "Món ăn"),
+        price: getItemPrice(item),
+        image: String(item.image ?? item.imageUrl ?? ""),
+        quantity: getItemQuantity(item)
+      }));
+  }
+
+  function showToast(message) {
+    const toast = $("cart-toast") || $("voucher-toast");
+    const messageElement = $("toast-message");
+
+    if (!toast) {
+      console.info("[FCA Cart]", message);
+      return;
+    }
+
+    if (messageElement) messageElement.textContent = message;
+    else toast.textContent = message;
+
+    toast.classList.add("show");
+    clearTimeout(showToast.timer);
+    showToast.timer = setTimeout(() => toast.classList.remove("show"), 2800);
+  }
+
+  async function readResponse(response) {
+    const contentType = response.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      return response.json().catch(() => null);
+    }
+
+    const text = await response.text().catch(() => "");
+    return text ? { message: text } : null;
+  }
+
+  function unwrapResponse(result) {
+    return result?.data ?? result;
+  }
+
+  /* ========================== AUTH / TOKEN REFRESH ========================== */
+
+  async function refreshAccessToken() {
+    if (refreshPromise) return refreshPromise;
+
+    refreshPromise = (async () => {
+      const refreshToken = localStorage.getItem("refreshToken");
+
+      if (!refreshToken) {
+        throw new Error("Không tìm thấy refreshToken. Vui lòng đăng nhập lại.");
       }
-    });
+
+      const response = await fetch(AUTH_REFRESH_URL, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ refreshToken })
+      });
+
+      const body = await readResponse(response);
+      const data = unwrapResponse(body);
+
+      if (!response.ok || !data?.accessToken) {
+        throw new Error(
+          body?.message ||
+          data?.message ||
+          "Không thể làm mới phiên đăng nhập. Vui lòng đăng nhập lại."
+        );
+      }
+
+      localStorage.setItem("accessToken", data.accessToken);
+
+      if (data.refreshToken) {
+        localStorage.setItem("refreshToken", data.refreshToken);
+      }
+
+      return data.accessToken;
+    })();
+
+    try {
+      return await refreshPromise;
+    } finally {
+      refreshPromise = null;
+    }
+  }
+
+  async function fetchWithAuth(url, options = {}) {
+    async function send(token) {
+      const headers = new Headers(options.headers || {});
+      headers.set("Accept", "application/json");
+
+      if (options.body && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+      }
+
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+      else headers.delete("Authorization");
+
+      return fetch(url, { ...options, headers });
+    }
+
+    let response = await send(localStorage.getItem("accessToken"));
+
+    if (response.status !== 401) return response;
+
+    const newAccessToken = await refreshAccessToken();
+    return send(newAccessToken);
+  }
+
+  async function fetchJson(url, options = {}) {
+    const response = await fetchWithAuth(url, options);
+    const body = await readResponse(response);
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error("Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
+      }
+
+      throw new Error(
+        body?.message ||
+        body?.error ||
+        `API trả về HTTP ${response.status}`
+      );
+    }
+
+    return unwrapResponse(body);
+  }
+
+  /* ========================== CART STORAGE ========================== */
+
+  function getCart() {
+    try {
+      return normalizeCartItems(
+        JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || "[]")
+      );
+    } catch (error) {
+      console.error("Không đọc được giỏ hàng:", error);
+      return [];
+    }
+  }
+
+  function saveCart(items) {
+    try {
+      const normalized = normalizeCartItems(items);
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(normalized));
+      state.items = normalized;
+      updateCartBadge(normalized);
+      return true;
+    } catch (error) {
+      console.error("Không lưu được giỏ hàng:", error);
+      showToast("Không thể lưu giỏ hàng trên trình duyệt.");
+      return false;
+    }
+  }
+
+  function updateCartBadge(items = getCart()) {
+    const count = items.reduce(
+      (sum, item) => sum + getItemQuantity(item), 0
+    );
+
+    const badge = $("cart-count-badge");
+
+    if (badge) {
+      badge.textContent = count > 99 ? "99+" : String(count);
+      badge.dataset.count = String(count);
+      badge.classList.toggle("hidden", count === 0);
+      badge.classList.toggle("flex", count > 0);
+    }
+
+    if ($("summary-item-count")) {
+      $("summary-item-count").textContent = count;
+    }
+
+    if ($("cart-total-count")) {
+      $("cart-total-count").textContent = count;
+    }
+  }
+
+  /* ========================== CART CALCULATION ========================== */
+
+  function recalculateCart(renderItems = true) {
+    const items = getCart();
+    state.items = items;
+
+    const subtotal = items.reduce(
+      (sum, item) => sum + getItemPrice(item) * getItemQuantity(item),
+      0
+    );
+
+    state.subtotal = subtotal;
+
+    state.discount = Math.min(
+      Math.max(0, Number(state.discount) || 0),
+      subtotal + state.shipping
+    );
+
+    const total = Math.max(
+      0,
+      subtotal + state.shipping - state.discount
+    );
+
+    const count = items.reduce(
+      (sum, item) => sum + getItemQuantity(item), 0
+    );
+
+    if ($("summary-subtotal")) {
+      $("summary-subtotal").textContent = formatCurrency(subtotal);
+    }
+
+    if ($("shipping-final")) {
+      $("shipping-final").textContent = formatCurrency(state.shipping);
+    }
+
+    if ($("summary-discount")) {
+      $("summary-discount").textContent =
+        "-" + formatCurrency(state.discount);
+    }
+
+    if ($("discount-row")) {
+      const showDiscount =
+        Boolean(state.couponCode) && state.discount > 0;
+
+      $("discount-row").classList.toggle("hidden", !showDiscount);
+      $("discount-row").classList.toggle("flex", showDiscount);
+    }
+
+    if ($("discount-code-label")) {
+      $("discount-code-label").textContent = state.couponCode
+        ? `(${state.couponCode})`
+        : "";
+    }
+
+    if ($("summary-grand-total")) {
+      $("summary-grand-total").textContent = formatCurrency(total);
+    }
+
+    if ($("cta-button-price")) {
+      $("cta-button-price").textContent = formatCurrency(total);
+    }
+
+    if ($("summary-item-count")) {
+      $("summary-item-count").textContent = count;
+    }
+
+    if ($("cart-total-count")) {
+      $("cart-total-count").textContent = count;
+    }
+
+    const checkout = $("checkout-cta");
+
+    if (checkout) {
+      const disabled = count === 0 ||
+        voucherValidationPending ||
+        voucherValidationError;
+
+      checkout.setAttribute("aria-disabled", String(disabled));
+      checkout.classList.toggle("opacity-50", disabled);
+      checkout.classList.toggle("cursor-not-allowed", disabled);
+    }
+
+    updateCartBadge(items);
+
+    if (renderItems) {
+      if (items.length === 0) renderEmptyCart();
+      else renderCartItems(items);
+    }
+
+    return {
+      items,
+      subtotal,
+      shipping: state.shipping,
+      discount: state.discount,
+      total,
+      count
+    };
   }
 
   function renderEmptyCart() {
-    const list = document.getElementById('cart-item-list');
+    const list = $("cart-item-list");
     if (!list) return;
+
     list.innerHTML = `
-      <div class="empty-cart-state">
-        <span class="material-symbols-outlined">shopping_basket</span>
-        <p class="font-title-md">Giỏ hàng của bạn đang trống</p>
+      <div class="empty-cart-state p-8 text-center">
+        <span class="material-symbols-outlined text-5xl text-outline">shopping_basket</span>
+        <p class="font-title-md mt-3">Giỏ hàng của bạn đang trống</p>
+        <a href="Home.html" class="inline-flex mt-4 px-4 py-2 rounded-lg bg-primary text-white">
+          Khám phá món ăn
+        </a>
       </div>`;
   }
 
-  /* ============================================================
-     EVENT DELEGATION (quantity, remove, upsell)
-     ============================================================ */
-  document.addEventListener('click', function (e) {
-    const plusBtn = e.target.closest('.qty-btn-plus');
-    if (plusBtn) {
-      const counter = plusBtn.parentElement.querySelector('.qty-count');
-      if (counter) {
-        let val = parseInt(counter.textContent, 10) || 1;
-        counter.textContent = val + 1;
-        recalculateCart();
+  function renderCartItems(items = getCart()) {
+    const container = $("cart-item-list");
+    if (!container) return;
+
+    state.items = normalizeCartItems(items);
+
+    if (!state.items.length) {
+      renderEmptyCart();
+      return;
+    }
+
+    container.innerHTML = state.items.map(item => {
+      const id = escapeHtml(item.id);
+      const name = escapeHtml(item.name);
+      const image = escapeHtml(item.image);
+
+      const note = item.note
+        ? `<p class="font-body-sm mt-1">${escapeHtml(item.note)}</p>`
+        : "";
+
+      const badge = item.badge
+        ? `<span class="absolute bottom-1 left-1 rounded bg-white/90 px-1.5 py-0.5 text-xs">${escapeHtml(item.badge)}</span>`
+        : "";
+
+      const itemTotal = formatCurrency(
+        getItemPrice(item) * getItemQuantity(item)
+      );
+
+      return `
+        <article class="cart-item bg-surface-container-low rounded-xl p-space-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-md transition-all duration-200"
+          data-id="${id}"
+          data-restaurant-id="${escapeHtml(item.restaurantId)}"
+          data-price="${getItemPrice(item)}">
+          <div class="flex items-center gap-space-md w-full sm:w-auto min-w-0">
+            <div class="relative w-24 h-24 rounded-lg overflow-hidden shrink-0 bg-surface-container">
+              ${image
+                ? `<img class="w-full h-full object-cover" src="${image}" alt="${name}" loading="lazy">`
+                : `<div class="w-full h-full flex items-center justify-center"><span class="material-symbols-outlined text-[32px]">restaurant</span></div>`}
+              ${badge}
+            </div>
+            <div class="flex flex-col min-w-0">
+              <h3 class="font-title-md text-on-surface font-semibold break-words">${name}</h3>
+              ${note}
+              <p class="sm:hidden mt-2 font-bold text-primary">${formatCurrency(item.price)}</p>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto shrink-0">
+            <div class="hidden sm:block text-right">
+              <span class="font-title-md font-bold text-on-surface item-total">${itemTotal}</span>
+              <div class="text-[11px] text-outline">${formatCurrency(item.price)} / phần</div>
+            </div>
+
+            <div class="flex items-center bg-white rounded-lg p-1">
+              <button type="button" aria-label="Giảm số lượng"
+                class="qty-btn-minus w-8 h-8 rounded flex items-center justify-center"
+                data-id="${id}">
+                <span class="material-symbols-outlined">remove</span>
+              </button>
+
+              <span class="qty-count w-9 text-center font-bold">${item.quantity}</span>
+
+              <button type="button" aria-label="Tăng số lượng"
+                class="qty-btn-plus w-8 h-8 rounded flex items-center justify-center"
+                data-id="${id}">
+                <span class="material-symbols-outlined">add</span>
+              </button>
+            </div>
+
+            <button type="button" class="btn-remove p-2 rounded-lg"
+              data-id="${id}" aria-label="Xóa ${name}" title="Xóa món">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+
+          <div class="sm:hidden w-full text-right font-semibold item-total">${itemTotal}</div>
+        </article>`;
+    }).join("");
+
+    updateCartBadge(state.items);
+  }
+
+  // Chỉ cập nhật dòng món thay đổi, không dựng lại toàn bộ danh sách.
+  function updateCartItemRow(item) {
+    const row = Array.from(
+      document.querySelectorAll(".cart-item")
+    ).find(element => element.dataset.id === String(item.id));
+
+    if (!row) {
+      renderCartItems(getCart());
+      return;
+    }
+
+    const quantityElement = row.querySelector(".qty-count");
+
+    if (quantityElement) {
+      quantityElement.textContent = String(item.quantity);
+    }
+
+    const totalText = formatCurrency(
+      getItemPrice(item) * getItemQuantity(item)
+    );
+
+    row.querySelectorAll(".item-total").forEach(element => {
+      element.textContent = totalText;
+    });
+
+    row.dataset.price = String(getItemPrice(item));
+  }
+
+  /* ========================== DELETE MODAL ========================== */
+
+  const deleteModal = $("delete-confirm-modal");
+  const deleteModalMessage = $("delete-modal-message");
+  const confirmDeleteBtn = $("confirm-delete-btn");
+  const cancelDeleteBtn = $("cancel-delete-btn");
+
+  let pendingDelete = null;
+  let previousFocusedElement = null;
+
+  function openDeleteModal(action) {
+    if (!deleteModal) {
+      showToast("Không tìm thấy popup xác nhận xóa.");
+      return;
+    }
+
+    pendingDelete = action;
+    previousFocusedElement = document.activeElement;
+
+    if (deleteModalMessage) {
+      deleteModalMessage.textContent = action.type === "all"
+        ? "Bạn có chắc chắn muốn xóa toàn bộ món ăn trong giỏ hàng không?"
+        : `Bạn có chắc chắn muốn xóa "${action.name || "món ăn này"}" khỏi giỏ hàng không?`;
+    }
+
+    if (confirmDeleteBtn) {
+      confirmDeleteBtn.textContent =
+        action.type === "all" ? "Xóa tất cả" : "Xóa";
+    }
+
+    deleteModal.classList.add("is-open");
+    deleteModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("delete-modal-open");
+    cancelDeleteBtn?.focus();
+  }
+
+  function closeDeleteModal() {
+    if (!deleteModal) return;
+
+    deleteModal.classList.remove("is-open");
+    deleteModal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("delete-modal-open");
+
+    pendingDelete = null;
+    previousFocusedElement?.focus?.();
+  }
+
+  /* ========================== VOUCHER UI ========================== */
+
+  const applyVoucherBtn = $("apply-voucher-btn");
+  const voucherInput = $("voucher-code");
+  const voucherTag = $("voucher-applied-tag");
+  const voucherTagText = $("voucher-applied-text");
+  const voucherRemoveBtn = $("voucher-remove-btn");
+  const discountRow = $("discount-row");
+  const discountCodeLabel = $("discount-code-label");
+  const openVoucherMenuBtn = $("open-voucher-menu-btn");
+  const closeVoucherMenuBtn = $("close-voucher-menu-btn");
+  const voucherMenu = $("voucher-menu");
+  const voucherListContainer = $("cart-voucher-list");
+  const confirmSelectedVoucherBtn = $("confirm-selected-voucher-btn");
+
+  function hideAppliedVoucher() {
+    voucherTag?.classList.add("hidden");
+    voucherTag?.classList.remove("flex");
+  }
+
+  function renderAppliedVoucher() {
+    if (!state.couponCode) {
+      hideAppliedVoucher();
+      return;
+    }
+
+    voucherTag?.classList.remove("hidden");
+    voucherTag?.classList.add("flex");
+
+    if (voucherTagText) {
+      voucherTagText.textContent = state.discount > 0
+        ? `${state.couponCode} (-${formatCurrency(state.discount)})`
+        : `${state.couponCode} (${formatCurrency(0)})`;
+    }
+
+    const hasDiscount = state.discount > 0;
+
+    discountRow?.classList.toggle("hidden", !hasDiscount);
+    discountRow?.classList.toggle("flex", hasDiscount);
+
+    if (discountCodeLabel) {
+      discountCodeLabel.textContent =
+        hasDiscount ? `(${state.couponCode})` : "";
+    }
+  }
+
+  // Giữ nguyên mức giảm hiện tại trong lúc validate.
+  function invalidateVoucherIfCartChanged() {
+    const code = state.couponCode;
+    if (!code) return null;
+
+    clearTimeout(voucherRevalidateTimer);
+    voucherRevalidateTimer = null;
+
+    // Vô hiệu hóa mọi phản hồi validate cũ.
+    voucherRequestId++;
+
+    voucherValidationPending = true;
+    voucherValidationError = false;
+
+    // Không đặt discount = 0 và không gọi renderAppliedVoucher().
+    // Nhờ vậy dòng giảm giá không bị ẩn rồi hiện lại.
+    if (voucherTag) {
+      voucherTag.classList.remove("hidden");
+      voucherTag.classList.add("flex");
+    }
+
+    if (voucherTagText) {
+      voucherTagText.textContent = `${code} (đang cập nhật...)`;
+    }
+
+    if (voucherInput) {
+      voucherInput.value = code;
+    }
+
+    recalculateCart(false);
+    return code;
+  }
+
+  function scheduleVoucherRevalidation(code) {
+    if (!code) return;
+
+    clearTimeout(voucherRevalidateTimer);
+    const requestId = voucherRequestId;
+
+    voucherRevalidateTimer = setTimeout(() => {
+      voucherRevalidateTimer = null;
+
+      if (requestId !== voucherRequestId) return;
+      if (state.couponCode !== code) return;
+
+      revalidateAppliedVoucher(code, requestId);
+    }, VOUCHER_VALIDATE_DEBOUNCE_MS);
+  }
+
+  /* ========================== VOUCHER LIST ========================== */
+
+  function getVoucherCode(voucher) {
+    return String(voucher?.code ?? voucher?.voucherCode ?? "")
+      .trim().toUpperCase();
+  }
+
+  function getVoucherCategory(voucher) {
+    const category = String(
+      voucher?.categoryVoucher ??
+      voucher?.category_voucher ??
+      voucher?.category ??
+      ""
+    ).toUpperCase();
+
+    const labels = {
+      FREE_SHIP: "Miễn phí vận chuyển",
+      DISH: "Giảm giá món ăn",
+      VIP: "Ưu đãi VIP"
+    };
+
+    return labels[category] || "Ưu đãi FCA";
+  }
+
+  function getVoucherDiscountText(voucher) {
+    const type = String(
+      voucher?.discountType ??
+      voucher?.discount_type ??
+      voucher?.type ??
+      ""
+    ).toUpperCase();
+
+    const value = Number(
+      voucher?.discountValue ??
+      voucher?.discount_value ??
+      voucher?.discountAmount ??
+      voucher?.discount_amount ??
+      voucher?.value
+    );
+
+    if (!Number.isFinite(value)) return "Xem điều kiện ưu đãi";
+
+    if (type === "PERCENTAGE" || type === "PERCENT") {
+      const max = Number(
+        voucher?.maxDiscountAmount ?? voucher?.max_discount_amount
+      );
+
+      const text = `Giảm ${value}%`;
+
+      return Number.isFinite(max) && max > 0
+        ? `${text}, tối đa ${formatCurrency(max)}`
+        : text;
+    }
+
+    if (type === "FIXED_AMOUNT" || type === "FIXED") {
+      return `Giảm ${formatCurrency(value)}`;
+    }
+
+    return "Ưu đãi FCA";
+  }
+
+  function formatVoucherDate(value) {
+    if (!value) return "";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+
+    return new Intl.DateTimeFormat("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    }).format(date);
+  }
+
+  function getVoucherDateText(voucher) {
+    const start = formatVoucherDate(
+      voucher?.startDate ?? voucher?.start_date
+    );
+    const end = formatVoucherDate(
+      voucher?.endDate ?? voucher?.end_date
+    );
+
+    if (start && end) return `Hiệu lực: ${start} – ${end}`;
+    if (end) return `Hạn sử dụng: ${end}`;
+    if (start) return `Bắt đầu từ: ${start}`;
+
+    return "Vui lòng kiểm tra điều kiện sử dụng";
+  }
+
+  function getVoucherMinOrder(voucher) {
+    const value = Number(
+      voucher?.minOrderAmount ?? voucher?.min_order_amount
+    );
+
+    return Number.isFinite(value) && value > 0
+      ? `Đơn tối thiểu ${formatCurrency(value)}`
+      : "";
+  }
+
+  function normalizeVoucherList(response) {
+    if (Array.isArray(response)) return response;
+    if (Array.isArray(response?.content)) return response.content;
+    if (Array.isArray(response?.items)) return response.items;
+    if (Array.isArray(response?.vouchers)) return response.vouchers;
+    if (Array.isArray(response?.data)) return response.data;
+    if (Array.isArray(response?.content?.content)) {
+      return response.content.content;
+    }
+
+    return [];
+  }
+
+  function isVoucherActive(voucher) {
+    const customerStatus = String(
+      voucher?.customerStatus ?? ""
+    ).toUpperCase();
+
+    if (customerStatus === "USED" ||
+        customerStatus === "UNAVAILABLE") return false;
+
+    if (voucher?.active === false || voucher?.active === 0) return false;
+
+    if (typeof voucher?.active === "string") {
+      const active = voucher.active.toLowerCase();
+      if (active === "false" || active === "0") return false;
+    }
+
+    const now = Date.now();
+    const start = voucher?.startDate ?? voucher?.start_date;
+    const end = voucher?.endDate ?? voucher?.end_date;
+
+    if (start) {
+      const time = new Date(start).getTime();
+      if (Number.isFinite(time) && now < time) return false;
+    }
+
+    if (end) {
+      const time = new Date(end).getTime();
+      if (Number.isFinite(time) && now > time) return false;
+    }
+
+    const limit = Number(voucher?.usageLimit ?? voucher?.usage_limit);
+    const used = Number(voucher?.usedCount ?? voucher?.used_count ?? 0);
+
+    if (Number.isFinite(limit) && limit > 0 && used >= limit) return false;
+
+    return true;
+  }
+
+  function renderVoucherList(vouchers) {
+    if (!voucherListContainer) return;
+
+    const unique = new Map();
+
+    vouchers.forEach(voucher => {
+      const code = getVoucherCode(voucher);
+      if (code && !unique.has(code)) unique.set(code, voucher);
+    });
+
+    availableVouchers = Array.from(unique.values());
+
+    if (!availableVouchers.length) {
+      voucherListContainer.innerHTML = `
+        <div class="rounded-lg bg-surface-container-low p-4 text-center">
+          <span class="material-symbols-outlined text-3xl text-outline">confirmation_number</span>
+          <p class="mt-2 text-sm text-on-surface-variant">Hiện chưa có voucher trong danh sách.</p>
+        </div>`;
+
+      if (confirmSelectedVoucherBtn) {
+        confirmSelectedVoucherBtn.disabled = true;
+      }
+
+      return;
+    }
+
+    voucherListContainer.innerHTML = availableVouchers.map(voucher => {
+      const code = getVoucherCode(voucher);
+      const active = isVoucherActive(voucher);
+      const used = String(voucher?.customerStatus ?? "").toUpperCase() === "USED";
+      const selected = selectedVoucherCode === code;
+      const category = getVoucherCategory(voucher);
+      const discount = getVoucherDiscountText(voucher);
+      const dateText = getVoucherDateText(voucher);
+      const minOrder = getVoucherMinOrder(voucher);
+
+      return `
+        <button type="button"
+          class="w-full text-left rounded-xl border p-3 transition-all
+            ${selected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-outline-variant bg-surface-container-lowest"}
+            ${!active ? "opacity-60" : "hover:border-primary"}"
+          data-voucher-code="${escapeHtml(code)}"
+          aria-pressed="${selected}" ${!active ? "disabled" : ""}>
+          <div class="flex items-start gap-3">
+            <span class="material-symbols-outlined text-primary text-2xl">confirmation_number</span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-2">
+                <span class="font-bold text-on-surface break-words">${escapeHtml(code)}</span>
+                <span class="text-xs font-semibold shrink-0 ${active ? "text-primary" : "text-error"}">
+                  ${used ? "Đã sử dụng" : active ? "Khả dụng" : "Không khả dụng"}
+                </span>
+              </div>
+              <p class="mt-1 text-sm font-semibold text-primary">${escapeHtml(discount)}</p>
+              <p class="mt-1 text-xs text-on-surface-variant">${escapeHtml(category)}</p>
+              <p class="mt-1 text-xs text-outline">${escapeHtml(dateText)}</p>
+              ${minOrder ? `<p class="mt-1 text-xs text-outline">${escapeHtml(minOrder)}</p>` : ""}
+            </div>
+            <span class="material-symbols-outlined text-primary">
+              ${selected ? "radio_button_checked" : "radio_button_unchecked"}
+            </span>
+          </div>
+        </button>`;
+    }).join("");
+
+    if (confirmSelectedVoucherBtn) {
+      const selected = availableVouchers.find(
+        voucher => getVoucherCode(voucher) === selectedVoucherCode
+      );
+
+      confirmSelectedVoucherBtn.disabled =
+        !selected || !isVoucherActive(selected);
+    }
+  }
+
+  async function loadVouchers(forceReload = false) {
+    if (voucherListLoading) return;
+    if (voucherListLoaded && !forceReload) return;
+
+    voucherListLoading = true;
+
+    if (voucherListContainer) {
+      voucherListContainer.innerHTML = `
+        <div class="p-4 text-center text-sm text-on-surface-variant">
+          Đang tải danh sách voucher...
+        </div>`;
+    }
+
+    try {
+      const payload = await fetchJson(API.voucherList, { method: "GET" });
+      renderVoucherList(normalizeVoucherList(payload));
+      voucherListLoaded = true;
+    } catch (error) {
+      console.error("Không tải được danh sách voucher:", error);
+
+      if (voucherListContainer) {
+        voucherListContainer.innerHTML = `
+          <div class="rounded-lg bg-error-container p-3 text-sm">
+            <p class="font-semibold">Không tải được danh sách voucher.</p>
+            <p class="mt-1">${escapeHtml(error.message || "Vui lòng thử lại.")}</p>
+            <button type="button" id="retry-load-vouchers-btn" class="mt-3 font-bold underline">
+              Thử tải lại
+            </button>
+          </div>`;
+      }
+    } finally {
+      voucherListLoading = false;
+    }
+  }
+
+  function openVoucherMenu() {
+    if (!voucherMenu) return;
+
+    voucherMenu.classList.remove("hidden");
+    openVoucherMenuBtn?.setAttribute("aria-expanded", "true");
+    loadVouchers();
+  }
+
+  function closeVoucherMenu() {
+    if (!voucherMenu) return;
+
+    voucherMenu.classList.add("hidden");
+    openVoucherMenuBtn?.setAttribute("aria-expanded", "false");
+  }
+
+  /* ========================== APPLY / VALIDATE VOUCHER ========================== */
+
+  function getCommonRestaurantId(cart) {
+    if (!cart.length) return null;
+
+    const restaurantIds = new Set(
+      cart.map(item => String(getRestaurantId(item)))
+    );
+
+    return restaurantIds.size === 1 ? getRestaurantId(cart[0]) : null;
+  }
+
+  async function refreshDeliveryFee() {
+    const cart = getCart();
+    const restaurantId = getCommonRestaurantId(cart);
+    if (!restaurantId || !cart.length) return;
+
+    let location = null;
+    try {
+      location = JSON.parse(localStorage.getItem("fca_delivery_location") || "null");
+    } catch (error) {
+      console.warn("Dữ liệu địa chỉ giao hàng không hợp lệ:", error);
+      return;
+    }
+
+    if (!location?.address && (location?.latitude == null || location?.longitude == null)) return;
+
+    try {
+      const result = await fetchJson(API.deliveryAvailability, {
+        method: "POST",
+        body: JSON.stringify({
+          restaurantId: Number(restaurantId),
+          deliveryLatitude: location.latitude ?? null,
+          deliveryLongitude: location.longitude ?? null,
+          deliveryAddress: location.address || null
+        })
+      });
+      const deliveryFee = Number(result?.deliveryFee);
+      if (!Number.isFinite(deliveryFee) || deliveryFee < 0) {
+        throw new Error("Backend trả về phí giao hàng không hợp lệ.");
+      }
+      state.shipping = deliveryFee;
+      state.originalShipping = deliveryFee;
+      recalculateCart(false);
+    } catch (error) {
+      console.warn("Không thể tính phí giao hàng:", error);
+    }
+  }
+
+  async function validateVoucherCode(code, cart) {
+    const restaurantId = getCommonRestaurantId(cart);
+
+    if (restaurantId == null) {
+      return {
+        valid: false,
+        reason: "Voucher chỉ áp dụng cho giỏ hàng thuộc cùng một nhà hàng."
+      };
+    }
+
+    return fetchJson(API.validateVoucher, {
+      method: "POST",
+      body: JSON.stringify({
+        voucherCode: code,
+        restaurantId: Number(restaurantId),
+        deliveryLatitude: state.deliveryLatitude,
+        deliveryLongitude: state.deliveryLongitude,
+        items: cart.map(item => ({
+          menuItemId: Number(item.id),
+          quantity: getItemQuantity(item)
+        }))
+      })
+    });
+  }
+
+  function applyVoucherValidationResult(code, result) {
+    const discount = Number(result?.discountAmount);
+
+    if (!Number.isFinite(discount) || discount < 0) {
+      throw new Error("Backend trả về số tiền giảm không hợp lệ.");
+    }
+
+    state.couponCode = code;
+    state.discount = discount;
+
+    if (result.deliveryFee != null) {
+      const deliveryFee = Number(result.deliveryFee);
+
+      if (Number.isFinite(deliveryFee) && deliveryFee >= 0) {
+        state.shipping = deliveryFee;
       }
     }
 
-    const minusBtn = e.target.closest('.qty-btn-minus');
-    if (minusBtn) {
-      const counter = minusBtn.parentElement.querySelector('.qty-count');
-      if (counter) {
-        let val = parseInt(counter.textContent, 10) || 1;
-        if (val > 1) {
-          counter.textContent = val - 1;
-          recalculateCart();
+    voucherValidationPending = false;
+    voucherValidationError = false;
+
+    renderAppliedVoucher();
+    recalculateCart(false);
+
+    return discount;
+  }
+
+  async function revalidateAppliedVoucher(code, expectedRequestId = null) {
+    const cart = getCart();
+    const requestId = expectedRequestId ?? ++voucherRequestId;
+
+    if (requestId !== voucherRequestId) return;
+    if (state.couponCode !== code) return;
+
+    if (!cart.length || getCommonRestaurantId(cart) == null) {
+      voucherValidationPending = false;
+      voucherValidationError = false;
+      state.couponCode = null;
+      state.discount = 0;
+      selectedVoucherCode = null;
+
+      hideAppliedVoucher();
+      renderVoucherList(availableVouchers);
+      recalculateCart(false);
+      return;
+    }
+
+    try {
+      const result = await validateVoucherCode(code, cart);
+
+      if (requestId !== voucherRequestId) return;
+      if (state.couponCode !== code) return;
+
+      if (result?.valid !== true) {
+        voucherValidationPending = false;
+        voucherValidationError = false;
+        state.couponCode = null;
+        state.discount = 0;
+
+        if (selectedVoucherCode === code) {
+          selectedVoucherCode = null;
         }
+
+        hideAppliedVoucher();
+        renderVoucherList(availableVouchers);
+        recalculateCart(false);
+
+        showToast(
+          result?.reason ||
+          result?.message ||
+          "Voucher không còn phù hợp với giỏ hàng."
+        );
+
+        return;
+      }
+
+      // Chỉ cập nhật khi nhận kết quả hợp lệ.
+      applyVoucherValidationResult(code, result);
+
+    } catch (error) {
+      if (requestId !== voucherRequestId) return;
+      if (state.couponCode !== code) return;
+
+      voucherValidationPending = false;
+      voucherValidationError = true;
+      state.couponCode = null;
+      state.discount = 0;
+
+      hideAppliedVoucher();
+      recalculateCart(false);
+
+      console.error("Không thể xác thực lại voucher:", error);
+      showToast(
+        "Chưa thể xác thực voucher. Vui lòng áp dụng lại trước khi thanh toán."
+      );
+    }
+  }
+
+  async function applySelectedVoucher() {
+    const code = selectedVoucherCode;
+
+    const voucher = availableVouchers.find(
+      item => getVoucherCode(item) === code
+    );
+
+    if (!voucher) {
+      showToast("Vui lòng chọn một voucher.");
+      return;
+    }
+
+    if (!isVoucherActive(voucher)) {
+      showToast("Voucher này hiện không khả dụng.");
+      return;
+    }
+
+    const cart = getCart();
+
+    if (!cart.length) {
+      showToast("Hãy thêm món vào giỏ trước khi áp dụng voucher.");
+      return;
+    }
+
+    if (getCommonRestaurantId(cart) == null) {
+      showToast("Voucher chỉ áp dụng cho giỏ hàng thuộc cùng một nhà hàng.");
+      return;
+    }
+
+    const requestId = ++voucherRequestId;
+    voucherValidationPending = true;
+    voucherValidationError = false;
+
+    if (confirmSelectedVoucherBtn) {
+      confirmSelectedVoucherBtn.disabled = true;
+      confirmSelectedVoucherBtn.textContent = "Đang xác thực...";
+    }
+
+    try {
+      const result = await validateVoucherCode(code, cart);
+
+      if (requestId !== voucherRequestId) return;
+
+      if (result?.valid !== true) {
+        voucherValidationPending = false;
+
+        if (state.couponCode === code) {
+          state.couponCode = null;
+          state.discount = 0;
+          hideAppliedVoucher();
+          recalculateCart(false);
+        }
+
+        showToast(
+          result?.reason ||
+          result?.message ||
+          "Voucher không hợp lệ hoặc không áp dụng được."
+        );
+
+        return;
+      }
+
+      const discount = applyVoucherValidationResult(code, result);
+      closeVoucherMenu();
+
+      showToast(
+        discount > 0
+          ? `Đã áp dụng voucher ${code}.`
+          : `Voucher ${code} hợp lệ nhưng chưa có số tiền giảm.`
+      );
+
+    } catch (error) {
+      if (requestId !== voucherRequestId) return;
+
+      voucherValidationPending = false;
+      console.error("Lỗi xác thực voucher:", error);
+      showToast(error.message || "Không thể xác thực voucher.");
+
+    } finally {
+      if (confirmSelectedVoucherBtn) {
+        confirmSelectedVoucherBtn.textContent = "Áp dụng voucher đã chọn";
+
+        const selected = availableVouchers.find(
+          item => getVoucherCode(item) === selectedVoucherCode
+        );
+
+        confirmSelectedVoucherBtn.disabled =
+          !selected || !isVoucherActive(selected);
+      }
+
+      recalculateCart(false);
+    }
+  }
+
+  async function applyVoucherFromInput() {
+    const code = String(voucherInput?.value || "").trim().toUpperCase();
+
+    if (!code) {
+      showToast("Vui lòng nhập mã voucher.");
+      voucherInput?.focus();
+      return;
+    }
+
+    if (!voucherListLoaded) await loadVouchers();
+
+    const voucher = availableVouchers.find(
+      item => getVoucherCode(item) === code
+    );
+
+    if (!voucher) {
+      showToast("Không tìm thấy mã này trong danh sách voucher.");
+      return;
+    }
+
+    selectedVoucherCode = code;
+    renderVoucherList(availableVouchers);
+    await applySelectedVoucher();
+  }
+
+  /* ========================== CART MUTATIONS ========================== */
+
+  function changeQuantity(id, delta) {
+    const items = getCart();
+    const item = items.find(entry => getItemId(entry) === String(id));
+
+    if (!item) return;
+
+    const quantity = getItemQuantity(item) + delta;
+
+    if (quantity < 1) {
+      showToast("Số lượng tối thiểu là 1.");
+      return;
+    }
+
+    if (quantity > 100) {
+      showToast("Mỗi món chỉ được tối đa 100 phần.");
+      return;
+    }
+
+    item.quantity = quantity;
+
+    if (!saveCart(items)) return;
+
+    const voucherCode = invalidateVoucherIfCartChanged();
+
+    updateCartItemRow(item);
+    recalculateCart(false);
+
+    if (voucherCode) {
+      scheduleVoucherRevalidation(voucherCode);
+    }
+
+    syncCartToApi("quantity", item).catch(error =>
+      console.warn("Chưa đồng bộ số lượng lên API:", error)
+    );
+  }
+
+  function removeItem(id) {
+    const items = getCart();
+    const item = items.find(entry => getItemId(entry) === String(id));
+
+    if (!item) return;
+
+    if (!saveCart(
+      items.filter(entry => getItemId(entry) !== String(id))
+    )) return;
+
+    const voucherCode = invalidateVoucherIfCartChanged();
+
+    recalculateCart(false);
+    renderCartItems(getCart());
+
+    if (voucherCode) {
+      scheduleVoucherRevalidation(voucherCode);
+    }
+
+    showToast(`Đã xóa "${item.name}" khỏi giỏ hàng.`);
+
+    syncCartToApi("remove", item).catch(error =>
+      console.warn("Chưa đồng bộ xóa món lên API:", error)
+    );
+  }
+
+  function clearCart() {
+    if (!getCart().length) {
+      renderEmptyCart();
+      return;
+    }
+
+    openDeleteModal({ type: "all" });
+  }
+
+  async function syncCartToApi(action, item) {
+    const endpoint = action === "remove"
+      ? API.removeCartItem
+      : API.updateCart;
+
+    if (!endpoint) return;
+
+    await fetchJson(endpoint, {
+      method: action === "remove" ? "DELETE" : "PUT",
+      body: JSON.stringify({
+        id: item.id,
+        restaurantId: item.restaurantId,
+        quantity: item.quantity
+      })
+    });
+  }
+
+  /* ========================== UPSSELLS ========================== */
+
+  function renderUpsells(upsells = []) {
+    const container = $("upsell-container");
+    if (!container) return;
+
+    state.upsells = Array.isArray(upsells) ? upsells : [];
+
+    if (!state.upsells.length) {
+      container.replaceChildren();
+      return;
+    }
+
+    container.innerHTML = state.upsells.map(item => `
+      <article class="bg-surface-container-low rounded-xl p-3 flex flex-col gap-3"
+        data-upsell-id="${escapeHtml(item.id)}">
+        <div class="flex gap-3 items-center">
+          <div class="w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-surface-container">
+            ${item.image
+              ? `<img class="w-full h-full object-cover" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy">`
+              : `<span class="material-symbols-outlined">restaurant</span>`}
+          </div>
+          <div class="min-w-0">
+            <h4 class="font-bold">${escapeHtml(item.name)}</h4>
+            <p class="text-sm text-outline">${escapeHtml(item.description || "")}</p>
+            <p class="font-bold text-primary">${formatCurrency(item.price)}</p>
+          </div>
+        </div>
+        <button type="button" class="add-upsell-btn w-full h-9 rounded-lg font-semibold" data-id="${escapeHtml(item.id)}">
+          <span class="material-symbols-outlined align-middle">add</span> Thêm ngay
+        </button>
+      </article>`).join("");
+  }
+
+  function addUpsell(id) {
+    const upsell = state.upsells.find(
+      item => String(item.id) === String(id)
+    );
+
+    if (!upsell) {
+      showToast("Không tìm thấy món gợi ý.");
+      return;
+    }
+
+    const cart = getCart();
+    const restaurantId = upsell.restaurantId ?? cart[0]?.restaurantId;
+
+    if (restaurantId == null) {
+      showToast("Không xác định được nhà hàng của món gợi ý.");
+      return;
+    }
+
+    if (cart.some(
+      item => String(item.restaurantId) !== String(restaurantId)
+    )) {
+      showToast("Không thể trộn món từ nhiều nhà hàng.");
+      return;
+    }
+
+    const existing = cart.find(item =>
+      String(item.id) === String(upsell.id) &&
+      String(item.restaurantId) === String(restaurantId)
+    );
+
+    if (existing) {
+      if (existing.quantity >= 100) {
+        showToast("Mỗi món chỉ được tối đa 100 phần.");
+        return;
+      }
+
+      existing.quantity++;
+    } else {
+      cart.push({
+        id: upsell.id,
+        restaurantId,
+        name: upsell.name,
+        price: getItemPrice(upsell),
+        image: upsell.image || "",
+        quantity: 1
+      });
+    }
+
+    if (!saveCart(cart)) return;
+
+    const voucherCode = invalidateVoucherIfCartChanged();
+
+    recalculateCart(false);
+    renderCartItems(getCart());
+
+    if (voucherCode) {
+      scheduleVoucherRevalidation(voucherCode);
+    }
+
+    showToast(`Đã thêm "${upsell.name}" vào giỏ hàng.`);
+  }
+
+  /* ========================== SUMMARY / BRANCH / LOYALTY ========================== */
+
+  function renderActiveBranch(branch) {
+    state.activeBranch = branch || null;
+
+    const element = $("active-branch-name");
+    if (element) element.textContent = branch?.name || "—";
+  }
+
+  function renderSummary(summary = {}) {
+    state.shipping = Math.max(0, Number(summary.shipping) || 0);
+    state.originalShipping = Math.max(
+      0, Number(summary.originalShipping) || 0
+    );
+    state.freeShipping = Boolean(summary.freeShipping);
+
+    const original = $("shipping-original");
+    const freeshipBadge = $("freeship-badge");
+
+    if (original) {
+      if (state.freeShipping && state.originalShipping > 0) {
+        original.textContent = formatCurrency(state.originalShipping);
+        original.classList.remove("hidden");
+      } else {
+        original.classList.add("hidden");
       }
     }
 
-    const removeBtn = e.target.closest('.btn-remove');
-    if (removeBtn) {
-      const itemCard = removeBtn.closest('.cart-item');
-      if (itemCard) {
-        const id = itemCard.getAttribute('data-id');
-        itemCard.style.opacity = '0';
-        itemCard.style.transform = 'translateX(20px)';
-        setTimeout(() => {
-          itemCard.remove();
-          // TODO: gọi API xóa món khỏi DB
-          state.items = state.items.filter((it) => String(it.id) !== String(id));
-          recalculateCart();
-        }, 200);
-      }
+    freeshipBadge?.classList.toggle("hidden", !state.freeShipping);
+
+    if (
+      !voucherValidationPending &&
+      !voucherValidationError &&
+      summary.couponCode &&
+      Number(summary.discount) > 0
+    ) {
+      state.couponCode = String(summary.couponCode);
+      state.discount = Math.max(0, Number(summary.discount) || 0);
+      renderAppliedVoucher();
+
+    } else if (
+      !voucherValidationPending &&
+      !voucherValidationError &&
+      !state.couponCode
+    ) {
+      state.discount = 0;
+      hideAppliedVoucher();
     }
 
-    const addUpsellBtn = e.target.closest('.add-upsell-btn');
-    if (addUpsellBtn) {
-      const id = addUpsellBtn.getAttribute('data-id');
-      addUpsellBtn.innerHTML =
-        '<span class="material-symbols-outlined text-[18px]">check</span> Đã thêm';
-      addUpsellBtn.classList.add('bg-primary', 'text-on-primary');
-      // TODO: gọi API thêm upsell vào DB
-      setTimeout(() => {
-        addUpsellBtn.innerHTML =
-          '<span class="material-symbols-outlined text-[18px]">add</span> Thêm ngay';
-        addUpsellBtn.classList.remove('bg-primary', 'text-on-primary');
-      }, 1500);
+    recalculateCart();
+  }
+
+  function renderLoyalty(loyalty) {
+    state.loyalty = loyalty || null;
+
+    const badge = $("loyalty-badge");
+    if (!badge) return;
+
+    if (!loyalty) {
+      badge.classList.add("hidden");
+      badge.classList.remove("flex");
+      return;
+    }
+
+    badge.classList.remove("hidden");
+    badge.classList.add("flex");
+
+    if ($("loyalty-title")) {
+      $("loyalty-title").textContent = "Tích lũy FCA Member";
+    }
+
+    if ($("loyalty-subtitle")) {
+      $("loyalty-subtitle").textContent =
+        loyalty.tier ? `Hạng ${loyalty.tier}` : "";
+    }
+
+    if ($("loyalty-points")) {
+      $("loyalty-points").textContent = `+${loyalty.points || 0} điểm`;
+    }
+  }
+
+  function setEstimatedTime(text) {
+    state.estimatedTime = text || null;
+
+    const element = $("estimated-time");
+    if (!element) return;
+
+    element.replaceChildren();
+
+    const icon = document.createElement("span");
+    icon.className = "material-symbols-outlined text-[18px]";
+    icon.textContent = "timer";
+
+    const label = document.createElement("span");
+    label.textContent = `Thời gian dự kiến: ${text || "—"}`;
+
+    element.append(icon, label);
+  }
+
+  function renderFooterBranches(branches) {
+    const container = $("footer-branches");
+    if (!container) return;
+
+    if (!Array.isArray(branches) || !branches.length) {
+      container.replaceChildren();
+      return;
+    }
+
+    container.innerHTML = branches.map(branch => `
+      <li class="flex items-start gap-2">
+        <span class="material-symbols-outlined text-primary text-[16px]">storefront</span>
+        <div><strong>${escapeHtml(branch.city || "")}:</strong> ${escapeHtml(branch.address || "")}</div>
+      </li>`).join("");
+  }
+
+  /* ========================== EVENTS ========================== */
+
+  function bindEvents() {
+    document.addEventListener("click", event => {
+      const plus = event.target.closest(".qty-btn-plus");
+
+      if (plus) {
+        changeQuantity(plus.dataset.id, 1);
+        return;
+      }
+
+      const minus = event.target.closest(".qty-btn-minus");
+
+      if (minus) {
+        changeQuantity(minus.dataset.id, -1);
+        return;
+      }
+
+      const remove = event.target.closest(".btn-remove");
+
+      if (remove) {
+        event.preventDefault();
+
+        const row = remove.closest(".cart-item");
+        const id = remove.dataset.id || row?.dataset.id;
+        if (id == null) return;
+
+        const item = getCart().find(
+          entry => getItemId(entry) === String(id)
+        );
+
+        if (!item) return;
+
+        openDeleteModal({ type: "item", id, name: item.name });
+        return;
+      }
+
+      const addUpsellButton = event.target.closest(".add-upsell-btn");
+
+      if (addUpsellButton) {
+        addUpsell(addUpsellButton.dataset.id);
+      }
+    });
+
+    $("clear-all-btn")?.addEventListener("click", clearCart);
+
+    $("checkout-cta")?.addEventListener("click", event => {
+      if (!getCart().length) {
+        event.preventDefault();
+        event.stopPropagation();
+        showToast("Giỏ hàng đang trống.");
+        return;
+      }
+
+      if (voucherValidationPending || voucherValidationError) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        showToast(
+          "Voucher chưa được xác thực theo giỏ hàng hiện tại. Vui lòng thử lại hoặc bỏ voucher."
+        );
+        return;
+      }
+
+      sessionStorage.setItem("fca_checkout_context", JSON.stringify({
+        voucherCode: state.couponCode,
+        discount: state.discount,
+        shipping: state.shipping,
+        ecoPackaging: true
+      }));
+    });
+
+    window.addEventListener("storage", event => {
+      if (event.key !== CART_STORAGE_KEY) return;
+
+      state.items = getCart();
+
+      const voucherCode = invalidateVoucherIfCartChanged();
+
+      recalculateCart(false);
+      renderCartItems(state.items);
+
+      if (voucherCode) {
+        scheduleVoucherRevalidation(voucherCode);
+      }
+    });
+  }
+
+  /* ========================== EVENT BINDINGS ========================== */
+
+  confirmDeleteBtn?.addEventListener("click", () => {
+    if (!pendingDelete) return;
+
+    const action = pendingDelete;
+    closeDeleteModal();
+
+    if (action.type === "item") {
+      removeItem(action.id);
+      return;
+    }
+
+    if (action.type === "all") {
+      if (!saveCart([])) return;
+
+      clearTimeout(voucherRevalidateTimer);
+      voucherRevalidateTimer = null;
+
+      state.discount = 0;
+      state.couponCode = null;
+      selectedVoucherCode = null;
+
+      voucherRequestId++;
+      voucherValidationPending = false;
+      voucherValidationError = false;
+
+      if (voucherInput) voucherInput.value = "";
+
+      hideAppliedVoucher();
+      recalculateCart();
+      showToast("Đã xóa toàn bộ giỏ hàng.");
+
+      if (API.clearCart) {
+        fetchJson(API.clearCart, { method: "DELETE" }).catch(error =>
+          console.error("API xóa giỏ hàng thất bại:", error)
+        );
+      }
     }
   });
 
-  /* ============================================================
-     CLEAR ALL
-     ============================================================ */
-  const clearAll = document.getElementById('clear-all-btn');
-  if (clearAll) {
-    clearAll.addEventListener('click', function () {
-      // TODO: gọi API xóa toàn bộ
-      state.items = [];
-      renderEmptyCart();
-      recalculateCart();
+  cancelDeleteBtn?.addEventListener("click", closeDeleteModal);
+
+  deleteModal?.querySelectorAll("[data-close-delete-modal]")
+    .forEach(element => {
+      element.addEventListener("click", closeDeleteModal);
     });
-  }
 
-  /* ============================================================
-     VOUCHER
-     ============================================================ */
-  const applyVoucherBtn = document.getElementById('apply-voucher-btn');
-  const voucherInput = document.getElementById('voucher-code');
-  const voucherTag = document.getElementById('voucher-applied-tag');
-  const voucherTagText = document.getElementById('voucher-applied-text');
-  const voucherRemoveBtn = document.getElementById('voucher-remove-btn');
-  const discountRow = document.getElementById('discount-row');
-  const discountCodeLabel = document.getElementById('discount-code-label');
+  document.addEventListener("keydown", event => {
+    if (
+      event.key === "Escape" &&
+      deleteModal?.classList.contains("is-open")
+    ) {
+      closeDeleteModal();
+    }
+  });
 
-  if (applyVoucherBtn && voucherInput) {
-    applyVoucherBtn.addEventListener('click', function () {
-      const code = voucherInput.value.trim().toUpperCase();
-      if (!code) return;
+  openVoucherMenuBtn?.addEventListener("click", openVoucherMenu);
+  closeVoucherMenuBtn?.addEventListener("click", closeVoucherMenu);
+  confirmSelectedVoucherBtn?.addEventListener(
+    "click", applySelectedVoucher
+  );
 
-      // TODO: gọi API kiểm tra voucher
-      // Demo feedback UI:
-      applyVoucherBtn.textContent = 'Đã áp dụng';
-      applyVoucherBtn.classList.add('bg-primary', 'text-on-primary');
-      setTimeout(() => {
-        applyVoucherBtn.textContent = 'Áp dụng';
-        applyVoucherBtn.classList.remove('bg-primary', 'text-on-primary');
-      }, 1500);
-    });
-  }
+  voucherListContainer?.addEventListener("click", event => {
+    const retry = event.target.closest("#retry-load-vouchers-btn");
 
-  if (voucherRemoveBtn) {
-    voucherRemoveBtn.addEventListener('click', function () {
-      state.couponCode = null;
-      state.discount = 0;
-      if (voucherTag) {
-        voucherTag.classList.add('hidden');
-        voucherTag.classList.remove('flex');
-      }
-      if (discountRow) {
-        discountRow.classList.add('hidden');
-        discountRow.classList.remove('flex');
-      }
-      recalculateCart();
-    });
-  }
-
-  /* ============================================================
-     RENDER FUNCTIONS - NẠP TỪ DB
-     ------------------------------------------------------------
-     Gọi:
-       FCA_CART.renderActiveBranch({ name });
-       FCA_CART.renderCartItems(items);
-       FCA_CART.renderUpsells(upsells);
-       FCA_CART.renderSummary({ subtotal, shipping, discount, couponCode, freeShipping });
-       FCA_CART.renderLoyalty({ tier, discountNext, points });
-       FCA_CART.setEstimatedTime('20-25 phút');
-       FCA_CART.renderFooterBranches(branches);
-     ============================================================ */
-
-  /* ---- 1. Active branch ---- */
-  function renderActiveBranch(branch) {
-    const el = document.getElementById('active-branch-name');
-    if (el) el.textContent = branch?.name || '—';
-  }
-
-  /* ---- 2. Cart items ---- */
-  function renderCartItems(items) {
-    const container = document.getElementById('cart-item-list');
-    if (!container) return;
-    state.items = Array.isArray(items) ? items : [];
-
-    if (state.items.length === 0) {
-      renderEmptyCart();
-      recalculateCart();
+    if (retry) {
+      voucherListLoaded = false;
+      loadVouchers(true);
       return;
     }
 
-    container.innerHTML = state.items
-      .map(
-        (it) => `
-      <div class="cart-item bg-surface-container-low rounded-xl p-space-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-md transition-all duration-200 hover:shadow-sm"
-           data-id="${it.id}" data-price="${it.price}">
-        <div class="flex items-center gap-space-md w-full sm:w-auto">
-          <div class="relative w-24 h-24 rounded-lg overflow-hidden shrink-0 bg-surface-container">
-            ${it.image
-              ? `<img class="w-full h-full object-cover" src="${it.image}" alt="${escapeHtml(it.name)}"/>`
-              : `<div class="w-full h-full flex items-center justify-center"><span class="material-symbols-outlined text-outline text-[32px]">restaurant</span></div>`
-            }
-            ${it.badge
-              ? `<span class="absolute bottom-1 left-1 bg-surface-container-lowest/90 px-1.5 py-0.5 rounded text-[10px] font-label-caps text-primary font-bold">${escapeHtml(it.badge)}</span>`
-              : ''
-            }
-          </div>
-          <div class="flex flex-col min-w-0">
-            <h3 class="font-title-md text-title-md text-on-surface font-semibold truncate">${escapeHtml(it.name)}</h3>
-            ${it.note ? `<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">${escapeHtml(it.note)}</p>` : ''}
-            ${it.tag ? `<span class="font-label-caps text-label-caps text-primary mt-1">${escapeHtml(it.tag)}</span>` : ''}
-            <div class="sm:hidden mt-2 font-title-md text-title-md font-bold text-primary">${formatCurrency(it.price)}</div>
-          </div>
-        </div>
-        <div class="flex items-center justify-between sm:justify-end gap-space-lg w-full sm:w-auto shrink-0">
-          <div class="hidden sm:block text-right">
-            <span class="font-title-md text-title-md font-bold text-on-surface item-total">${formatCurrency(it.price * (it.quantity || 1))}</span>
-            <div class="font-body-sm text-[11px] text-outline">${formatCurrency(it.price)} / phần</div>
-          </div>
-          <div class="flex items-center bg-surface-container-lowest rounded-lg p-1 shadow-xs">
-            <button aria-label="Giảm số lượng" class="qty-btn-minus w-8 h-8 rounded flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors">
-              <span class="material-symbols-outlined text-[18px]">remove</span>
-            </button>
-            <span class="qty-count w-9 text-center font-label-lg text-label-lg text-on-surface font-bold">${it.quantity || 1}</span>
-            <button aria-label="Tăng số lượng" class="qty-btn-plus w-8 h-8 rounded flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors">
-              <span class="material-symbols-outlined text-[18px]">add</span>
-            </button>
-          </div>
-          <button class="btn-remove p-2 rounded-lg text-outline hover:text-error hover:bg-error-container/30 transition-all" title="Xóa món">
-            <span class="material-symbols-outlined text-[20px]">delete</span>
-          </button>
-        </div>
-      </div>`
-      )
-      .join('');
+    const button = event.target.closest("[data-voucher-code]");
+    if (!button || button.disabled) return;
 
-    recalculateCart();
-  }
+    selectedVoucherCode =
+      selectedVoucherCode === button.dataset.voucherCode
+        ? null
+        : button.dataset.voucherCode;
 
-  /* ---- 3. Upsells ---- */
-  function renderUpsells(upsells) {
-    const container = document.getElementById('upsell-container');
-    if (!container) return;
-    state.upsells = Array.isArray(upsells) ? upsells : [];
+    renderVoucherList(availableVouchers);
+  });
 
-    if (state.upsells.length === 0) {
-      container.innerHTML = '';
-      return;
+  applyVoucherBtn?.addEventListener("click", event => {
+    event.preventDefault();
+    applyVoucherFromInput();
+  });
+
+  voucherInput?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applyVoucherFromInput();
+    }
+  });
+
+  voucherRemoveBtn?.addEventListener("click", () => {
+    clearTimeout(voucherRevalidateTimer);
+    voucherRevalidateTimer = null;
+
+    voucherRequestId++;
+    voucherValidationPending = false;
+    voucherValidationError = false;
+
+    state.couponCode = null;
+    state.discount = 0;
+    selectedVoucherCode = null;
+
+    if (voucherInput) voucherInput.value = "";
+
+    hideAppliedVoucher();
+    renderVoucherList(availableVouchers);
+    recalculateCart(false);
+
+    showToast("Đã bỏ voucher.");
+  });
+
+  /* ========================== INITIALIZE ========================== */
+
+  function init() {
+    bindEvents();
+
+    state.items = getCart();
+    renderCartItems(state.items);
+    updateCartBadge(state.items);
+    recalculateCart(false);
+    refreshDeliveryFee();
+
+    const selectedAddress = $("selected-delivery-address");
+    if (selectedAddress) {
+      new MutationObserver(refreshDeliveryFee).observe(selectedAddress, {
+        childList: true,
+        characterData: true,
+        subtree: true
+      });
     }
 
-    container.innerHTML = state.upsells
-      .map(
-        (u) => `
-      <div class="bg-surface-container-low rounded-xl p-3 flex flex-col justify-between hover:bg-surface-container-high transition-colors group">
-        <div class="flex gap-3 items-center">
-          <div class="w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-surface-container">
-            ${u.image
-              ? `<img class="w-full h-full object-cover group-hover:scale-105 transition-transform" src="${u.image}" alt="${escapeHtml(u.name)}"/>`
-              : `<div class="w-full h-full flex items-center justify-center"><span class="material-symbols-outlined text-outline">restaurant</span></div>`
-            }
-          </div>
-          <div class="min-w-0">
-            <h4 class="font-label-lg text-label-lg font-bold text-on-surface truncate">${escapeHtml(u.name)}</h4>
-            ${u.description ? `<p class="font-body-sm text-[12px] text-outline">${escapeHtml(u.description)}</p>` : ''}
-            <p class="font-label-md text-label-md font-bold text-primary mt-1">${formatCurrency(u.price)}</p>
-          </div>
-        </div>
-        <button class="add-upsell-btn mt-3 w-full h-9 bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md font-semibold flex items-center justify-center gap-1 hover:bg-primary hover:text-on-primary transition-colors"
-                data-id="${u.id}" data-name="${escapeHtml(u.name)}" data-price="${u.price}">
-          <span class="material-symbols-outlined text-[18px]">add</span>
-          Thêm ngay
-        </button>
-      </div>`
-      )
-      .join('');
+    if (API.upsells) {
+      fetchJson(API.upsells)
+        .then(data => {
+          const items = Array.isArray(data)
+            ? data
+            : data?.items || data?.content || [];
+
+          renderUpsells(items);
+        })
+        .catch(error => {
+          console.error("Không tải được món gợi ý:", error);
+        });
+    }
   }
 
-  /* ---- 4. Summary ---- */
-  function renderSummary(summary) {
-    const s = summary || {};
-    state.subtotal = s.subtotal || 0;
-    state.shipping = s.shipping || 0;
-    state.discount = s.discount || 0;
-    state.couponCode = s.couponCode || null;
+  /* ========================== PUBLIC API ========================== */
 
-    // Shipping
-    const shippingFinal = document.getElementById('shipping-final');
-    const shippingOrig = document.getElementById('shipping-original');
-    const freeshipBadge = document.getElementById('freeship-badge');
-    if (shippingFinal) shippingFinal.textContent = formatCurrency(state.shipping);
-    if (shippingOrig) {
-      if (s.freeShipping && s.originalShipping) {
-        shippingOrig.textContent = formatCurrency(s.originalShipping);
-        shippingOrig.classList.remove('hidden');
-      } else {
-        shippingOrig.classList.add('hidden');
-      }
-    }
-    if (freeshipBadge) {
-      freeshipBadge.classList.toggle('hidden', !s.freeShipping);
-    }
-
-    // Discount
-    if (state.discount > 0 && state.couponCode) {
-      if (discountRow) {
-        discountRow.classList.remove('hidden');
-        discountRow.classList.add('flex');
-      }
-      if (discountCodeLabel) {
-        discountCodeLabel.textContent = `(${state.couponCode})`;
-      }
-      const discountEl = document.getElementById('summary-discount');
-      if (discountEl) discountEl.textContent = '-' + formatCurrency(state.discount);
-
-      if (voucherTag) {
-        voucherTag.classList.remove('hidden');
-        voucherTag.classList.add('flex');
-      }
-      if (voucherTagText) {
-        voucherTagText.textContent = `${state.couponCode} (-${formatCurrency(state.discount)})`;
-      }
-    } else {
-      if (discountRow) {
-        discountRow.classList.add('hidden');
-        discountRow.classList.remove('flex');
-      }
-      if (voucherTag) {
-        voucherTag.classList.add('hidden');
-        voucherTag.classList.remove('flex');
-      }
-    }
-
-    recalculateCart();
-  }
-
-  /* ---- 5. Loyalty ---- */
-  function renderLoyalty(loyalty) {
-    const badge = document.getElementById('loyalty-badge');
-    if (!badge || !loyalty) {
-      if (badge) badge.classList.add('hidden');
-      return;
-    }
-    badge.classList.remove('hidden');
-    badge.classList.add('flex');
-    const title = document.getElementById('loyalty-title');
-    const sub = document.getElementById('loyalty-subtitle');
-    const points = document.getElementById('loyalty-points');
-    if (title) title.textContent = `Tích lũy FCA Member`;
-    if (sub) sub.textContent = loyalty.tier ? `Hạng ${loyalty.tier}` : '';
-    if (points) points.textContent = `+${loyalty.points || 0} điểm`;
-  }
-
-  /* ---- 6. Estimated time ---- */
-  function setEstimatedTime(text) {
-    const el = document.getElementById('estimated-time');
-    if (!el) return;
-    el.innerHTML = `<span class="material-symbols-outlined text-[18px]">timer</span><span>Thời gian dự kiến: ${escapeHtml(text || '—')}</span>`;
-    state.estimatedTime = text || null;
-  }
-
-  /* ---- 7. Footer branches ---- */
-  function renderFooterBranches(branches) {
-    const container = document.getElementById('footer-branches');
-    if (!container) return;
-    if (!Array.isArray(branches) || branches.length === 0) {
-      container.innerHTML = '';
-      return;
-    }
-    container.innerHTML = branches
-      .map(
-        (b) => `
-      <li class="flex items-start gap-2">
-        <span class="material-symbols-outlined text-primary text-[16px] mt-0.5">storefront</span>
-        <div><strong class="text-on-surface">${escapeHtml(b.city || '')}:</strong> ${escapeHtml(b.address || '')}</div>
-      </li>`
-      )
-      .join('');
-  }
-
-  /* ============================================================
-     EXPOSE API
-     ============================================================ */
   window.FCA_CART = {
     renderActiveBranch,
     renderCartItems,
@@ -462,30 +1771,35 @@
     renderFooterBranches,
     recalculateCart,
     formatCurrency,
+    getCart,
+    saveCart,
+    clearCart,
     state,
+
+    setDeliveryLocation(latitude, longitude) {
+      const lat = Number(latitude);
+      const lng = Number(longitude);
+
+      if (
+        !Number.isFinite(lat) || lat < -90 || lat > 90 ||
+        !Number.isFinite(lng) || lng < -180 || lng > 180
+      ) {
+        throw new Error("Tọa độ giao hàng không hợp lệ.");
+      }
+
+      state.deliveryLatitude = lat;
+      state.deliveryLongitude = lng;
+    },
+
+    clearDeliveryLocation() {
+      state.deliveryLatitude = null;
+      state.deliveryLongitude = null;
+    }
   };
 
-  /* ============================================================
-     VÍ DỤ NẠP TỪ DB
-     ------------------------------------------------------------
-     fetch('/api/cart')
-       .then(r => r.json())
-       .then(data => {
-         FCA_CART.renderActiveBranch(data.branch);
-         FCA_CART.renderCartItems(data.items);
-         FCA_CART.renderUpsells(data.upsells);
-         FCA_CART.renderSummary({
-           subtotal: data.subtotal,
-           shipping: data.shipping,
-           originalShipping: data.originalShipping,
-           freeShipping: data.freeShipping,
-           discount: data.discount,
-           couponCode: data.couponCode,
-         });
-         FCA_CART.renderLoyalty(data.loyalty);
-         FCA_CART.setEstimatedTime(data.estimatedTime);
-       });
-     fetch('/api/branches').then(r => r.json()).then(FCA_CART.renderFooterBranches);
-     ============================================================ */
-
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
 })();

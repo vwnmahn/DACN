@@ -268,3 +268,123 @@ select:focus-visible {
         transition: none;
     }
 }
+
+/* VOUCHER CARD - POLISHED DESIGN */
+
+.voucher-card {
+    min-width: 0;
+    height: 100%;
+}
+
+.voucher-card-top {
+    padding: 22px 22px 18px;
+    background:
+        radial-gradient(circle at 100% 0%, rgba(16, 185, 129, 0.10), transparent 42%),
+        #ffffff;
+}
+
+.voucher-brand {
+    margin-bottom: 14px;
+    color: #047857;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+}
+
+.voucher-title {
+    margin: 0 0 16px;
+    color: #0f172a;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.voucher-code-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px dashed #a7f3d0;
+    border-radius: 10px;
+    background: #f0fdf4;
+}
+
+.voucher-code-label {
+    flex-shrink: 0;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+}
+
+.voucher-code {
+    margin: 0;
+    color: #047857;
+    font-size: 15px;
+    text-align: right;
+}
+
+.voucher-discount {
+    margin-top: 18px;
+    color: #047857;
+    font-size: clamp(23px, 2vw, 30px);
+    font-weight: 700;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.voucher-description {
+    margin: 9px 0 0;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+.voucher-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 22px 20px;
+    background: #ffffff;
+}
+
+.voucher-date-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.voucher-date {
+    margin: 0;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.voucher-action {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+    .voucher-card-top {
+        padding: 18px;
+    }
+
+    .voucher-card-bottom {
+        padding: 14px 18px 18px;
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .voucher-action {
+        align-self: flex-start;
+    }
+}
