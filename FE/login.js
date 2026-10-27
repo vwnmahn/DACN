@@ -576,8 +576,11 @@ async function handleRegister(fields) {
   // Không kiểm tra cứng các trường trên ở JS.
   // DTO Backend sẽ xử lý validation.
 
-  // Giữ nguyên logic chuyển giới tính sang Boolean.
   const gender = genderInput?.value.trim() || null;
+
+  if (!gender) {
+    throw new Error("Vui lòng chọn giới tính.");
+  }
 
 
   // Giữ nguyên kiểm tra điều khoản đăng ký.

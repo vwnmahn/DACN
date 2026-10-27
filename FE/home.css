@@ -71,6 +71,23 @@
   background-color: #ffffff;
 }
 
+#nearby-list-container {
+  scrollbar-width: thin;
+  scrollbar-color: #a7f3d0 transparent;
+}
+
+#nearby-list-container > a:focus-visible,
+#open-nearest-restaurant:focus-visible,
+#open-restaurant-list:focus-visible {
+  outline: 3px solid rgba(16, 185, 129, 0.25);
+  outline-offset: 2px;
+}
+
+#open-nearest-restaurant:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 /* =====================================
    HEADER - CITY LOCATION SELECTOR
    ===================================== */

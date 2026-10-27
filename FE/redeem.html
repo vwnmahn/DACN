@@ -1,0 +1,192 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="shell-type" content="web_standard">
+    <title>Đổi thưởng | FCA Culinary</title>
+    <meta name="description" content="Đổi điểm thành viên lấy voucher tại FCA Culinary.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="site-shell.css">
+    <link rel="stylesheet" href="redeem.css">
+
+    <script src="site-shell.js" defer></script>
+    <script src="redeem.js" defer></script>
+</head>
+
+<body class="bg-slate-50 text-slate-900">
+
+    <!-- ================= HEADER ================= -->
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-[0_1px_6px_rgba(0,0,0,0.03)]">
+      <div class="fca-layout-container fca-site-header-inner h-20 max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-6 flex-shrink-0">
+          <a class="flex items-center gap-3" data-path="trang-chu" href="Home.html">
+            <div class="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-lg tracking-tight shadow-sm shadow-emerald-600/30">FCA</div>
+            <div class="hidden sm:flex flex-col">
+              <span class="text-base text-slate-900 font-bold leading-tight tracking-tight">FCA CULINARY</span>
+              <span class="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Food &amp; Delivery</span>
+            </div>
+          </a>
+          <div class="header-location-dropdown hidden md:block" id="header-location">
+            <button type="button" class="location-trigger" id="location-trigger" aria-expanded="false" aria-controls="location-menu">
+              <span class="material-symbols-outlined location-icon">location_on</span>
+              <span class="location-trigger-copy"><span id="selected-delivery-address">Chọn địa chỉ giao hàng</span></span>
+              <span class="material-symbols-outlined location-chevron">expand_more</span>
+            </button>
+            <div class="location-menu delivery-location-menu" id="location-menu" hidden>
+              <button type="button" class="delivery-location-gps" id="use-current-location">
+                <span class="material-symbols-outlined">my_location</span><span>Dùng vị trí hiện tại</span>
+              </button>
+              <p class="delivery-location-status" id="delivery-location-status" aria-live="polite"></p>
+              <p class="mt-1 text-[10px] text-slate-400">Dữ liệu địa chỉ © <a class="underline hover:text-emerald-700" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a></p>
+              <div class="delivery-location-divider"><span>hoặc</span></div>
+              <label class="delivery-location-field" for="delivery-address-input">Địa chỉ giao hàng</label>
+              <input class="delivery-location-input" id="delivery-address-input" type="text" autocomplete="street-address" placeholder="Nhập số nhà, đường, phường/xã, quận/huyện...">
+              <button type="button" class="delivery-location-confirm" id="confirm-delivery-address">Xác nhận địa chỉ</button>
+            </div>
+          </div>
+        </div>
+        <div class="flex-1 max-w-xl mx-4 hidden lg:block">
+          <div class="relative flex items-center w-full">
+            <span class="material-symbols-outlined absolute left-3.5 text-slate-400 text-[20px]">search</span>
+            <input class="w-full h-10 pl-10 pr-4 rounded-full bg-slate-100 border border-transparent focus:border-emerald-500 focus:bg-white text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" id="restaurant-search" placeholder="Tìm kiếm món ngon, ẩm thực nghệ thuật, chi nhánh FCA..." type="text">
+          </div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <nav class="hidden xl:flex items-center gap-1.5 px-1">
+            <a class="site-nav-link px-3.5 py-1.5 rounded-full text-sm font-medium text-slate-600 hover:text-emerald-700 hover:bg-slate-100 transition-colors" data-site-nav="home" href="Home.html">Trang chủ</a>
+            <a class="site-nav-link px-3.5 py-1.5 rounded-full text-sm font-medium text-slate-600 hover:text-emerald-700 hover:bg-slate-100 transition-colors" data-site-nav="voucher" href="voucher.html">Voucher</a>
+          </nav>
+          <div class="flex items-center gap-2">
+            <a class="relative p-2 rounded-full text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors flex items-center justify-center border border-slate-200/70" data-path="gio-hang" id="cart-button" href="cart.html" aria-label="Giỏ hàng">
+              <span class="material-symbols-outlined text-[22px]">shopping_bag</span>
+              <span class="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-600 text-white text-[10px] font-bold items-center justify-center leading-none hidden" id="cart-count-badge" data-count="0" aria-live="polite"></span>
+            </a>
+            <a class="flex items-center gap-2 pl-1.5 pr-3 py-1 rounded-full hover:bg-slate-100 border border-slate-200/70 transition-colors" data-path="tai-khoan" href="personal_page.html">
+              <div class="w-7 h-7 rounded-full bg-emerald-600 text-white flex items-center justify-center"><span class="material-symbols-outlined text-[16px]">person</span></div>
+              <span class="hidden sm:inline text-xs text-slate-700 font-medium">Tài khoản</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ================= MAIN ================= -->
+    <main class="redeem-page pt-20">
+        <div class="fca-layout-container max-w-[1360px] mx-auto px-4 lg:px-12 py-6">
+
+            <nav class="redeem-breadcrumb" aria-label="Breadcrumb">
+                <a href="Home.html">Trang chủ</a>
+                <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                <a href="voucher.html">Voucher</a>
+                <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+                <span aria-current="page">Đổi thưởng</span>
+            </nav>
+
+            <section class="redeem-hero" aria-labelledby="redeem-page-title">
+                <div class="redeem-hero-content">
+                    <span class="redeem-eyebrow">FCA CULINARY · MEMBER BENEFITS</span>
+                    <h1 id="redeem-page-title">Đổi điểm nhận ưu đãi</h1>
+                    <p>Sử dụng điểm khả dụng trong tài khoản để đổi voucher theo danh sách ưu đãi hiện có.</p>
+                </div>
+                <div class="redeem-hero-icon" aria-hidden="true">
+                    <span class="material-symbols-outlined">redeem</span>
+                </div>
+            </section>
+
+            <!-- Điểm thành viên -->
+            <section class="redeem-summary" aria-label="Thông tin điểm thành viên">
+                <div class="redeem-summary-icon" aria-hidden="true">
+                    <span class="material-symbols-outlined">stars</span>
+                </div>
+
+                <div class="redeem-summary-info">
+                    <span class="redeem-summary-label">Điểm khả dụng</span>
+                    <strong id="available-points" aria-live="polite">—</strong>
+                    <span class="redeem-summary-note" id="membership-rank">Đang tải thông tin thành viên…</span>
+                </div>
+
+                <div class="redeem-cost">
+                    <span>Chi phí mỗi lượt đổi</span>
+                    <strong>300 điểm</strong>
+                </div>
+
+                <button type="button" class="redeem-refresh-button" id="refresh-redeem">
+                    <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+                    <span>Làm mới</span>
+                </button>
+            </section>
+
+            <div id="redeem-page-message" class="redeem-alert" role="status" aria-live="polite" hidden></div>
+
+            <!-- Danh sách voucher -->
+            <section class="redeem-section" aria-labelledby="redeem-voucher-title">
+                <div class="redeem-section-heading">
+                    <div>
+                        <span class="redeem-section-kicker">REWARD COLLECTION</span>
+                        <h2 id="redeem-voucher-title">Danh sách voucher đổi thưởng</h2>
+                        <p>Danh sách voucher được tải từ hệ thống. Điều kiện đổi được kiểm tra theo dữ liệu thực tế.</p>
+                    </div>
+                    <span class="redeem-result-count" id="redeem-result-count" aria-live="polite">— voucher</span>
+                </div>
+
+                <div id="redeem-loading" class="redeem-state" role="status" aria-live="polite">
+                    <span class="redeem-spinner" aria-hidden="true"></span>
+                    <p>Đang tải danh sách voucher…</p>
+                </div>
+
+                <div id="redeem-empty" class="redeem-state" hidden>
+                    <span class="material-symbols-outlined" aria-hidden="true">confirmation_number</span>
+                    <h3>Chưa có voucher để đổi</h3>
+                    <p>Hiện chưa có voucher phù hợp trong danh sách được trả về từ hệ thống.</p>
+                    <button type="button" class="redeem-secondary-button" id="retry-empty">Thử tải lại</button>
+                </div>
+
+                <div id="redeem-error" class="redeem-state redeem-state-error" role="alert" hidden>
+                    <span class="material-symbols-outlined" aria-hidden="true">error_outline</span>
+                    <h3>Không tải được voucher</h3>
+                    <p id="redeem-error-text">Vui lòng kiểm tra kết nối và thử lại.</p>
+                    <button type="button" class="redeem-secondary-button" id="retry-error">Thử lại</button>
+                </div>
+
+                <div id="redeem-voucher-list" class="redeem-voucher-grid" aria-label="Danh sách voucher đổi thưởng"></div>
+            </section>
+
+            <section class="redeem-notice">
+                <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                <div>
+                    <h3>Lưu ý khi đổi thưởng</h3>
+                    <p>Mỗi lượt đổi sử dụng 300 điểm khả dụng. Yêu cầu đổi chỉ được xác nhận khi máy chủ xử lý thành công. Sau khi đổi, hãy kiểm tra lại số điểm và trạng thái voucher trong tài khoản.</p>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- ================= FOOTER ================= -->
+    <footer class="w-full bg-slate-900 text-slate-400 pt-14 pb-8">
+      <div class="fca-layout-container max-w-[1280px] mx-auto px-4 md:px-8 lg:px-12">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 pb-12">
+          <div class="lg:col-span-2 flex flex-col gap-4 pr-0 lg:pr-8">
+            <div class="flex items-center gap-3"><div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-base shadow-sm">FCA</div><span class="text-lg text-white font-bold">FCA Culinary Arts</span></div>
+            <p class="text-sm text-slate-400 leading-relaxed max-w-sm">Hệ thống ẩm thực cao cấp và giao nhận mỹ vị chuẩn nghệ thuật. Tinh hoa ẩm thực Việt giao hòa phong cách ẩm thực đương đại tại các đô thị trọng điểm toàn quốc.</p>
+            <div class="flex items-center gap-2 pt-1"><span class="material-symbols-outlined p-1 rounded-full bg-slate-800 text-emerald-400 text-[18px]">verified</span><span class="text-xs text-slate-300 font-medium">Tiêu chuẩn An toàn &amp; Vệ sinh Thượng đỉnh F&amp;B</span></div>
+          </div>
+          <div class="flex flex-col gap-3"><h4 class="text-xs text-white font-bold uppercase tracking-wider">Hệ thống chi nhánh</h4><ul class="flex flex-col gap-2 text-sm"><li>TP. Hồ Chí Minh</li><li>Hà Nội</li><li>Đà Nẵng</li><li>Cần Thơ &amp; Hải Phòng</li></ul></div>
+          <div class="flex flex-col gap-3"><h4 class="text-xs text-white font-bold uppercase tracking-wider">Dịch vụ &amp; Nghệ thuật</h4><ul class="flex flex-col gap-2 text-sm"><li><a class="hover:text-emerald-400 transition-colors" href="Home.html">Thực đơn Bếp trưởng FCA</a></li><li><a class="hover:text-emerald-400 transition-colors" href="voucher.html">Voucher &amp; ưu đãi</a></li><li><a class="hover:text-emerald-400 transition-colors" href="table-reservation.html">Đặt bàn sự kiện &amp; Hội nghị</a></li></ul></div>
+          <div class="flex flex-col gap-3"><h4 class="text-xs text-white font-bold uppercase tracking-wider">Hỗ trợ &amp; Đối tác</h4><ul class="flex flex-col gap-2 text-sm"><li><span class="font-medium text-slate-300">Hotline toàn quốc:</span> 1900 8899</li><li><span class="font-medium text-slate-300">Email:</span> contact@fca-culinary.vn</li><li><a class="hover:text-emerald-400 transition-colors" href="#">Chính sách thành viên FCA Club</a></li></ul></div>
+        </div>
+        <div class="pt-6 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left"><p class="text-xs text-slate-500">© 2025 FCA - Food &amp; Culinary Arts System. Bản quyền thuộc về Tập đoàn F&amp;B FCA.</p><div class="flex items-center gap-5 text-xs text-slate-400"><a class="hover:text-emerald-400 transition-colors" href="#">Điều khoản dịch vụ</a><a class="hover:text-emerald-400 transition-colors" href="#">Bảo mật thông tin</a><a class="hover:text-emerald-400 transition-colors" href="#">Quy chuẩn ẩm thực</a></div></div>
+      </div>
+    </footer>
+
+</body>
+</html>

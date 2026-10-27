@@ -20,7 +20,7 @@
   const AUTH_REFRESH_URL = `${API_BASE_URL}/api/v1/auth/refresh`;
 
   const API = {
-    voucherList: `${API_BASE_URL}/api/v1/vouchers`,
+    voucherList: `${API_BASE_URL}/api/v1/vouchers/mine`,
     validateVoucher: `${API_BASE_URL}/api/v1/vouchers/validate`,
     deliveryAvailability: `${API_BASE_URL}/api/v1/checkout/delivery-availability`,
     updateCart: null,
@@ -37,6 +37,7 @@
     upsells: [],
     subtotal: 0,
     shipping: 0,
+    shippingCalculated: false,
     discount: 0,
     couponCode: null,
     activeBranch: null,
@@ -322,7 +323,9 @@
     }
 
     if ($("shipping-final")) {
-      $("shipping-final").textContent = formatCurrency(state.shipping);
+      $("shipping-final").textContent = items.length && state.shippingCalculated
+        ? formatCurrency(state.shipping)
+        : "Chưa tính";
     }
 
     if ($("summary-discount")) {
@@ -734,7 +737,9 @@
       voucher?.startDate ?? voucher?.start_date
     );
     const end = formatVoucherDate(
-      voucher?.endDate ?? voucher?.end_date
+      voucher?.redemptionExpiresAt ??
+      voucher?.endDate ??
+      voucher?.end_date
     );
 
     if (start && end) return `Hiệu lực: ${start} – ${end}`;
@@ -755,16 +760,28 @@
   }
 
   function normalizeVoucherList(response) {
-    if (Array.isArray(response)) return response;
-    if (Array.isArray(response?.content)) return response.content;
-    if (Array.isArray(response?.items)) return response.items;
-    if (Array.isArray(response?.vouchers)) return response.vouchers;
-    if (Array.isArray(response?.data)) return response.data;
-    if (Array.isArray(response?.content?.content)) {
-      return response.content.content;
-    }
+    const entries = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.content)
+        ? response.content
+        : Array.isArray(response?.items)
+          ? response.items
+          : Array.isArray(response?.vouchers)
+            ? response.vouchers
+            : Array.isArray(response?.data)
+              ? response.data
+              : Array.isArray(response?.content?.content)
+                ? response.content.content
+                : [];
 
-    return [];
+    return entries.map(entry => {
+      if (!entry?.voucher) return entry;
+
+      return {
+        ...entry.voucher,
+        redemptionExpiresAt: entry.expiresAt ?? null
+      };
+    });
   }
 
   function isVoucherActive(voucher) {
@@ -772,8 +789,7 @@
       voucher?.customerStatus ?? ""
     ).toUpperCase();
 
-    if (customerStatus === "USED" ||
-        customerStatus === "UNAVAILABLE") return false;
+    if (customerStatus && customerStatus !== "AVAILABLE") return false;
 
     if (voucher?.active === false || voucher?.active === 0) return false;
 
@@ -784,7 +800,9 @@
 
     const now = Date.now();
     const start = voucher?.startDate ?? voucher?.start_date;
-    const end = voucher?.endDate ?? voucher?.end_date;
+    const end = voucher?.redemptionExpiresAt ??
+      voucher?.endDate ??
+      voucher?.end_date;
 
     if (start) {
       const time = new Date(start).getTime();
@@ -820,7 +838,7 @@
       voucherListContainer.innerHTML = `
         <div class="rounded-lg bg-surface-container-low p-4 text-center">
           <span class="material-symbols-outlined text-3xl text-outline">confirmation_number</span>
-          <p class="mt-2 text-sm text-on-surface-variant">Hiện chưa có voucher trong danh sách.</p>
+          <p class="mt-2 text-sm text-on-surface-variant">Bạn chưa có voucher khả dụng cho đơn hàng này</p>
         </div>`;
 
       if (confirmSelectedVoucherBtn) {
@@ -833,7 +851,8 @@
     voucherListContainer.innerHTML = availableVouchers.map(voucher => {
       const code = getVoucherCode(voucher);
       const active = isVoucherActive(voucher);
-      const used = String(voucher?.customerStatus ?? "").toUpperCase() === "USED";
+      const customerStatus = String(voucher?.customerStatus ?? "").toUpperCase();
+      const used = customerStatus === "USED";
       const selected = selectedVoucherCode === code;
       const category = getVoucherCategory(voucher);
       const discount = getVoucherDiscountText(voucher);
@@ -853,7 +872,7 @@
               <div class="flex items-start justify-between gap-2">
                 <span class="font-bold text-on-surface break-words">${escapeHtml(code)}</span>
                 <span class="text-xs font-semibold shrink-0 ${active ? "text-primary" : "text-error"}">
-                  ${used ? "Đã sử dụng" : active ? "Khả dụng" : "Không khả dụng"}
+                  ${used ? "Đã sử dụng" : customerStatus === "UNOWNED" ? "Chưa được cấp" : active ? "Khả dụng" : "Không khả dụng"}
                 </span>
               </div>
               <p class="mt-1 text-sm font-semibold text-primary">${escapeHtml(discount)}</p>
@@ -892,8 +911,23 @@
     }
 
     try {
+      await refreshDeliveryFee();
       const payload = await fetchJson(API.voucherList, { method: "GET" });
-      renderVoucherList(normalizeVoucherList(payload));
+      const cart = getCart();
+      const ownedVouchers = normalizeVoucherList(payload)
+        .filter(isVoucherActive);
+
+      const checkedVouchers = await Promise.all(
+        ownedVouchers.map(async voucher => {
+          const code = getVoucherCode(voucher);
+          if (!code || !cart.length) return null;
+
+          const result = await validateVoucherCode(code, cart);
+          return result?.valid === true ? voucher : null;
+        })
+      );
+
+      renderVoucherList(checkedVouchers.filter(Boolean));
       voucherListLoaded = true;
     } catch (error) {
       console.error("Không tải được danh sách voucher:", error);
@@ -918,7 +952,7 @@
 
     voucherMenu.classList.remove("hidden");
     openVoucherMenuBtn?.setAttribute("aria-expanded", "true");
-    loadVouchers();
+    loadVouchers(true);
   }
 
   function closeVoucherMenu() {
@@ -943,17 +977,42 @@
   async function refreshDeliveryFee() {
     const cart = getCart();
     const restaurantId = getCommonRestaurantId(cart);
-    if (!restaurantId || !cart.length) return;
+    if (!restaurantId || !cart.length) {
+      state.shipping = 0;
+      state.shippingCalculated = false;
+      state.originalShipping = 0;
+      state.deliveryLatitude = null;
+      state.deliveryLongitude = null;
+      recalculateCart(false);
+      return;
+    }
 
     let location = null;
     try {
       location = JSON.parse(localStorage.getItem("fca_delivery_location") || "null");
     } catch (error) {
       console.warn("Dữ liệu địa chỉ giao hàng không hợp lệ:", error);
+      state.shipping = 0;
+      state.shippingCalculated = false;
+      state.originalShipping = 0;
+      state.deliveryLatitude = null;
+      state.deliveryLongitude = null;
+      recalculateCart(false);
       return;
     }
 
-    if (!location?.address && (location?.latitude == null || location?.longitude == null)) return;
+    if (!location?.address && (location?.latitude == null || location?.longitude == null)) {
+      state.shipping = 0;
+      state.shippingCalculated = false;
+      state.originalShipping = 0;
+      state.deliveryLatitude = null;
+      state.deliveryLongitude = null;
+      recalculateCart(false);
+      return;
+    }
+
+    state.deliveryLatitude = location.latitude ?? null;
+    state.deliveryLongitude = location.longitude ?? null;
 
     try {
       const result = await fetchJson(API.deliveryAvailability, {
@@ -970,10 +1029,19 @@
         throw new Error("Backend trả về phí giao hàng không hợp lệ.");
       }
       state.shipping = deliveryFee;
+      state.shippingCalculated = true;
       state.originalShipping = deliveryFee;
+      state.deliveryLatitude = result?.deliveryLatitude ?? state.deliveryLatitude;
+      state.deliveryLongitude = result?.deliveryLongitude ?? state.deliveryLongitude;
       recalculateCart(false);
     } catch (error) {
       console.warn("Không thể tính phí giao hàng:", error);
+      state.shipping = 0;
+      state.shippingCalculated = false;
+      state.originalShipping = 0;
+      state.deliveryLatitude = null;
+      state.deliveryLongitude = null;
+      recalculateCart(false);
     }
   }
 
@@ -987,13 +1055,23 @@
       };
     }
 
+    let location = null;
+    try {
+      location = JSON.parse(localStorage.getItem("fca_delivery_location") || "null");
+    } catch (error) {
+      console.warn("Dữ liệu địa chỉ giao hàng không hợp lệ:", error);
+    }
+
+    const latitude = state.deliveryLatitude ?? location?.latitude ?? null;
+    const longitude = state.deliveryLongitude ?? location?.longitude ?? null;
+
     return fetchJson(API.validateVoucher, {
       method: "POST",
       body: JSON.stringify({
         voucherCode: code,
         restaurantId: Number(restaurantId),
-        deliveryLatitude: state.deliveryLatitude,
-        deliveryLongitude: state.deliveryLongitude,
+        deliveryLatitude: latitude,
+        deliveryLongitude: longitude,
         items: cart.map(item => ({
           menuItemId: Number(item.id),
           quantity: getItemQuantity(item)
@@ -1017,6 +1095,7 @@
 
       if (Number.isFinite(deliveryFee) && deliveryFee >= 0) {
         state.shipping = deliveryFee;
+        state.shippingCalculated = true;
       }
     }
 
@@ -1210,7 +1289,23 @@
     );
 
     if (!voucher) {
-      showToast("Không tìm thấy mã này trong danh sách voucher.");
+      const cart = getCart();
+
+      if (!cart.length) {
+        showToast("Hãy thêm món vào giỏ trước khi áp dụng voucher.");
+        return;
+      }
+
+      try {
+        const result = await validateVoucherCode(code, cart);
+        showToast(
+          result?.reason ||
+          result?.message ||
+          "Voucher này không khả dụng cho đơn hàng hiện tại."
+        );
+      } catch (error) {
+        showToast(error.message || "Không thể xác thực voucher.");
+      }
       return;
     }
 
@@ -1416,6 +1511,7 @@
 
   function renderSummary(summary = {}) {
     state.shipping = Math.max(0, Number(summary.shipping) || 0);
+    state.shippingCalculated = summary.shipping != null;
     state.originalShipping = Math.max(
       0, Number(summary.originalShipping) || 0
     );
@@ -1726,6 +1822,17 @@
 
   /* ========================== INITIALIZE ========================== */
 
+  async function applyVoucherFromUrl() {
+    const code = String(
+      new URLSearchParams(window.location.search).get("voucher") || ""
+    ).trim().toUpperCase();
+
+    if (!code || !voucherInput) return;
+
+    voucherInput.value = code;
+    await applyVoucherFromInput();
+  }
+
   function init() {
     bindEvents();
 
@@ -1734,10 +1841,23 @@
     updateCartBadge(state.items);
     recalculateCart(false);
     refreshDeliveryFee();
+    applyVoucherFromUrl().catch(error => {
+      console.error("Không thể áp dụng voucher từ Home:", error);
+      showToast(error.message || "Không thể áp dụng voucher đã chọn.");
+    });
 
     const selectedAddress = $("selected-delivery-address");
     if (selectedAddress) {
-      new MutationObserver(refreshDeliveryFee).observe(selectedAddress, {
+      new MutationObserver(async () => {
+        await refreshDeliveryFee();
+
+        if (state.couponCode) {
+          const code = invalidateVoucherIfCartChanged();
+          if (code) revalidateAppliedVoucher(code);
+        }
+
+        voucherListLoaded = false;
+      }).observe(selectedAddress, {
         childList: true,
         characterData: true,
         subtree: true

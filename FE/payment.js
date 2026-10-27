@@ -129,11 +129,16 @@
   }
 
   function renderSummary() {
-    const shipping = Number(state.availability?.deliveryFee ?? state.context.shipping) || 0;
+    const hasCalculatedShipping = Boolean(state.availability);
+    const shipping = hasCalculatedShipping
+      ? Number(state.availability.deliveryFee) || 0
+      : 0;
     const discount = Math.max(0, Number(state.context.discount) || 0);
     const total = Math.max(0, subtotal() + shipping - discount);
     $('subtotal-amount').textContent = formatVND(subtotal());
-    $('shipping-fee').textContent = formatVND(shipping);
+    $('shipping-fee').textContent = hasCalculatedShipping
+      ? formatVND(shipping)
+      : 'Chưa tính';
     $('total-amount').textContent = formatVND(total);
     $('checkout-voucher-label').textContent = state.context.voucherCode || 'Chọn voucher của bạn';
     $('eco-packaging-row')?.classList.toggle('hidden', !$('eco-packaging-toggle')?.checked);
@@ -160,9 +165,42 @@
   function setCheckoutEnabled(enabled) {
     const button = $('order-submit-btn');
     if (!button || state.submitting) return;
-    button.disabled = !state.cart.length;
-    button.classList.toggle('opacity-50', button.disabled || !enabled);
+    button.disabled = !state.cart.length || !enabled;
+    button.classList.toggle('opacity-50', button.disabled);
     button.classList.toggle('cursor-not-allowed', button.disabled);
+  }
+
+  async function revalidateCheckoutVoucher() {
+    const code = String(state.context.voucherCode || '').trim().toUpperCase();
+    if (!code) return;
+
+    const result = await request('/api/v1/vouchers/validate', {
+      method: 'POST',
+      body: JSON.stringify({
+        voucherCode: code,
+        restaurantId: commonRestaurantId(),
+        deliveryLatitude: state.location?.latitude ?? null,
+        deliveryLongitude: state.location?.longitude ?? null,
+        items: state.cart.map((item) => ({
+          menuItemId: Number(item.id),
+          quantity: Number(item.quantity) || 1
+        }))
+      })
+    });
+
+    if (result?.valid !== true) {
+      state.context.voucherCode = null;
+      state.context.discount = 0;
+      sessionStorage.setItem(CONTEXT_KEY, JSON.stringify(state.context));
+      setStatus(result?.reason || result?.message || 'Voucher không còn áp dụng được cho đơn hàng này.', true);
+      return;
+    }
+
+    const discount = Number(result.discountAmount);
+    state.context.discount = Number.isFinite(discount) && discount >= 0
+      ? discount
+      : 0;
+    sessionStorage.setItem(CONTEXT_KEY, JSON.stringify(state.context));
   }
 
   async function refreshAvailability() {
@@ -212,6 +250,7 @@
       const distance = Number(result.distanceKm);
       $('delivery-distance').textContent = Number.isFinite(distance) ? `${distance.toFixed(2)} km` : '—';
       $('delivery-estimate').textContent = Number.isFinite(distance) ? `${Math.ceil(distance * 4)} phút` : '—';
+      await revalidateCheckoutVoucher();
       const deliverable = result.deliverable === true && distance < 6;
       setCheckoutEnabled(deliverable);
       if (deliverable) $('checkout-status')?.classList.add('hidden');

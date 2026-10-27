@@ -455,9 +455,7 @@ async function loadReservations(force = false) {
     if (e) e.value = user.email || '';
     if (d) d.value = user.dateOfBirth || '';
     const address = document.getElementById('address');
-    const available = document.getElementById('available-points');
     if (address) address.value = user.address || '';
-    if (available) available.textContent = (user.availablePoints ?? 0).toLocaleString('vi-VN');
 
     // Giới tính
     // Hiển thị giới tính từ Backend (GenderStatus)
@@ -731,54 +729,6 @@ async function loadCompletedOrders(force = false) {
     renderAccountTier(currentAccount);
   }
 
-  function renderRedeemable(vouchers) {
-    const container = document.getElementById('redeemable-vouchers');
-    const status = document.getElementById('redeem-status');
-    if (!container) return;
-    container.replaceChildren();
-    if (!vouchers.length) {
-      setMessage(status, 'Hiện chưa có voucher để đổi điểm.', false);
-      return;
-    }
-    status?.classList.add('hidden');
-    vouchers.forEach((redemption) => {
-      const voucher = redemption.voucher || redemption;
-      const card = document.createElement('article');
-      card.className = 'border border-surface-container-highest rounded-xl p-space-md flex items-center justify-between gap-space-md';
-      const info = document.createElement('div');
-      const code = document.createElement('strong');
-      code.className = 'block text-primary';
-      code.textContent = voucher.code;
-      const description = document.createElement('span');
-      description.className = 'font-body-sm text-body-sm text-on-surface-variant';
-      description.textContent = voucher.description || 'Voucher FCA Culinary';
-      info.append(code, description);
-      const button = document.createElement('button');
-      button.className = 'shrink-0 px-4 py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-bold disabled:opacity-50';
-      button.type = 'button';
-      button.textContent = 'Đổi 300 điểm';
-      button.disabled = (currentAccount?.availablePoints ?? 0) < 300;
-      button.addEventListener('click', async () => {
-        button.disabled = true;
-        try {
-          const redemption = await request(`${API}/vouchers/${voucher.id}/redeem`, { method: 'POST' });
-          setMessage(status, `Đã đổi voucher ${redemption.voucher.code} thành công.`, false);
-          await Promise.all([loadAccount(), loadRedeemable(), loadOwnedVouchers()]);
-        } catch (error) {
-          setMessage(status, error.message, true);
-          button.disabled = false;
-        }
-      });
-      card.append(info, button);
-      container.appendChild(card);
-    });
-  }
-
-  async function loadRedeemable() {
-    const data = await request(`${API}/vouchers/redeemable?size=100`);
-    renderRedeemable(data?.content || []);
-  }
-
   function renderOwnedVouchers(vouchers) {
     const container = document.getElementById('owned-vouchers-list');
     const status = document.getElementById('owned-vouchers-status');
@@ -792,15 +742,52 @@ async function loadCompletedOrders(force = false) {
     vouchers.forEach((redemption) => {
       const voucher = redemption?.voucher;
       if (!voucher) return;
+      const customerStatus = String(voucher.customerStatus || '').toUpperCase();
+      const expiresAt = redemption.expiresAt ? new Date(redemption.expiresAt) : null;
+      const expired = expiresAt && !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() <= Date.now();
+      const statusText = expired
+        ? 'Hết hạn'
+        : customerStatus === 'USED'
+          ? 'Đã sử dụng'
+          : customerStatus === 'AVAILABLE'
+            ? 'Đã được cấp'
+            : customerStatus === 'UNAVAILABLE'
+              ? 'Chưa đủ điều kiện'
+              : 'Trạng thái chưa xác định';
       const card = document.createElement('article');
-      card.className = 'rounded-xl border border-surface-container-highest p-space-md';
+      card.className = 'rounded-xl border border-surface-container-highest p-space-md flex flex-col gap-3';
+      const heading = document.createElement('div');
+      heading.className = 'flex items-start justify-between gap-3';
       const code = document.createElement('strong');
       code.className = 'block text-primary';
       code.textContent = voucher.code || voucher.voucherCode || 'Voucher FCA';
+      const stateLabel = document.createElement('span');
+      stateLabel.className = `shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${customerStatus === 'AVAILABLE' && !expired ? 'bg-green-100 text-green-700' : 'bg-surface-container text-on-surface-variant'}`;
+      stateLabel.textContent = statusText;
+      heading.append(code, stateLabel);
       const description = document.createElement('p');
       description.className = 'mt-1 font-body-sm text-body-sm text-on-surface-variant';
       description.textContent = voucher.description || voucher.name || 'Ưu đãi thuộc tài khoản của bạn';
-      card.append(code, description);
+      const value = Number(voucher.discountValue);
+      const maximum = Number(voucher.maxDiscountAmount);
+      const discountText = String(voucher.discountType || '').toUpperCase().includes('PERCENT')
+        ? `Giảm ${Number.isFinite(value) ? value : '—'}%`
+        : `Giảm ${Number.isFinite(value) ? value.toLocaleString('vi-VN') : '—'}đ`;
+      const details = document.createElement('dl');
+      details.className = 'grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-on-surface-variant';
+      const addDetail = (label, text) => {
+        const term = document.createElement('dt');
+        term.className = 'font-semibold text-on-surface';
+        term.textContent = label;
+        const detail = document.createElement('dd');
+        detail.textContent = text;
+        details.append(term, detail);
+      };
+      addDetail('Giá trị', discountText);
+      addDetail('Giới hạn giảm', Number.isFinite(maximum) ? `${maximum.toLocaleString('vi-VN')}đ` : 'Theo mức giảm thực tế');
+      addDetail('Điều kiện', voucher.description || 'Theo điều kiện backend hiện hành');
+      addDetail('Hết hạn', expiresAt && !Number.isNaN(expiresAt.getTime()) ? expiresAt.toLocaleString('vi-VN') : 'Theo thời hạn voucher');
+      card.append(heading, description, details);
       container.appendChild(card);
     });
   }
@@ -808,13 +795,15 @@ async function loadCompletedOrders(force = false) {
   async function loadOwnedVouchers() {
     const result = await request(`${API}/vouchers/mine`);
     const redemptions = Array.isArray(result) ? result : result?.content || [];
-    const vouchers = redemptions.filter((redemption) =>
-      redemption?.voucher && String(redemption.voucher.customerStatus || '').toUpperCase() === 'AVAILABLE'
-    );
+    const vouchers = redemptions.filter((redemption) => redemption?.voucher);
+    const availableCount = vouchers.filter((redemption) =>
+      String(redemption.voucher.customerStatus || '').toUpperCase() === 'AVAILABLE'
+      && (!redemption.expiresAt || new Date(redemption.expiresAt).getTime() > Date.now())
+    ).length;
     const badge = document.getElementById('voucher-badge');
     if (badge) {
-      badge.dataset.count = String(vouchers.length);
-      badge.textContent = String(vouchers.length);
+      badge.dataset.count = String(availableCount);
+      badge.textContent = String(availableCount);
     }
     renderOwnedVouchers(vouchers);
     ownedVouchersLoaded = true;
@@ -876,7 +865,7 @@ async function loadCompletedOrders(force = false) {
     setupProfileActions();
     try {
       await loadAccount();
-      await Promise.all([loadRedeemable(), loadOwnedVouchers()]);
+      await loadOwnedVouchers();
       if (sessionStorage.getItem('fca_profile_update_success') === '1') {
         sessionStorage.removeItem('fca_profile_update_success');
         setMessage(document.getElementById('saveAlert'), 'Thông tin tài khoản đã được cập nhật thành công trên hệ thống FCA!', false);
@@ -884,7 +873,6 @@ async function loadCompletedOrders(force = false) {
     } catch (error) {
       if (/xác thực|token/i.test(error.message)) window.location.href = 'login.html';
       else {
-        setMessage(document.getElementById('redeem-status'), error.message, true);
         setMessage(document.getElementById('owned-vouchers-status'), error.message, true);
       }
     }

@@ -375,7 +375,7 @@ tailwind.config = {
               </div>
               <div class="flex flex-col">
                 <span class="text-[10px] text-slate-500 uppercase font-semibold">Vị trí hiện tại</span>
-                <span class="text-xs text-slate-900 font-bold truncate">Trung tâm Quận 1, TP.HCM</span>
+                <span class="text-xs text-slate-900 font-bold truncate" id="nearby-location-label">Chưa chọn vị trí giao hàng</span>
               </div>
             </div>
             <div class="absolute bottom-5 right-5 p-4 bg-white/95 backdrop-blur-lg rounded-2xl border border-slate-200 shadow-lg flex items-center gap-4">
@@ -384,10 +384,10 @@ tailwind.config = {
               </div>
               <div class="flex flex-col">
                 <span class="text-[10px] text-emerald-700 font-bold uppercase tracking-wider">Chi nhánh gần nhất</span>
-                <span class="text-sm text-slate-900 font-bold">Đang tải dữ liệu...</span>
-                <span class="text-xs text-slate-500">Vui lòng chờ trong giây lát</span>
+                <span class="text-sm text-slate-900 font-bold" id="nearest-restaurant-name">Đang tải dữ liệu...</span>
+                <span class="text-xs text-slate-500" id="nearest-restaurant-distance">Vui lòng chờ trong giây lát</span>
               </div>
-              <button class="ml-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer">
+              <button class="ml-1 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer" id="open-nearest-restaurant" type="button" disabled>
                 Đến quán
               </button>
             </div>
@@ -401,7 +401,7 @@ tailwind.config = {
             <div class="flex flex-col gap-2.5 overflow-y-auto max-h-[380px] pr-1" id="nearby-list-container">
               <!-- EMPTY: Dữ liệu sẽ được render bởi home.js -->
             </div>
-            <button class="w-full mt-auto py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200/80">
+            <button class="w-full mt-auto py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200/80" id="open-restaurant-list" type="button">
               <span class="material-symbols-outlined text-[19px] text-slate-600">explore</span>
               <span>Mở rộng toàn màn hình bản đồ</span>
             </button>
@@ -422,58 +422,8 @@ tailwind.config = {
             Áp dụng riêng cho cư dân và văn phòng làm việc trong khu vực. Tự động áp dụng mã khi đặt món qua hệ thống FCA.
           </p>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div class="relative bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-lg transition-all flex flex-col justify-between gap-5 overflow-hidden">
-            <div class="flex items-center justify-between">
-              <span class="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">Khu Vực TP.HCM</span>
-              <span class="material-symbols-outlined text-amber-500 text-[26px]">local_fire_department</span>
-            </div>
-            <div class="flex flex-col gap-1.5 my-1">
-              <h3 class="text-lg text-slate-900 font-bold">Tuần lễ ẩm thực Sài Gòn</h3>
-              <p class="text-sm text-slate-600 leading-relaxed">Giảm trực tiếp 20% toàn bộ thực đơn tại chuỗi nhà hàng FCA Quận 1 &amp; Quận 3 khi dùng bữa tại quán hoặc đặt trước bàn tiệc.</p>
-            </div>
-            <div class="flex items-center justify-between pt-3 border-t border-slate-100">
-              <div class="flex flex-col">
-                <span class="text-[10px] text-slate-400 uppercase font-medium">Mã ưu đãi</span>
-                <span class="text-sm text-emerald-700 font-mono font-bold tracking-wider">SAIGON20</span>
-              </div>
-              <button class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer">Áp dụng ngay</button>
-            </div>
-          </div>
-          <div class="relative bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-lg transition-all flex flex-col justify-between gap-5 overflow-hidden">
-            <div class="flex items-center justify-between">
-              <span class="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">Khu Vực Hà Nội</span>
-              <span class="material-symbols-outlined text-emerald-600 text-[26px]">moped</span>
-            </div>
-            <div class="flex flex-col gap-1.5 my-1">
-              <h3 class="text-lg text-slate-900 font-bold">Freeship Mọi Chi Nhánh Hà Nội</h3>
-              <p class="text-sm text-slate-600 leading-relaxed">Miễn phí giao hàng nóng giòn trong bán kính 5km từ các chi nhánh FCA Hoàn Kiếm, Cầu Giấy, Ba Đình cho đơn từ 150.000đ.</p>
-            </div>
-            <div class="flex items-center justify-between pt-3 border-t border-slate-100">
-              <div class="flex flex-col">
-                <span class="text-[10px] text-slate-400 uppercase font-medium">Mã ưu đãi</span>
-                <span class="text-sm text-emerald-700 font-mono font-bold tracking-wider">HANOISHIP0</span>
-              </div>
-              <button class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer">Áp dụng ngay</button>
-            </div>
-          </div>
-          <div class="relative bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-lg transition-all flex flex-col justify-between gap-5 overflow-hidden">
-            <div class="flex items-center justify-between">
-              <span class="px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">Toàn Quốc</span>
-              <span class="material-symbols-outlined text-amber-600 text-[26px]">diamond</span>
-            </div>
-            <div class="flex flex-col gap-1.5 my-1">
-              <h3 class="text-lg text-slate-900 font-bold">Thẻ Hội Viên FCA VIP Club</h3>
-              <p class="text-sm text-slate-600 leading-relaxed">Tích điểm 10% giá trị hoá đơn tại tất cả chi nhánh. Đặc quyền tặng bánh sinh nhật và bàn tiệc VIP view panorama cao cấp.</p>
-            </div>
-            <div class="flex items-center justify-between pt-3 border-t border-slate-100">
-              <div class="flex flex-col">
-                <span class="text-[10px] text-slate-400 uppercase font-medium">Đặc quyền VIP</span>
-                <span class="text-sm text-amber-700 font-mono font-bold tracking-wider">TÍCH 10% HOÀN TIỀN</span>
-              </div>
-              <button class="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors shadow-xs cursor-pointer">Đăng ký thẻ</button>
-            </div>
-          </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="regional-voucher-list" aria-live="polite">
+          <div class="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Đang tải ưu đãi từ hệ thống...</div>
         </div>
       </div>
     </section>

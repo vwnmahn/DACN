@@ -418,11 +418,12 @@
                                 </div>
                             </div>
 
-                            <!-- GIỚI TÍNH KHÔNG BẮT BUỘC -->
+                            <!-- GIỚI TÍNH -->
                             <div class="flex flex-col gap-1.5">
-                                <label for="gender-input" class="font-label-md text-label-md text-on-surface">Giới tính (không bắt buộc)</label>
+                                <label for="gender-input" class="font-label-md text-label-md text-on-surface">Giới tính</label>
 
-                            <select id="gender-input" name="gender">
+                            <select id="gender-input" name="gender" required
+                                class="w-full h-11 px-3 rounded-lg border-0 bg-surface-container-low text-on-surface font-body-md text-body-md focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary focus:outline-none transition-all">
                                 <option value="">Chọn giới tính</option>
                                 <option value="FEMALE">Nữ</option>
                                 <option value="MALE">Nam</option>

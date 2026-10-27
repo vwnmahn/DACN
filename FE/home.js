@@ -10,6 +10,31 @@
   let allRestaurants = [];
 let currentCategory = 'all';
 let currentSearchQuery = '';
+const API_ORIGIN = 'http://localhost:8080';
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
+function authHeaders() {
+  if (typeof window.FCA_SHELL?.authHeaders === 'function') {
+    return window.FCA_SHELL.authHeaders();
+  }
+  const token = localStorage.getItem('accessToken');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function distanceKm(latitude1, longitude1, latitude2, longitude2) {
+  const toRadians = (value) => value * Math.PI / 180;
+  const deltaLatitude = toRadians(latitude2 - latitude1);
+  const deltaLongitude = toRadians(longitude2 - longitude1);
+  const a = Math.sin(deltaLatitude / 2) ** 2
+    + Math.cos(toRadians(latitude1)) * Math.cos(toRadians(latitude2))
+    * Math.sin(deltaLongitude / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
   /* ============================================================
      1. RESTAURANT CATEGORY SWITCHING
@@ -270,7 +295,7 @@ let currentSearchQuery = '';
     }
 
     if (!Array.isArray(nearby) || nearby.length === 0) {
-      container.innerHTML = '';
+      container.innerHTML = '<div class="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">Chưa có chi nhánh có tọa độ hợp lệ.</div>';
       return;
     }
 
@@ -279,24 +304,117 @@ let currentSearchQuery = '';
         const isActive = item.isActive;
         const indexLabel = String(item.index ?? idx + 1).padStart(2, '0');
         return `
-        <div class="p-3 rounded-xl bg-white border ${isActive ? 'border-emerald-200/80 hover:border-emerald-500' : 'border-slate-200/80 hover:border-slate-300'} transition-all cursor-pointer flex items-center justify-between gap-3">
+        <a href="restaurant.html?id=${encodeURIComponent(item.id)}" class="p-3 rounded-xl bg-white border ${isActive ? 'border-emerald-200/80 hover:border-emerald-500' : 'border-slate-200/80 hover:border-slate-300'} transition-all cursor-pointer flex items-center justify-between gap-3">
           <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-lg ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700'} flex items-center justify-center font-bold text-xs">
               ${indexLabel}
             </div>
             <div class="flex flex-col">
-              <span class="text-sm text-slate-900 font-bold">${item.name || ''}</span>
-              <span class="text-xs text-slate-500">${item.address || ''}</span>
+              <span class="text-sm text-slate-900 font-bold">${escapeHtml(item.name)}</span>
+              <span class="text-xs text-slate-500">${escapeHtml(item.address)}</span>
             </div>
           </div>
           <div class="flex flex-col items-end">
             <span class="text-xs text-emerald-700 font-bold">${item.distanceKm != null ? item.distanceKm + ' km' : '—'}</span>
-            <span class="text-[11px] text-slate-400">${item.deliveryTime ? item.deliveryTime + ' giao' : ''}</span>
+            <span class="text-[11px] text-slate-400">${item.deliveryTime ? 'Giao khoảng ' + item.deliveryTime : ''}</span>
           </div>
-        </div>`;
+        </a>`;
       })
       .join('');
   }
+
+  function updateNearbyRestaurants() {
+    const locationLabel = document.getElementById('nearby-location-label');
+    const nearestName = document.getElementById('nearest-restaurant-name');
+    const nearestDistance = document.getElementById('nearest-restaurant-distance');
+    const nearestButton = document.getElementById('open-nearest-restaurant');
+    let location = null;
+
+    try {
+      location = JSON.parse(localStorage.getItem('fca_delivery_location') || 'null');
+    } catch (error) {
+      console.warn('[FCA] Không đọc được vị trí đã lưu:', error);
+    }
+
+    const latitude = Number(location?.latitude);
+    const longitude = Number(location?.longitude);
+    const hasGps = Number.isFinite(latitude) && Number.isFinite(longitude);
+    if (locationLabel) locationLabel.textContent = location?.address || (hasGps ? 'Vị trí GPS đã chọn' : 'Chưa chọn vị trí giao hàng');
+
+    const branches = allRestaurants
+      .filter((restaurant) => Number.isFinite(restaurant.latitude) && Number.isFinite(restaurant.longitude))
+      .map((restaurant) => ({
+        ...restaurant,
+        distanceKm: hasGps
+          ? distanceKm(latitude, longitude, restaurant.latitude, restaurant.longitude)
+          : null
+      }))
+      .sort((left, right) => hasGps ? left.distanceKm - right.distanceKm : left.name.localeCompare(right.name, 'vi'));
+
+    renderNearby(branches.map((restaurant, index) => ({
+      ...restaurant,
+      index: index + 1,
+      isActive: index === 0,
+      distanceKm: restaurant.distanceKm == null ? null : restaurant.distanceKm.toFixed(1),
+      deliveryTime: restaurant.distanceKm == null ? '' : `${Math.ceil(restaurant.distanceKm * 4)} phút`
+    })));
+
+    const nearest = hasGps ? branches[0] : null;
+    if (nearestName) nearestName.textContent = nearest ? nearest.name : (hasGps ? 'Không có dữ liệu chi nhánh' : 'Cần chọn vị trí GPS');
+    if (nearestDistance) nearestDistance.textContent = nearest ? `${nearest.distanceKm.toFixed(1)} km · khoảng ${Math.ceil(nearest.distanceKm * 4)} phút` : 'Chọn địa chỉ GPS trên header để tính khoảng cách';
+    if (nearestButton) {
+      nearestButton.disabled = !nearest;
+      nearestButton.onclick = nearest ? () => { window.location.href = `restaurant.html?id=${encodeURIComponent(nearest.id)}`; } : null;
+    }
+  }
+
+  function voucherDiscountText(voucher) {
+    const value = Number(voucher.discountValue);
+    if (!Number.isFinite(value)) return 'Xem điều kiện ưu đãi';
+    return String(voucher.discountType).toUpperCase().includes('PERCENT')
+      ? `Giảm ${value}%`
+      : `Giảm ${new Intl.NumberFormat('vi-VN').format(value)}đ`;
+  }
+
+  async function loadRegionalVouchers() {
+    const container = document.getElementById('regional-voucher-list');
+    if (!container) return;
+
+    try {
+      const response = await fetch(`${API_ORIGIN}/api/v1/vouchers?size=100`, { headers: authHeaders() });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || body?.code !== 1000) throw new Error(body?.message || `HTTP ${response.status}`);
+      const vouchers = (body?.data?.content || []).filter((voucher) => ['SAIGON20', 'HANOISHIP0'].includes(String(voucher.code).toUpperCase()));
+
+      if (!vouchers.length) {
+        container.innerHTML = '<div class="md:col-span-2 rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">Hệ thống chưa cấu hình hai voucher khu vực.</div>';
+        return;
+      }
+
+      container.innerHTML = vouchers.map((voucher) => {
+        const status = String(voucher.customerStatus || '').toUpperCase();
+        const usable = status === 'AVAILABLE';
+        const statusText = status === 'USED' ? 'Đã sử dụng' : usable ? 'Áp dụng ngay' : status === 'UNAVAILABLE' ? 'Không khả dụng' : 'Chưa được cấp';
+        return `<article class="relative bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-lg transition-all flex flex-col justify-between gap-5 overflow-hidden">
+          <div class="flex items-center justify-between"><span class="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">${voucher.code === 'SAIGON20' ? 'Khu vực TP.HCM' : 'Khu vực Hà Nội'}</span><span class="material-symbols-outlined text-emerald-600 text-[26px]">local_offer</span></div>
+          <div class="flex flex-col gap-1.5 my-1"><h3 class="text-lg text-slate-900 font-bold">${escapeHtml(voucherDiscountText(voucher))}</h3><p class="text-sm text-slate-600 leading-relaxed">${escapeHtml(voucher.description || 'Điều kiện áp dụng theo hệ thống.')}</p></div>
+          <div class="flex items-center justify-between gap-4 pt-3 border-t border-slate-100"><div class="flex flex-col"><span class="text-[10px] text-slate-400 uppercase font-medium">Mã ưu đãi</span><span class="text-sm text-emerald-700 font-mono font-bold tracking-wider">${escapeHtml(voucher.code)}</span></div><button type="button" data-apply-voucher="${escapeHtml(voucher.code)}" class="px-4 py-2 rounded-xl text-white text-xs font-semibold transition-colors shadow-xs ${usable ? 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer' : 'bg-slate-400 cursor-not-allowed'}" ${usable ? '' : 'disabled'}>${statusText}</button></div>
+        </article>`;
+      }).join('');
+    } catch (error) {
+      container.innerHTML = `<div class="md:col-span-2 rounded-2xl border border-red-200 bg-red-50 p-8 text-center text-sm text-red-700">${escapeHtml(error.message || 'Không tải được ưu đãi.')}</div>`;
+    }
+  }
+
+  document.getElementById('regional-voucher-list')?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-apply-voucher]');
+    if (!button || button.disabled) return;
+    window.location.href = `cart.html?voucher=${encodeURIComponent(button.dataset.applyVoucher)}`;
+  });
+
+  document.getElementById('open-restaurant-list')?.addEventListener('click', () => {
+    document.getElementById('restaurant-cards-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   /* ============================================================
      4. EXPOSE API CHO VIỆC NẠP DỮ LIỆU TỪ DB
@@ -313,7 +431,7 @@ let currentSearchQuery = '';
       return;
     }
 
-    container.innerHTML = '<p>Chưa có nhà hàng nào</p>';
+    container.innerHTML = '<p class="col-span-full rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Đang tải danh sách chi nhánh...</p>';
 
     try {
       const response = await fetch(
@@ -339,6 +457,8 @@ let currentSearchQuery = '';
         rating: r.averageRating,
         reviewCount: r.reviewCount,
         categoryStatus: r.categoryStatus,
+        latitude: Number(r.latitude),
+        longitude: Number(r.longitude),
         openHours: r.openingTime && r.closingTime
           ? `${String(r.openingTime).slice(0, 5)} - ${String(r.closingTime).slice(0, 5)}`
           : '',
@@ -348,6 +468,7 @@ let currentSearchQuery = '';
       }));
 
       applyRestaurantFilters();
+      updateNearbyRestaurants();
 
       console.log('[FCA] Đã tải nhà hàng từ BE:', allRestaurants);
     } catch (error) {
@@ -356,6 +477,21 @@ let currentSearchQuery = '';
         '<p>Không tải được danh sách nhà hàng. Vui lòng thử lại sau.</p>';
     }
   }
+
+  window.addEventListener('storage', (event) => {
+    if (event.key === 'fca_delivery_location') updateNearbyRestaurants();
+  });
+
+  const selectedDeliveryAddress = document.getElementById('selected-delivery-address');
+  if (selectedDeliveryAddress) {
+    new MutationObserver(updateNearbyRestaurants).observe(selectedDeliveryAddress, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+  }
+
+  loadRegionalVouchers();
 
   // Chạy sau khi DOM đã sẵn sàng.
   if (document.readyState === 'loading') {
