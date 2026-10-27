@@ -10,6 +10,8 @@ import java.math.*;
 public class DeliveryDistanceServiceImpl implements DeliveryDistanceService {
     private static final double EARTH_RADIUS_KM = 6371.0;
     private static final BigDecimal MAX_DELIVERY_DISTANCE_KM = BigDecimal.valueOf(6);
+    private static final BigDecimal ONE_KM = BigDecimal.ONE;
+    private static final BigDecimal ONE_KM_DELIVERY_FEE = new BigDecimal("10000");
 
     @Override
     public BigDecimal calculateDistanceKm(BigDecimal lat1, BigDecimal lon1, BigDecimal lat2, BigDecimal lon2) {
@@ -34,8 +36,10 @@ public class DeliveryDistanceServiceImpl implements DeliveryDistanceService {
             throw new AppException(ErrorCode.DELIVERY_DISTANCE_EXCEEDED);
         if (raw.compareTo(radius) > 0) throw new AppException(ErrorCode.DELIVERY_DISTANCE_EXCEEDED);
         BigDecimal excess = raw.subtract(r.getBaseDistanceKm()).max(BigDecimal.ZERO);
-        BigDecimal fee = r.getDeliveryFee().add(excess.multiply(r.getAdditionalFeePerKm()))
-                .setScale(0, RoundingMode.HALF_UP);
+        BigDecimal fee = raw.compareTo(ONE_KM) <= 0
+                ? ONE_KM_DELIVERY_FEE
+                : r.getDeliveryFee().add(excess.multiply(r.getAdditionalFeePerKm()))
+                    .setScale(0, RoundingMode.HALF_UP);
         return new DeliveryCalculation(raw.setScale(3, RoundingMode.HALF_UP),
                 radius.setScale(3, RoundingMode.HALF_UP), fee);
     }

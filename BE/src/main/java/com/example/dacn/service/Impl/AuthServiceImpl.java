@@ -19,6 +19,7 @@ import com.example.dacn.service.ATService;
 import com.example.dacn.service.AvatarStorageService;
 import com.example.dacn.service.AuthService;
 import com.example.dacn.service.RTService;
+import com.example.dacn.service.VoucherService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -57,6 +58,9 @@ public class AuthServiceImpl implements AuthService {
     private final AvatarStorageService avatarStorageService;
     private final ObjectMapper objectMapper;
     private final ATService atService;
+    private final VoucherService voucherService;
+
+
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
@@ -114,6 +118,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         Account savedAccount = accountRepo.save(account);
+        if (voucherService != null) voucherService.grantWelcomeVouchers(savedAccount);
 
         return createAuthResponse(savedAccount);
     }

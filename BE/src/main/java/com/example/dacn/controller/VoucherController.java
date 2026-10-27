@@ -151,12 +151,13 @@ public class VoucherController {
     @PostMapping("/{id}/redeem")
     @PreAuthorize("hasRole('USER')")
     public ApiResponse<VoucherRedemptionResponse> redeem(
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            @RequestHeader("Idempotency-Key") String idempotencyKey) {
 
         return ApiResponse.<VoucherRedemptionResponse>builder()
                 .code(1000)
                 .message("Đổi 300 điểm lấy voucher thành công")
-                .data(service.redeem(id))
+                .data(service.redeem(id, idempotencyKey))
                 .build();
     }
 

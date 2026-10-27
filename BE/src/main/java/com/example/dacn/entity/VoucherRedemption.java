@@ -5,7 +5,10 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "voucher_redemptions", indexes = {
+@Table(name = "voucher_redemptions", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_voucher_redemption_account_idempotency",
+                columnNames = {"account_id", "idempotency_key"})
+}, indexes = {
         @Index(name = "idx_voucher_redemption_account", columnList = "account_id"),
         @Index(name = "idx_voucher_redemption_voucher", columnList = "voucher_id")
 })
@@ -19,4 +22,8 @@ public class VoucherRedemption {
     private Long voucherId;
     @Column(name = "redeemed_at", nullable = false)
     private LocalDateTime redeemedAt;
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+    @Column(name = "idempotency_key", length = 100)
+    private String idempotencyKey;
 }

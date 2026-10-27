@@ -142,7 +142,7 @@ public class OrderServiceImpl implements OrderService {
         order = orderRepository.save(order);
         if (request.getVoucherCode() != null && !request.getVoucherCode().isBlank()) {
             VoucherReservationResult reserved = voucherService.reserveForOrder(request.getVoucherCode(),
-                    account.getId(), order.getId(), restaurant.getId(), subtotal);
+                    account.getId(), order.getId(), restaurant.getId(), subtotal, order.getDeliveryFee());
             order.setVoucherId(reserved.voucherId());
             order.setVoucherCode(reserved.voucherCode());
             order.setDiscountAmount(reserved.discountAmount());

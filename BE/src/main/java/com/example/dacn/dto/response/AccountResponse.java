@@ -30,5 +30,9 @@ public class AccountResponse {
     private Integer loyaltyPoints;
     private Integer availablePoints;
     private MembershipRank membershipRank;
+    private MembershipRank nextMembershipRank;
+    private Integer nextRankPoints;
+    private Integer pointsToNextRank;
+    private Integer rankProgressPercentage;
 
 }

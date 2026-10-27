@@ -16,9 +16,11 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.time.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -31,13 +33,83 @@ class VoucherServiceImplTest {
     @Mock RestaurantRepository restaurants;
     @Mock MenuItemRepository menuItems;
     @Mock DeliveryDistanceService deliveryDistanceService;
+    @Mock OrderRepository orders;
     VoucherServiceImpl service;
     final LocalDateTime now = LocalDateTime.of(2026, 10, 12, 12, 0);
 
     @BeforeEach void setup() {
         service = new VoucherServiceImpl(vouchers, usages, redemptions, accounts, restaurants, menuItems, deliveryDistanceService,
                 Clock.fixed(now.atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant(), ZoneId.of("Asia/Ho_Chi_Minh")));
+        ReflectionTestUtils.setField(service, "orderRepository", orders);
         lenient().when(redemptions.countByVoucherIdAndAccountId(anyLong(), anyLong())).thenReturn(1L);
+    }
+
+    @Test void grantsWelcomeVoucherWithSeparateFiveDayExpiryAndStableGrantKey() {
+        Account account = Account.builder().id(2L).role(Role.USER).build();
+        Voucher saigon = welcomeVoucher(11L, "SAIGON20", CategoryVoucher.DISH);
+        Voucher hanoi = welcomeVoucher(12L, "HANOISHIP0", CategoryVoucher.FREE_SHIP);
+        when(vouchers.findByCodeForUpdate("SAIGON20")).thenReturn(Optional.of(saigon));
+        when(vouchers.findByCodeForUpdate("HANOISHIP0")).thenReturn(Optional.of(hanoi));
+        when(redemptions.findByAccountIdAndIdempotencyKey(eq(2L), anyString())).thenReturn(Optional.empty());
+
+        service.grantWelcomeVouchers(account);
+
+        ArgumentCaptor<VoucherRedemption> captor = ArgumentCaptor.forClass(VoucherRedemption.class);
+        verify(redemptions, times(2)).save(captor.capture());
+        assertTrue(captor.getAllValues().stream().allMatch(redemption ->
+                redemption.getExpiresAt().equals(redemption.getRedeemedAt().plusDays(5))));
+        assertEquals(Set.of("WELCOME:11", "WELCOME:12"), captor.getAllValues().stream()
+                .map(VoucherRedemption::getIdempotencyKey).collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test void hanoiWelcomeVoucherDiscountIsCappedByDeliveryFee() {
+        authenticateUser();
+        Restaurant restaurant = Restaurant.builder().id(7L).active(true).address("Hoàn Kiếm, Hà Nội")
+                .deliveryFee(new BigDecimal("18000")).build();
+        MenuItem item = MenuItem.builder().id(11L).restaurant(restaurant).active(true).available(true)
+                .price(new BigDecimal("75000")).build();
+        Voucher voucher = welcomeVoucher(12L, "HANOISHIP0", CategoryVoucher.FREE_SHIP);
+        when(restaurants.findById(7L)).thenReturn(Optional.of(restaurant));
+        when(menuItems.findById(11L)).thenReturn(Optional.of(item));
+        when(vouchers.findByCodeIgnoreCase("HANOISHIP0")).thenReturn(Optional.of(voucher));
+        when(redemptions.findFirstByVoucherIdAndAccountIdOrderByRedeemedAtDesc(12L, 2L))
+                .thenReturn(Optional.of(welcomeGrant(12L)));
+        when(orders.countByAccountIdAndStatusNot(2L, OrderStatus.CANCELLED)).thenReturn(0L);
+        VoucherValidateRequest request = validateRequest();
+        request.setVoucherCode("HANOISHIP0");
+        request.setDeliveryLatitude(null);
+        request.setDeliveryLongitude(null);
+
+        var result = service.validate(request);
+
+        assertTrue(result.isValid());
+        assertEquals(new BigDecimal("18000"), result.getDiscountAmount());
+        assertEquals(new BigDecimal("75000"), result.getEstimatedTotal());
+    }
+
+    @Test void expiredWelcomeGrantIsRejectedByBackend() {
+        authenticateUser();
+        Restaurant restaurant = Restaurant.builder().id(7L).active(true).address("Quận 1, TP. Hồ Chí Minh")
+                .deliveryFee(BigDecimal.ZERO).build();
+        MenuItem item = MenuItem.builder().id(11L).restaurant(restaurant).active(true).available(true)
+                .price(new BigDecimal("75000")).build();
+        Voucher voucher = welcomeVoucher(11L, "SAIGON20", CategoryVoucher.DISH);
+        VoucherRedemption expired = welcomeGrant(11L);
+        expired.setExpiresAt(now.minusSeconds(1));
+        when(restaurants.findById(7L)).thenReturn(Optional.of(restaurant));
+        when(menuItems.findById(11L)).thenReturn(Optional.of(item));
+        when(vouchers.findByCodeIgnoreCase("SAIGON20")).thenReturn(Optional.of(voucher));
+        when(redemptions.findFirstByVoucherIdAndAccountIdOrderByRedeemedAtDesc(11L, 2L))
+                .thenReturn(Optional.of(expired));
+
+        VoucherValidateRequest request = validateRequest();
+        request.setVoucherCode("SAIGON20");
+        request.setDeliveryLatitude(null);
+        request.setDeliveryLongitude(null);
+        var result = service.validate(request);
+
+        assertFalse(result.isValid());
+        assertEquals(ErrorCode.VOUCHER_EXPIRED.getCode(), result.getReasonCode());
     }
 
     @AfterEach void clearSecurity() { SecurityContextHolder.clearContext(); }
@@ -134,7 +206,7 @@ class VoucherServiceImplTest {
         assertEquals(ErrorCode.VOUCHER_NOT_OWNED.getCode(), result.getReasonCode());
     }
 
-    @Test void myVouchersOnlyReturnsRedeemedCopiesNotOccupiedByAnOrder() {
+    @Test void myVouchersReturnsRedemptionHistorySoFrontendCanDisplayStatuses() {
         authenticateUser();
         Voucher voucher = voucher(DiscountType.PERCENTAGE, "10");
         voucher.setPerUserLimit(2);
@@ -148,7 +220,7 @@ class VoucherServiceImplTest {
 
         var result = service.getMyRedemptions();
 
-        assertEquals(1, result.size());
+        assertEquals(2, result.size());
         assertEquals("SAVE10", result.getFirst().getVoucher().getCode());
         assertEquals("AVAILABLE", result.getFirst().getVoucher().getCustomerStatus());
     }
@@ -266,6 +338,105 @@ class VoucherServiceImplTest {
         assertEquals(0, v.getUsedCount());
     }
 
+    @Test void redeemRetryWithSameKeyReturnsStoredResultWithoutChargingAgain() {
+        authenticateUser();
+        Account account = Account.builder().id(2L).role(Role.USER).availablePoints(600).build();
+        Voucher voucher = voucher(DiscountType.PERCENTAGE, "10");
+        voucher.setPerUserLimit(2);
+        AtomicReference<VoucherRedemption> stored = new AtomicReference<>();
+        when(accounts.findByIdForUpdate(2L)).thenReturn(Optional.of(account));
+        when(redemptions.findByAccountIdAndIdempotencyKey(2L, "retry-1"))
+                .thenAnswer(invocation -> Optional.ofNullable(stored.get()));
+        when(redemptions.countByVoucherId(1L)).thenAnswer(invocation -> stored.get() == null ? 0L : 1L);
+        when(redemptions.countByVoucherIdAndAccountId(1L, 2L))
+                .thenAnswer(invocation -> stored.get() == null ? 0L : 1L);
+        when(vouchers.findByIdForUpdate(1L)).thenReturn(Optional.of(voucher));
+        when(vouchers.findById(1L)).thenReturn(Optional.of(voucher));
+        when(redemptions.save(any())).thenAnswer(invocation -> {
+            VoucherRedemption redemption = invocation.getArgument(0);
+            redemption.setId(99L);
+            stored.set(redemption);
+            return redemption;
+        });
+
+        var first = service.redeem(1L, "retry-1");
+        var retry = service.redeem(1L, "retry-1");
+
+        assertEquals(first.getId(), retry.getId());
+        assertEquals(300, account.getAvailablePoints());
+        verify(redemptions, times(1)).save(any());
+        verify(accounts, times(1)).save(account);
+    }
+
+    @Test void differentIdempotencyKeysRemainIndependentRedemptions() {
+        authenticateUser();
+        Account account = Account.builder().id(2L).role(Role.USER).availablePoints(600).build();
+        Voucher voucher = voucher(DiscountType.PERCENTAGE, "10");
+        voucher.setPerUserLimit(2);
+        Map<String, VoucherRedemption> stored = new HashMap<>();
+        when(accounts.findByIdForUpdate(2L)).thenReturn(Optional.of(account));
+        when(redemptions.findByAccountIdAndIdempotencyKey(eq(2L), anyString()))
+                .thenAnswer(invocation -> Optional.ofNullable(stored.get(invocation.getArgument(1))));
+        when(redemptions.countByVoucherId(1L)).thenAnswer(invocation -> (long) stored.size());
+        when(redemptions.countByVoucherIdAndAccountId(1L, 2L)).thenAnswer(invocation -> (long) stored.size());
+        when(vouchers.findByIdForUpdate(1L)).thenReturn(Optional.of(voucher));
+        when(redemptions.save(any())).thenAnswer(invocation -> {
+            VoucherRedemption redemption = invocation.getArgument(0);
+            redemption.setId((long) stored.size() + 1);
+            stored.put(redemption.getIdempotencyKey(), redemption);
+            return redemption;
+        });
+
+        service.redeem(1L, "request-a");
+        service.redeem(1L, "request-b");
+
+        assertEquals(0, account.getAvailablePoints());
+        assertEquals(2, stored.size());
+        verify(redemptions, times(2)).save(any());
+    }
+
+    @Test void sameIdempotencyKeyCannotBeReusedForAnotherVoucher() {
+        authenticateUser();
+        Account account = Account.builder().id(2L).role(Role.USER).availablePoints(600).build();
+        VoucherRedemption prior = VoucherRedemption.builder().id(9L).accountId(2L).voucherId(1L)
+                .idempotencyKey("same-key").redeemedAt(now).build();
+        when(accounts.findByIdForUpdate(2L)).thenReturn(Optional.of(account));
+        when(redemptions.findByAccountIdAndIdempotencyKey(2L, "same-key")).thenReturn(Optional.of(prior));
+
+        assertCode(ErrorCode.VOUCHER_IDEMPOTENCY_KEY_REUSED,
+                () -> service.redeem(2L, "same-key"));
+        verify(redemptions, never()).save(any());
+        verify(accounts, never()).save(any());
+    }
+
+    @Test void failedRedemptionDoesNotBlockRetryWithSameKey() {
+        authenticateUser();
+        Account account = Account.builder().id(2L).role(Role.USER).availablePoints(200).build();
+        Voucher voucher = voucher(DiscountType.PERCENTAGE, "10");
+        when(accounts.findByIdForUpdate(2L)).thenReturn(Optional.of(account));
+        when(redemptions.findByAccountIdAndIdempotencyKey(2L, "retry-after-failure"))
+                .thenReturn(Optional.empty());
+
+        assertCode(ErrorCode.LOYALTY_POINTS_INSUFFICIENT,
+                () -> service.redeem(1L, "retry-after-failure"));
+
+        account.setAvailablePoints(300);
+        when(redemptions.countByVoucherId(1L)).thenReturn(0L);
+        when(redemptions.countByVoucherIdAndAccountId(1L, 2L)).thenReturn(0L);
+        when(vouchers.findByIdForUpdate(1L)).thenReturn(Optional.of(voucher));
+        when(redemptions.save(any())).thenAnswer(invocation -> {
+            VoucherRedemption redemption = invocation.getArgument(0);
+            redemption.setId(10L);
+            return redemption;
+        });
+
+        var result = service.redeem(1L, "retry-after-failure");
+
+        assertEquals(10L, result.getId());
+        assertEquals(0, account.getAvailablePoints());
+        verify(redemptions, times(1)).save(any());
+    }
+
     private VoucherRequest request(DiscountType type, String value) {
         VoucherRequest r = new VoucherRequest(); r.setCode(" save10 "); r.setDiscountType(type);
         r.setDiscountValue(new BigDecimal(value)); r.setMinOrderAmount(BigDecimal.ZERO);
@@ -275,6 +446,17 @@ class VoucherServiceImplTest {
         return Voucher.builder().id(1L).code("SAVE10").discountType(type).discountValue(new BigDecimal(value))
                 .minOrderAmount(BigDecimal.ZERO).usageLimit(10).usedCount(0).perUserLimit(1)
                 .startDate(now.minusDays(1)).endDate(now.plusDays(1)).active(true).build();
+    }
+    private Voucher welcomeVoucher(Long id, String code, CategoryVoucher category) {
+        return Voucher.builder().id(id).code(code).categoryVoucher(category).discountType(DiscountType.FIXED_AMOUNT)
+                .discountValue(new BigDecimal("30000")).minOrderAmount(BigDecimal.ZERO)
+                .maxDiscountAmount(new BigDecimal("30000")).usageLimit(Integer.MAX_VALUE).usedCount(0)
+                .perUserLimit(1).startDate(now.minusYears(1)).endDate(now.plusYears(1)).active(true).build();
+    }
+    private VoucherRedemption welcomeGrant(Long voucherId) {
+        return VoucherRedemption.builder().id(20L).voucherId(voucherId).accountId(2L)
+                .redeemedAt(now.minusDays(1)).expiresAt(now.plusDays(4))
+                .idempotencyKey("WELCOME:" + voucherId).build();
     }
     private VoucherValidateRequest validateRequest() {
         VoucherValidateRequest request = new VoucherValidateRequest();

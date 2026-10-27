@@ -55,4 +55,5 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 
     long countByAccountIdAndLoyaltyPointsAwardedTrueAndCompletedAtGreaterThanEqualAndCompletedAtLessThan(
             Long accountId, LocalDateTime start, LocalDateTime end);
+    long countByAccountIdAndStatusNot(Long accountId, com.example.dacn.entity.OrderStatus status);
 }

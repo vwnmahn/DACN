@@ -44,6 +44,7 @@ storage/
 # Database backups
 backups/
 *.sql
+!src/main/resources/db/migration/manual/V20261027_1__voucher_redemption_idempotency.sql
 *.sql.gz
 
 # Logs

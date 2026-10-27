@@ -13,7 +13,7 @@ class DeliveryDistanceServiceImplTest {
     @Test void zeroDistanceUsesBaseFee() {
         var result = service.calculateDelivery(restaurant(6, "15000", "2", "5000"), bd("10.77"), bd("106.69"));
         assertEquals(new BigDecimal("0.000"), result.distanceKm());
-        assertEquals(new BigDecimal("15000"), result.deliveryFee());
+        assertEquals(new BigDecimal("10000"), result.deliveryFee());
     }
 
     @Test void invalidCoordinatesAreRejected() {

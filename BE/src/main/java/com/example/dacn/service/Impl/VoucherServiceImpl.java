@@ -19,6 +19,9 @@ import java.util.*;
 
 @Service
 public class VoucherServiceImpl implements VoucherService {
+    private static final int REDEMPTION_COST_POINTS = 300;
+    private static final BigDecimal WELCOME_DISCOUNT = new BigDecimal("30000.00");
+    private static final Set<String> WELCOME_CODES = Set.of("SAIGON20", "HANOISHIP0");
     private static final Set<VoucherUsageStatus> OCCUPIED = EnumSet.of(VoucherUsageStatus.RESERVED, VoucherUsageStatus.APPLIED);
     private final VoucherRepository voucherRepository;
     private final VoucherUsageRepository usageRepository;
@@ -28,6 +31,8 @@ public class VoucherServiceImpl implements VoucherService {
     private final MenuItemRepository menuItemRepository;
     private final DeliveryDistanceService deliveryDistanceService;
     private final Clock clock;
+    @Autowired
+    private OrderRepository orderRepository;
     private static final int MAX_PAGE_SIZE = 100;
     private static final Set<String> AVAILABLE_SORT_FIELDS = Set.of(
             "id", "code", "discountValue", "minOrderAmount", "startDate", "endDate", "createdAt");
@@ -135,31 +140,53 @@ public class VoucherServiceImpl implements VoucherService {
     public List<VoucherRedemptionResponse> getMyRedemptions() {
         Long accountId = accountId();
         List<VoucherRedemption> redemptions = redemptionRepository.findByAccountIdOrderByRedeemedAtDesc(accountId);
-        Map<Long, Long> availableByVoucher = new HashMap<>();
-        redemptions.forEach(redemption -> availableByVoucher.computeIfAbsent(redemption.getVoucherId(), voucherId ->
-                Math.max(0L, redemptionRepository.countByVoucherIdAndAccountId(voucherId, accountId)
-                        - occupiedByUser(voucherId, accountId))));
         return redemptions.stream()
-                .filter(redemption -> {
-                    long remaining = availableByVoucher.getOrDefault(redemption.getVoucherId(), 0L);
-                    if (remaining <= 0) return false;
-                    availableByVoucher.put(redemption.getVoucherId(), remaining - 1);
-                    return true;
-                })
                 .map(redemption -> VoucherRedemptionResponse.builder()
                         .id(redemption.getId())
                         .voucher(response(voucherRepository.findById(redemption.getVoucherId())
                                 .orElseThrow(() -> error(ErrorCode.VOUCHER_NOT_FOUND))))
                         .redeemedAt(redemption.getRedeemedAt())
+                        .expiresAt(redemption.getExpiresAt())
                         .build())
                 .toList();
     }
 
     @Override @Transactional
-    public VoucherRedemptionResponse redeem(Long voucherId) {
+    public void grantWelcomeVouchers(Account account) {
+        if (account == null || account.getId() == null || account.getRole() != Role.USER) return;
+        LocalDateTime issuedAt = LocalDateTime.now(clock);
+        for (String welcomeCode : WELCOME_CODES) {
+            Voucher voucher = voucherRepository.findByCodeForUpdate(welcomeCode)
+                    .orElseThrow(() -> error(ErrorCode.VOUCHER_NOT_FOUND));
+            String grantKey = "WELCOME:" + voucher.getId();
+            if (redemptionRepository.findByAccountIdAndIdempotencyKey(account.getId(), grantKey).isPresent()) continue;
+            redemptionRepository.save(VoucherRedemption.builder()
+                    .accountId(account.getId())
+                    .voucherId(voucher.getId())
+                    .redeemedAt(issuedAt)
+                    .expiresAt(issuedAt.plusDays(5))
+                    .idempotencyKey(grantKey)
+                    .build());
+        }
+    }
+
+    @Override @Transactional
+    public VoucherRedemptionResponse redeem(Long voucherId, String idempotencyKey) {
+        String requestKey = idempotencyKey(idempotencyKey);
         Account account = accountRepository.findByIdForUpdate(accountId())
                 .orElseThrow(() -> error(ErrorCode.ACCOUNT_NOT_FOUND));
-        if (Objects.requireNonNullElse(account.getAvailablePoints(), 0) < 300) {
+        Optional<VoucherRedemption> prior = redemptionRepository
+                .findByAccountIdAndIdempotencyKey(account.getId(), requestKey);
+        if (prior.isPresent()) {
+            VoucherRedemption redemption = prior.get();
+            if (!Objects.equals(redemption.getVoucherId(), voucherId)) {
+                throw error(ErrorCode.VOUCHER_IDEMPOTENCY_KEY_REUSED);
+            }
+            Voucher voucher = voucherRepository.findById(redemption.getVoucherId())
+                    .orElseThrow(() -> error(ErrorCode.VOUCHER_NOT_FOUND));
+            return redemptionResponse(redemption, voucher, account.getAvailablePoints());
+        }
+        if (Objects.requireNonNullElse(account.getAvailablePoints(), 0) < REDEMPTION_COST_POINTS) {
             throw error(ErrorCode.LOYALTY_POINTS_INSUFFICIENT);
         }
 
@@ -174,12 +201,12 @@ public class VoucherServiceImpl implements VoucherService {
                 && claimedByAccount < voucher.getPerUserLimit();
         if (!valid) throw error(ErrorCode.VOUCHER_NOT_REDEEMABLE);
 
-        account.setAvailablePoints(account.getAvailablePoints() - 300);
+        account.setAvailablePoints(account.getAvailablePoints() - REDEMPTION_COST_POINTS);
         VoucherRedemption redemption = redemptionRepository.save(VoucherRedemption.builder()
-                .accountId(account.getId()).voucherId(voucherId).redeemedAt(now).build());
+                .accountId(account.getId()).voucherId(voucherId).redeemedAt(now)
+                .idempotencyKey(requestKey).build());
         accountRepository.save(account);
-        return VoucherRedemptionResponse.builder().id(redemption.getId()).voucher(response(voucher))
-                .redeemedAt(now).availablePoints(account.getAvailablePoints()).build();
+        return redemptionResponse(redemption, voucher, account.getAvailablePoints());
     }
 
     @Override @Transactional(readOnly = true)
@@ -189,7 +216,8 @@ public class VoucherServiceImpl implements VoucherService {
         try {
             Voucher v = voucherRepository.findByCodeIgnoreCase(code(r.getVoucherCode())).orElseThrow(() -> error(ErrorCode.VOUCHER_NOT_FOUND));
             validateUsable(v, accountId(), r.getRestaurantId(), subtotal, true);
-            BigDecimal discount = discount(v, subtotal);
+            validateWelcomeRules(v, accountId(), cart.restaurant(), false);
+            BigDecimal discount = discount(v, subtotal, cart.deliveryFee());
             return VoucherValidationResponse.builder().valid(true).subtotal(subtotal).deliveryFee(cart.deliveryFee())
                     .discountAmount(discount).estimatedTotal(subtotal.subtract(discount).add(cart.deliveryFee())).build();
         } catch (AppException e) {
@@ -204,23 +232,33 @@ public class VoucherServiceImpl implements VoucherService {
         if (voucherCode == null || voucherCode.isBlank()) return BigDecimal.ZERO;
         if (amount == null || amount.signum() < 0) throw error(ErrorCode.VOUCHER_INVALID_DATA);
         Voucher v = voucherRepository.findByCodeIgnoreCase(code(voucherCode)).orElseThrow(() -> error(ErrorCode.VOUCHER_NOT_FOUND));
-        validateTimeValue(v, amount); return discount(v, amount);
+        validateTimeValue(v, amount); return discount(v, amount, BigDecimal.ZERO);
     }
 
     @Override @Transactional
-    public VoucherReservationResult reserveForOrder(String voucherCode, Long accountId, Long orderId, Long restaurantId, BigDecimal subtotal) {
+    public VoucherReservationResult reserveForOrder(String voucherCode, Long accountId, Long orderId, Long restaurantId,
+                                                     BigDecimal subtotal, BigDecimal deliveryFee) {
         Optional<VoucherUsage> prior = usageRepository.findByOrderIdForUpdate(orderId);
         if (prior.isPresent()) {
             Voucher v = voucherRepository.findById(prior.get().getVoucherId()).orElseThrow(() -> error(ErrorCode.VOUCHER_NOT_FOUND));
             if (v.getCode().equalsIgnoreCase(code(voucherCode)) && prior.get().getStatus() != VoucherUsageStatus.RELEASED)
-                return new VoucherReservationResult(v.getId(), v.getCode(), discount(v, subtotal));
+                return new VoucherReservationResult(v.getId(), v.getCode(), discount(v, subtotal, deliveryFee));
             throw error(ErrorCode.VOUCHER_ALREADY_RESERVED_FOR_ORDER);
         }
         Voucher v = voucherRepository.findByCodeForUpdate(code(voucherCode)).orElseThrow(() -> error(ErrorCode.VOUCHER_NOT_FOUND));
         validateUsable(v, accountId, restaurantId, subtotal, true);
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> error(ErrorCode.RESTAURANT_NOT_FOUND));
+        validateWelcomeRules(v, accountId, restaurant, true);
         usageRepository.save(VoucherUsage.builder().voucherId(v.getId()).accountId(accountId).orderId(orderId)
                 .status(VoucherUsageStatus.RESERVED).reservedAt(LocalDateTime.now(clock)).build());
-        return new VoucherReservationResult(v.getId(), v.getCode(), discount(v, subtotal));
+        return new VoucherReservationResult(v.getId(), v.getCode(), discount(v, subtotal, deliveryFee));
+    }
+
+    @Override @Transactional
+    public VoucherReservationResult reserveForOrder(String voucherCode, Long accountId, Long orderId,
+                                                     Long restaurantId, BigDecimal subtotal) {
+        return reserveForOrder(voucherCode, accountId, orderId, restaurantId, subtotal, BigDecimal.ZERO);
     }
 
     @Override @Transactional
@@ -263,7 +301,7 @@ public class VoucherServiceImpl implements VoucherService {
             deliveryFee = deliveryDistanceService.calculateDelivery(restaurant,
                     r.getDeliveryLatitude(), r.getDeliveryLongitude()).deliveryFee();
         }
-        return new CartQuote(total, deliveryFee);
+        return new CartQuote(total, deliveryFee, restaurant);
     }
 
     private Pageable safeAvailablePageable(Pageable pageable) {
@@ -294,11 +332,38 @@ public class VoucherServiceImpl implements VoucherService {
         if (subtotal.compareTo(v.getMinOrderAmount()) < 0) throw error(ErrorCode.VOUCHER_MIN_ORDER_NOT_MET);
     }
 
-    private BigDecimal discount(Voucher v, BigDecimal subtotal) {
+    private BigDecimal discount(Voucher v, BigDecimal subtotal, BigDecimal deliveryFee) {
+        if ("HANOISHIP0".equalsIgnoreCase(v.getCode())) {
+            return WELCOME_DISCOUNT.min(Objects.requireNonNullElse(deliveryFee, BigDecimal.ZERO));
+        }
         BigDecimal d = v.getDiscountType() == DiscountType.PERCENTAGE
                 ? subtotal.multiply(v.getDiscountValue()).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP) : v.getDiscountValue();
         if (v.getMaxDiscountAmount() != null) d = d.min(v.getMaxDiscountAmount());
         return d.min(subtotal);
+    }
+
+    private void validateWelcomeRules(Voucher voucher, Long accountId, Restaurant restaurant, boolean currentOrderExists) {
+        String voucherCode = voucher.getCode().toUpperCase(Locale.ROOT);
+        if (!WELCOME_CODES.contains(voucherCode)) return;
+
+        VoucherRedemption grant = redemptionRepository
+                .findFirstByVoucherIdAndAccountIdOrderByRedeemedAtDesc(voucher.getId(), accountId)
+                .orElseThrow(() -> error(ErrorCode.VOUCHER_NOT_OWNED));
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (grant.getRedeemedAt().isAfter(now)) throw error(ErrorCode.VOUCHER_NOT_STARTED);
+        if (grant.getExpiresAt() == null || !grant.getExpiresAt().isAfter(now))
+            throw error(ErrorCode.VOUCHER_EXPIRED);
+
+        long nonCancelledOrders = orderRepository.countByAccountIdAndStatusNot(accountId, OrderStatus.CANCELLED);
+        long allowedOrders = currentOrderExists ? 1L : 0L;
+        if (nonCancelledOrders > allowedOrders) throw error(ErrorCode.VOUCHER_USER_LIMIT_REACHED);
+
+        String address = Objects.requireNonNullElse(restaurant.getAddress(), "")
+                .toLowerCase(Locale.ROOT).replace(".", "");
+        boolean correctRegion = "SAIGON20".equals(voucherCode)
+                ? address.contains("hồ chí minh") || address.contains("ho chi minh") || address.contains("tp hcm") || address.contains("tphcm")
+                : address.contains("hà nội") || address.contains("ha noi");
+        if (!correctRegion) throw error(ErrorCode.VOUCHER_NOT_APPLICABLE_TO_RESTAURANT);
     }
 
     private void validateDefinition(VoucherRequest r) {
@@ -319,6 +384,17 @@ public class VoucherServiceImpl implements VoucherService {
         return account.getId();
     }
     private String code(String value) { if (value == null || value.isBlank()) throw error(ErrorCode.VOUCHER_INVALID_DATA); return value.trim().toUpperCase(Locale.ROOT); }
+    private String idempotencyKey(String value) {
+        if (value == null || value.isBlank() || value.trim().length() > 100)
+            throw error(ErrorCode.VOUCHER_IDEMPOTENCY_KEY_INVALID);
+        return value.trim();
+    }
+    private VoucherRedemptionResponse redemptionResponse(VoucherRedemption redemption, Voucher voucher,
+                                                          Integer availablePoints) {
+        return VoucherRedemptionResponse.builder().id(redemption.getId()).voucher(response(voucher))
+                .redeemedAt(redemption.getRedeemedAt()).expiresAt(redemption.getExpiresAt())
+                .availablePoints(availablePoints).build();
+    }
     private AppException error(ErrorCode e) { return new AppException(e); }
 
     private void copy(VoucherRequest r, Voucher v) {
@@ -343,6 +419,15 @@ public class VoucherServiceImpl implements VoucherService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof Account account)
                 || account.getRole() != Role.USER) return null;
+        if (WELCOME_CODES.contains(v.getCode().toUpperCase(Locale.ROOT))) {
+            Optional<VoucherRedemption> grant = redemptionRepository
+                    .findFirstByVoucherIdAndAccountIdOrderByRedeemedAtDesc(v.getId(), account.getId());
+            LocalDateTime currentTime = LocalDateTime.now(clock);
+            if (grant.isEmpty()) return "UNOWNED";
+            if (grant.get().getRedeemedAt().isAfter(currentTime)
+                    || grant.get().getExpiresAt() == null
+                    || !grant.get().getExpiresAt().isAfter(currentTime)) return "UNAVAILABLE";
+        }
         long occupiedByUser = occupiedByUser(v.getId(), account.getId());
         long redeemedByUser = redemptionRepository.countByVoucherIdAndAccountId(v.getId(), account.getId());
         if (occupiedByUser > 0 && redeemedByUser <= occupiedByUser) return "USED";
@@ -354,5 +439,5 @@ public class VoucherServiceImpl implements VoucherService {
         if (!available) return "UNAVAILABLE";
         return redeemedByUser > occupiedByUser ? "AVAILABLE" : "UNOWNED";
     }
-    private record CartQuote(BigDecimal subtotal, BigDecimal deliveryFee) {}
+    private record CartQuote(BigDecimal subtotal, BigDecimal deliveryFee, Restaurant restaurant) {}
 }

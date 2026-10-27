@@ -8,5 +8,6 @@ public class VoucherRedemptionResponse {
     private Long id;
     private VoucherResponse voucher;
     private LocalDateTime redeemedAt;
+    private LocalDateTime expiresAt;
     private Integer availablePoints;
 }
