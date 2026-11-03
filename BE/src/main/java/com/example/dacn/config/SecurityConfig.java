@@ -29,7 +29,7 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final ObjectMapper objectMapper;
-    private final CorsProperties corsProperties;
+
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -76,6 +76,7 @@ public class SecurityConfig {
 
                         // ---------- USER (BẮT BUỘC LOGIN) ----------
                         .requestMatchers("/api/v1/user/**").authenticated()
+                        .requestMatchers("/api/v1/cart", "/api/v1/cart/**").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/v1/checkout").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/v1/delivery/estimate").hasRole("USER")
                         .requestMatchers( "/api/v1/table-reservations","/api/v1/table-reservations/**").hasRole("USER")
@@ -99,11 +100,11 @@ public class SecurityConfig {
 
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("*"));
+        config.setAllowedOriginPatterns(List.of("*"));
         config.setAllowedMethods(List.of("*"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));
-        config.setAllowCredentials(false);
+        config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

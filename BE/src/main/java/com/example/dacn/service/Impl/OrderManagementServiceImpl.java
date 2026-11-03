@@ -3,6 +3,7 @@ package com.example.dacn.service.Impl;
 import com.example.dacn.config.OrderManagementProperties;
 import com.example.dacn.dto.response.*;
 import com.example.dacn.entity.*;
+import com.example.dacn.event.OrderStatusChangedEvent;
 import com.example.dacn.exception.AppException;
 import com.example.dacn.exception.ErrorCode;
 import com.example.dacn.repository.OrderRepository;
@@ -20,6 +21,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -39,6 +41,9 @@ public class OrderManagementServiceImpl implements OrderManagementService {
     private final VoucherService voucherService;
     private final OrderManagementProperties properties;
     private final Clock clock;
+
+    @Autowired(required = false)
+    private ApplicationEventPublisher eventPublisher;
 
     @Autowired
     public OrderManagementServiceImpl(OrderRepository orderRepository, AccountRepository accountRepository,
@@ -137,6 +142,44 @@ public class OrderManagementServiceImpl implements OrderManagementService {
         cancel(order, OrderCancellationReason.CANCELLED_BY_USER, account,
                 OrderStatusActorType.USER, "Người dùng hủy đơn hàng");
         return response(order);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse confirmReceivedByUser(Long orderId) {
+        Account account = currentAccount();
+        Order order = lockedOrder(orderId);
+        if (!order.getAccount().getId().equals(account.getId())) {
+            throw new AppException(ErrorCode.ORDER_NOT_FOUND);
+        }
+        if (order.getStatus() != OrderStatus.ARRIVED) {
+            throw new AppException(ErrorCode.ORDER_INVALID_TRANSITION);
+        }
+
+        Payment payment = latestPaymentForUpdate(orderId);
+        LocalDateTime completedAt = now();
+        if (payment.getPaymentMethod() == PaymentMethod.VNPAY) {
+            if (payment.getPaymentStatus() != PaymentStatus.SUCCESS) {
+                throw new AppException(ErrorCode.ORDER_PAYMENT_NOT_READY);
+            }
+        } else if (payment.getPaymentMethod() == PaymentMethod.COD) {
+            if (payment.getPaymentStatus() != PaymentStatus.PENDING) {
+                throw new AppException(ErrorCode.PAYMENT_INVALID_STATE);
+            }
+            payment.setPaymentStatus(PaymentStatus.SUCCESS);
+            payment.setPaidAt(completedAt);
+            payment.setPaymentMessage("Khách hàng xác nhận đã nhận hàng và thanh toán COD");
+            paymentRepository.save(payment);
+            voucherService.applyForOrder(orderId);
+        } else {
+            throw new AppException(ErrorCode.PAYMENT_INVALID_STATE);
+        }
+
+        order.setStatus(OrderStatus.COMPLETED);
+        awardLoyaltyPoints(order, completedAt);
+        recordHistory(order, OrderStatus.ARRIVED, OrderStatus.COMPLETED, account,
+                OrderStatusActorType.USER, "Khách hàng xác nhận đã nhận hàng");
+        return response(orderRepository.save(order));
     }
 
     @Override
@@ -377,9 +420,17 @@ public class OrderManagementServiceImpl implements OrderManagementService {
 
     private void recordHistory(Order order, OrderStatus oldStatus, OrderStatus newStatus,
                                Account actor, OrderStatusActorType actorType, String reason) {
+        LocalDateTime changedAt = now();
         historyRepository.save(OrderStatusHistory.builder().order(order).oldStatus(oldStatus)
                 .newStatus(newStatus).actorAccount(actor).actorType(actorType)
-                .changedAt(now()).reason(reason).build());
+                .changedAt(changedAt).reason(reason).build());
+        if (eventPublisher != null) {
+            PaymentStatus paymentStatus = paymentRepository.findFirstByOrderIdOrderByIdDesc(order.getId())
+                    .map(Payment::getPaymentStatus).orElse(null);
+            eventPublisher.publishEvent(new OrderStatusChangedEvent(
+                    OrderStatusChangedEvent.Type.STATUS_CHANGED,
+                    order.getId(), order.getAccount().getId(), newStatus, paymentStatus, changedAt));
+        }
     }
 
     private void validateSearch(int page, int size, LocalDateTime from, LocalDateTime to) {
@@ -430,7 +481,10 @@ public class OrderManagementServiceImpl implements OrderManagementService {
         return OrderResponse.builder()
                 .id(order.getId()).restaurantId(order.getRestaurant().getId())
                 .restaurantName(order.getRestaurant().getName()).status(order.getStatus())
-                .confirmationDeadline(order.getConfirmationDeadline()).acceptedAt(order.getAcceptedAt())
+                .confirmationDeadline(order.getConfirmationDeadline())
+                .cancellationDeadline(order.getCreatedAt() == null ? null
+                        : order.getCreatedAt().plus(properties.getCustomerCancellationWindow()))
+                .acceptedAt(order.getAcceptedAt())
                 .confirmedAt(order.getConfirmedAt()).confirmationSource(order.getConfirmationSource())
                 .cancellationReason(order.getCancellationReason()).cancelledAt(order.getCancelledAt())
                 .refundRequired(order.getRefundRequired()).subtotal(order.getSubtotal())
@@ -450,8 +504,11 @@ public class OrderManagementServiceImpl implements OrderManagementService {
 
     private AdminOrderResponse adminResponse(Order order, boolean includeHistory) {
         Account account = order.getAccount();
+        Payment payment = paymentRepository.findFirstByOrderIdOrderByIdDesc(order.getId()).orElse(null);
         return AdminOrderResponse.builder().order(response(order)).accountId(account.getId())
                 .username(account.getUsername()).email(account.getEmail()).phoneNumber(account.getPhoneNumber())
+                .paymentMethod(payment == null ? null : payment.getPaymentMethod())
+                .paymentStatus(payment == null ? null : payment.getPaymentStatus())
                 .statusHistory(includeHistory
                         ? historyRepository.findByOrderIdOrderByChangedAtAscIdAsc(order.getId()).stream()
                         .map(this::historyResponse).toList()

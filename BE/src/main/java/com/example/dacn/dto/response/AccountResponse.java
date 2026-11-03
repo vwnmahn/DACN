@@ -27,6 +27,8 @@ public class AccountResponse {
 
     private String avatarUrl;
 
+    private Role role;
+
     private Integer loyaltyPoints;
     private Integer availablePoints;
     private MembershipRank membershipRank;

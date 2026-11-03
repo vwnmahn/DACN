@@ -1,5 +1,7 @@
 package com.example.dacn.dto.response;
 
+import com.example.dacn.entity.PaymentMethod;
+import com.example.dacn.entity.PaymentStatus;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -13,5 +15,7 @@ public class AdminOrderResponse {
     private String username;
     private String email;
     private String phoneNumber;
+    private PaymentMethod paymentMethod;
+    private PaymentStatus paymentStatus;
     private List<OrderStatusHistoryResponse> statusHistory;
 }

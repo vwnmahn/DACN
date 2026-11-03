@@ -7,6 +7,7 @@ import com.example.dacn.service.ATService;
 import com.example.dacn.service.AvatarStorageService;
 import com.example.dacn.service.Impl.AuthServiceImpl;
 import com.example.dacn.service.RTService;
+import com.example.dacn.service.VoucherService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,9 +21,10 @@ import static org.mockito.Mockito.*;
 class AuthAvatarLifecycleTest {
     private final AccountRepository accountRepository = mock(AccountRepository.class);
     private final AvatarStorageService storage = mock(AvatarStorageService.class);
+    private final VoucherService voucherService = mock(VoucherService.class);
     private final AuthServiceImpl service = new AuthServiceImpl(accountRepository, mock(AccountMapper.class),
             mock(PasswordEncoder.class), mock(JwtUtil.class), mock(RTService.class), storage,
-            mock(ObjectMapper.class), mock(ATService.class));
+            mock(ObjectMapper.class), mock(ATService.class), voucherService);
 
     @AfterEach
     void cleanupSynchronization() {

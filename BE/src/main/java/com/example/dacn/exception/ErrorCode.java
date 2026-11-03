@@ -133,6 +133,8 @@ public enum ErrorCode {
     MENU_ITEM_INVALID_PRICE(6002, "Giá món ăn không hợp lệ", HttpStatus.BAD_REQUEST),
     MENU_ITEM_UNAVAILABLE(6003, "Món ăn hiện không còn bán", HttpStatus.CONFLICT),
     MENU_ITEM_NOT_IN_RESTAURANT(6004, "Món ăn không thuộc nhà hàng đã chọn", HttpStatus.BAD_REQUEST),
+    CART_NOT_FOUND(6005, "Không tìm thấy giỏ hàng", HttpStatus.NOT_FOUND),
+    CART_ITEM_NOT_FOUND(6006, "Không tìm thấy món trong giỏ hàng", HttpStatus.NOT_FOUND),
 
     // ================= ORDER =================
     ORDER_NOT_FOUND(7001, "Không tìm thấy đơn hàng", HttpStatus.NOT_FOUND),

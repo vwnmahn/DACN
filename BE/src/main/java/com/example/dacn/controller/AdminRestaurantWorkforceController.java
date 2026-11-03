@@ -1,0 +1,18 @@
+package com.example.dacn.controller;
+import com.example.dacn.dto.request.*; import com.example.dacn.dto.response.*; import com.example.dacn.entity.*; import com.example.dacn.service.RestaurantWorkforceService;
+import jakarta.validation.Valid; import lombok.RequiredArgsConstructor; import org.springframework.security.access.prepost.PreAuthorize; import org.springframework.web.bind.annotation.*; import java.util.List;
+@RestController @RequestMapping("/api/v1/admin/restaurants/{restaurantId}") @RequiredArgsConstructor @PreAuthorize("hasRole('ADMIN')")
+public class AdminRestaurantWorkforceController {
+ private final RestaurantWorkforceService service;
+ private <T> ApiResponse<T> ok(String message,T data){return ApiResponse.<T>builder().code(1000).message(message).data(data).build();}
+ @GetMapping("/employees") public ApiResponse<List<RestaurantEmployeeResponse>> employees(@PathVariable Long restaurantId,@RequestParam(required=false) String keyword,@RequestParam(required=false) EmployeePosition position,@RequestParam(required=false) EmploymentStatus status){return ok("Lấy danh sách nhân viên thành công",service.search(restaurantId,keyword,position,status));}
+ @PostMapping("/employees") public ApiResponse<RestaurantEmployeeResponse> create(@PathVariable Long restaurantId,@Valid @RequestBody RestaurantEmployeeRequest request){return ok("Thêm nhân viên thành công",service.create(restaurantId,request));}
+ @PutMapping("/employees/{employeeId}") public ApiResponse<RestaurantEmployeeResponse> update(@PathVariable Long restaurantId,@PathVariable Long employeeId,@Valid @RequestBody RestaurantEmployeeRequest request){return ok("Cập nhật nhân viên thành công",service.update(restaurantId,employeeId,request));}
+ @PatchMapping("/employees/{employeeId}/salary") public ApiResponse<RestaurantEmployeeResponse> salary(@PathVariable Long restaurantId,@PathVariable Long employeeId,@Valid @RequestBody EmployeeSalaryRequest request){return ok("Cập nhật lương thành công",service.changeSalary(restaurantId,employeeId,request));}
+ @PostMapping("/employees/{employeeId}/termination") public ApiResponse<RestaurantEmployeeResponse> terminate(@PathVariable Long restaurantId,@PathVariable Long employeeId,@Valid @RequestBody EmployeeTerminationRequest request){return ok("Đã tạo yêu cầu chấm dứt hợp đồng",service.requestTermination(restaurantId,employeeId,request));}
+ @PostMapping("/employees/{employeeId}/termination/cancel") public ApiResponse<RestaurantEmployeeResponse> cancel(@PathVariable Long restaurantId,@PathVariable Long employeeId){return ok("Đã hủy yêu cầu chấm dứt hợp đồng",service.cancelTermination(restaurantId,employeeId));}
+ @GetMapping("/employees/{employeeId}/salary-history") public ApiResponse<List<EmployeeSalaryHistoryResponse>> salaryHistory(@PathVariable Long restaurantId,@PathVariable Long employeeId){return ok("Lấy lịch sử lương thành công",service.salaryHistory(restaurantId,employeeId));}
+ @GetMapping("/employees/{employeeId}/termination-history") public ApiResponse<List<EmploymentTerminationHistoryResponse>> terminationHistory(@PathVariable Long restaurantId,@PathVariable Long employeeId){return ok("Lấy lịch sử hợp đồng thành công",service.terminationHistory(restaurantId,employeeId));}
+ @PutMapping("/rent") public ApiResponse<Void> rent(@PathVariable Long restaurantId,@Valid @RequestBody RestaurantRentRequest request){service.saveRent(restaurantId,request);return ok("Cập nhật tiền thuê thành công",null);}
+ @GetMapping("/cost-report") public ApiResponse<RestaurantCostReportResponse> report(@PathVariable Long restaurantId,@RequestParam int year,@RequestParam int month){return ok("Lấy báo cáo chi phí thành công",service.report(restaurantId,year,month));}
+}

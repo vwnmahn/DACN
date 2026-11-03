@@ -207,6 +207,23 @@ public class TableReservationServiceImpl implements  TableReservationService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<TableReservationResponse> getAllForAdmin() {
+        return reservationRepository.findAllByOrderByStartTimeDesc()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TableReservationResponse getByIdForAdmin(Long reservationId) {
+        TableReservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phiếu đặt bàn"));
+        return toResponse(reservation);
+    }
+
+    @Override
     @Transactional
     public TableReservationResponse cancelReservation(Long reservationId) {
         TableReservation reservation = reservationRepository

@@ -24,5 +24,9 @@ public interface TableReservationService {
 
     List<TableReservationResponse> getMyReservations();
 
+    List<TableReservationResponse> getAllForAdmin();
+
+    TableReservationResponse getByIdForAdmin(Long reservationId);
+
     TableReservationResponse cancelReservation(Long reservationId);
 }

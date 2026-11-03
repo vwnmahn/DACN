@@ -1,0 +1,3 @@
+package com.example.dacn.dto.response;
+import lombok.*; import java.math.BigDecimal; import java.util.*;
+@Data @Builder public class RestaurantCostReportResponse { private Long restaurantId; private Integer year; private Integer month; private long activeEmployees; private long activeShippers; private Map<String,Long> employeeCountByPosition; private Map<String,BigDecimal> salaryByPosition; private BigDecimal shipperSalary; private BigDecimal totalSalary; private BigDecimal rentCost; private BigDecimal totalPersonnelCost; private BigDecimal totalManagedOperatingCost; private List<RestaurantEmployeeResponse> includedEmployees; }

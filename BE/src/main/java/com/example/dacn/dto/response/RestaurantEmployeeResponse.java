@@ -1,0 +1,3 @@
+package com.example.dacn.dto.response;
+import com.example.dacn.entity.*; import lombok.*; import java.math.BigDecimal; import java.time.*;
+@Data @Builder public class RestaurantEmployeeResponse { private Long id; private String employeeCode; private String fullName; private String phoneNumber; private EmployeePosition position; private Long restaurantId; private String restaurantName; private LocalDate startDate; private BigDecimal monthlySalary; private EmploymentStatus status; private String note; private LocalDateTime terminationRequestedAt; private LocalDateTime terminationEffectiveAt; private String terminationReason; }

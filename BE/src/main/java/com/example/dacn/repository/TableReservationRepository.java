@@ -15,6 +15,8 @@ public interface TableReservationRepository
         extends JpaRepository<TableReservation, Long> {
     List<TableReservation> findByAccount_IdOrderByStartTimeDesc(Long accountId);
 
+    List<TableReservation> findAllByOrderByStartTimeDesc();
+
     Optional<TableReservation> findByIdAndAccount_Id(Long reservationId, Long accountId);
 
     // Lấy ID các bàn đã được giữ trong khoảng thời gian yêu cầu

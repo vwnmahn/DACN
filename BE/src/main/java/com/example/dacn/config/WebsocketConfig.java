@@ -13,13 +13,13 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor
 public class WebsocketConfig implements WebSocketMessageBrokerConfigurer {
-    private final CorsProperties corsProperties;
+
     private final WebSocketSecurityInterceptor securityInterceptor;
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOrigins(allowedOrigins())
+                .setAllowedOriginPatterns("*")
                 .withSockJS();
     }
 
@@ -33,12 +33,5 @@ public class WebsocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(securityInterceptor);
-    }
-
-    private String[] allowedOrigins() {
-        if (corsProperties.getAllowedOrigins().stream().anyMatch("*"::equals)) {
-            throw new IllegalStateException("WebSocket wildcard origin is not allowed");
-        }
-        return corsProperties.getAllowedOrigins().toArray(String[]::new);
     }
 }

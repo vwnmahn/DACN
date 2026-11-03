@@ -18,6 +18,7 @@ public class OrderResponse {
     private String restaurantName;
     private OrderStatus status;
     private LocalDateTime confirmationDeadline;
+    private LocalDateTime cancellationDeadline;
     private LocalDateTime acceptedAt;
     private LocalDateTime confirmedAt;
     private ConfirmationSource confirmationSource;

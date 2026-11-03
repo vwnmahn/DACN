@@ -6,6 +6,7 @@ import com.example.dacn.service.OrderService;
 import com.example.dacn.service.OrderManagementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -35,6 +36,14 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
                 .code(1000).message("Hủy đơn hàng thành công")
                 .data(orderManagementService.cancelMyOrder(id)).build());
+    }
+
+    @PatchMapping("/{id}/confirm-received")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<ApiResponse<OrderResponse>> confirmReceived(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
+                .code(1000).message("Xác nhận đã nhận hàng thành công")
+                .data(orderManagementService.confirmReceivedByUser(id)).build());
     }
 
     @PostMapping

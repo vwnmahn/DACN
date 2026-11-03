@@ -2,25 +2,50 @@ package com.example.dacn.config;
 
 import com.example.dacn.security.WebSocketSecurityInterceptor;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.messaging.simp.config.ChannelRegistration;
+import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class WebsocketConfigTest {
+
     @Test
-    void usesConfiguredOriginsAndRejectsWildcard() {
-        CorsProperties properties = new CorsProperties();
-        properties.setAllowedOrigins(List.of("http://localhost:3000", "https://frontend.example"));
-        WebsocketConfig config = new WebsocketConfig(properties, mock(WebSocketSecurityInterceptor.class));
+    void registersWebSocketEndpointWithoutCorsProperties() {
+        WebsocketConfig config = new WebsocketConfig(
+                mock(WebSocketSecurityInterceptor.class)
+        );
 
-        String[] origins = ReflectionTestUtils.invokeMethod(config, "allowedOrigins");
-        assertArrayEquals(new String[]{"http://localhost:3000", "https://frontend.example"}, origins);
+        StompEndpointRegistry registry = mock(StompEndpointRegistry.class, org.mockito.Answers.RETURNS_SELF);
 
-        properties.setAllowedOrigins(List.of("*"));
-        assertThrows(IllegalStateException.class,
-                () -> ReflectionTestUtils.invokeMethod(config, "allowedOrigins"));
+        assertDoesNotThrow(() -> config.registerStompEndpoints(registry));
+
+        verify(registry).addEndpoint("/ws");
+    }
+
+    @Test
+    void configuresMessageBroker() {
+        WebsocketConfig config = new WebsocketConfig(
+                mock(WebSocketSecurityInterceptor.class)
+        );
+
+        MessageBrokerRegistry registry = mock(MessageBrokerRegistry.class);
+
+        assertDoesNotThrow(() -> config.configureMessageBroker(registry));
+    }
+
+    @Test
+    void registersWebSocketSecurityInterceptor() {
+        WebSocketSecurityInterceptor interceptor =
+                mock(WebSocketSecurityInterceptor.class);
+
+        WebsocketConfig config = new WebsocketConfig(interceptor);
+        ChannelRegistration registration = mock(ChannelRegistration.class);
+
+        assertDoesNotThrow(() -> config.configureClientInboundChannel(registration));
+
+        verify(registration).interceptors(interceptor);
     }
 }

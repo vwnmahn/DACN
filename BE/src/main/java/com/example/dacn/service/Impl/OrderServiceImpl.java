@@ -4,6 +4,7 @@ import com.example.dacn.dto.request.CreateOrderRequest;
 import com.example.dacn.dto.response.OrderItemResponse;
 import com.example.dacn.dto.response.OrderResponse;
 import com.example.dacn.entity.*;
+import com.example.dacn.event.OrderStatusChangedEvent;
 import com.example.dacn.exception.AppException;
 import com.example.dacn.exception.ErrorCode;
 import com.example.dacn.repository.*;
@@ -14,9 +15,12 @@ import com.example.dacn.service.DeliveryDistanceService;
 import com.example.dacn.service.DeliveryCalculation;
 import com.example.dacn.config.OrderManagementProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -30,6 +34,7 @@ import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final AccountRepository accountRepository;
@@ -39,6 +44,9 @@ public class OrderServiceImpl implements OrderService {
     private final VoucherService voucherService;
     private final DeliveryDistanceService deliveryDistanceService;
     private final OrderManagementProperties orderManagementProperties;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -149,6 +157,12 @@ public class OrderServiceImpl implements OrderService {
             order.setTotalAmount(subtotal.subtract(reserved.discountAmount()).add(order.getDeliveryFee()));
             order = orderRepository.save(order);
         }
+        OrderStatusChangedEvent createdEvent = new OrderStatusChangedEvent(
+                OrderStatusChangedEvent.Type.CREATED,
+                order.getId(), account.getId(), order.getStatus(), null, now);
+        log.info("[Order realtime] Queue event type={} orderId={}",
+                createdEvent.type(), createdEvent.orderId());
+        eventPublisher.publishEvent(createdEvent);
         return toResponse(order);
     }
 
@@ -266,6 +280,8 @@ public class OrderServiceImpl implements OrderService {
                 .restaurantName(order.getRestaurant().getName())
                 .status(order.getStatus())
                 .confirmationDeadline(order.getConfirmationDeadline())
+                .cancellationDeadline(order.getCreatedAt() == null ? null
+                        : order.getCreatedAt().plus(orderManagementProperties.getCustomerCancellationWindow()))
                 .acceptedAt(order.getAcceptedAt())
                 .confirmedAt(order.getConfirmedAt())
                 .confirmationSource(order.getConfirmationSource())

@@ -76,4 +76,13 @@ public interface PaymentRepository
     @Query("SELECT p FROM Payment p WHERE p.paymentStatus = com.example.dacn.entity.PaymentStatus.PENDING "
             + "AND p.paymentUrl IS NOT NULL AND p.createdAt <= :cutoff ORDER BY p.id")
     List<Payment> findExpiredGatewayPaymentsForUpdate(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"order", "order.restaurant"})
+    @Query("SELECT p FROM Payment p WHERE p.paymentStatus = com.example.dacn.entity.PaymentStatus.SUCCESS "
+            + "AND p.paidAt >= :from AND p.paidAt < :to "
+            + "AND p.order.status <> com.example.dacn.entity.OrderStatus.CANCELLED "
+            + "AND (:restaurantId IS NULL OR p.order.restaurant.id = :restaurantId) ORDER BY p.paidAt DESC")
+    List<Payment> findRevenuePayments(@Param("from") LocalDateTime from,
+                                      @Param("to") LocalDateTime to,
+                                      @Param("restaurantId") Long restaurantId);
 }
