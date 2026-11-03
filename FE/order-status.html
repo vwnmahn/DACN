@@ -103,6 +103,10 @@
             <button type="button" class="btn btn-danger" id="cancel-order-btn">Hủy đơn hàng</button>
             <span id="cancel-order-hint"></span>
         </div>
+        <div class="order-received-action" id="order-received-action" hidden>
+            <button type="button" class="btn btn-primary" id="confirm-received-btn">Đã nhận hàng</button>
+            <span>Xác nhận sau khi bạn đã nhận món từ người giao hàng.</span>
+        </div>
 
         <div class="tracking-steps" id="trackingSteps">
             <div class="tracking-step" data-status="PENDING">
@@ -251,8 +255,44 @@
     </div>
 </main>
 
+<div class="receive-confirm-modal" id="receive-confirm-modal" hidden aria-hidden="true">
+    <div class="receive-confirm-overlay" id="receive-confirm-overlay"></div>
+    <section class="receive-confirm-dialog" role="dialog" aria-modal="true"
+             aria-labelledby="receive-confirm-title" aria-describedby="receive-confirm-message">
+        <div class="receive-confirm-icon" id="receive-confirm-icon" aria-hidden="true">
+            <span class="material-symbols-outlined">inventory_2</span>
+        </div>
+        <h2 id="receive-confirm-title">Xác nhận đã nhận hàng?</h2>
+        <p id="receive-confirm-message">Bạn xác nhận đã nhận đầy đủ hàng và hoàn tất đơn hàng này?</p>
+        <div class="receive-confirm-actions">
+            <button type="button" class="btn btn-outline" id="receive-confirm-cancel">Chưa, quay lại</button>
+            <button type="button" class="btn btn-primary" id="receive-confirm-submit">Xác nhận đã nhận hàng</button>
+        </div>
+    </section>
+</div>
+
+<div class="receive-confirm-modal cancel-confirm-modal" id="cancel-confirm-modal" hidden aria-hidden="true">
+    <div class="receive-confirm-overlay" id="cancel-confirm-overlay"></div>
+    <section class="receive-confirm-dialog" role="dialog" aria-modal="true"
+             aria-labelledby="cancel-confirm-title" aria-describedby="cancel-confirm-message">
+        <div class="receive-confirm-icon cancel-confirm-icon" aria-hidden="true">
+            <span class="material-symbols-outlined">warning</span>
+        </div>
+        <h2 id="cancel-confirm-title">Xác nhận hủy đơn hàng</h2>
+        <p id="cancel-confirm-message">Bạn có chắc chắn muốn hủy đơn hàng này không?</p>
+        <div class="cancel-confirm-error" id="cancel-confirm-error" hidden aria-live="polite"></div>
+        <div class="receive-confirm-actions">
+            <button type="button" class="btn btn-outline" id="cancel-confirm-keep">Không, giữ đơn hàng</button>
+            <button type="button" class="btn btn-danger" id="cancel-confirm-submit">Đồng ý hủy đơn</button>
+        </div>
+    </section>
+</div>
+
 <div data-site-footer></div>
 <script src="site-shell.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+<script src="order-realtime.js"></script>
 <script src="order-status.js"></script>
 </body>
 </html>

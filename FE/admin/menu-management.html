@@ -1,0 +1,372 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý thực đơn | FCA Culinary</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+
+    <link rel="stylesheet" href="menu-management.css">
+    <link rel="stylesheet" href="admin-shell.css">
+    <script src="admin-shell.js" defer></script>
+    <script src="menu-management.js" defer></script>
+</head>
+
+<body>
+<div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div>
+            <div class="brand">
+                <div class="brand-icon">
+                    <span class="material-symbols-outlined">restaurant_menu</span>
+                </div>
+                <div>
+                    <div class="brand-name">FCA Culinary</div>
+                    <div class="brand-subtitle">Admin Portal</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <p class="sidebar-heading">QUẢN TRỊ HỆ THỐNG</p>
+
+                <nav class="sidebar-nav">
+                    <a href="dashboard.html" class="nav-link" data-path="dashboard">
+                        <span class="material-symbols-outlined">dashboard</span>
+                        <span>Tổng quan</span>
+                    </a>
+
+                    <a href="admin-branches.html" class="nav-link" data-path="restaurants-outlets">
+                        <span class="material-symbols-outlined">store</span>
+                        <span>Nhà hàng & Chi nhánh</span>
+                    </a>
+
+                    <a href="menu-management.html" class="nav-link active" data-path="menu-management">
+                        <span class="material-symbols-outlined">restaurant</span>
+                        <span>Thực đơn & Món ăn</span>
+                    </a>
+
+                    <a href="reservations-orders.html" class="nav-link" data-path="reservations-orders">
+                        <span class="material-symbols-outlined">receipt_long</span>
+                        <span>Đặt bàn & Đơn hàng</span>
+                    </a>
+
+                    <a href="admin-revenue.html" class="nav-link" data-path="analytics-revenue">
+                        <span class="material-symbols-outlined">monitoring</span>
+                        <span>Doanh thu & Báo cáo</span>
+                    </a>
+
+                    <a href="admin-accounts.html" class="nav-link" data-path="account-management">
+                        <span class="material-symbols-outlined">manage_accounts</span>
+                        <span>Tài khoản & Phân quyền</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <div class="sidebar-bottom">
+            <div class="sidebar-user">
+                <div class="avatar">
+                    <span class="material-symbols-outlined">person</span>
+                </div>
+
+                <div class="user-info">
+                    <strong id="sidebarUserName">Quản trị viên</strong>
+                    <span id="sidebarUserEmail">Tài khoản quản trị</span>
+                </div>
+
+                <button class="icon-button logout-button" id="logoutButton"
+                        type="button" title="Đăng xuất">
+                    <span class="material-symbols-outlined">logout</span>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main-wrapper">
+
+        <!-- HEADER -->
+        <header class="topbar">
+            <button class="icon-button mobile-menu-button" id="mobileMenuButton"
+                    type="button" aria-label="Mở menu">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+
+            <div class="global-search">
+                <span class="material-symbols-outlined">search</span>
+                <input type="search" id="globalSearch"
+                       placeholder="Tìm kiếm trong hệ thống...">
+            </div>
+
+            <div class="topbar-actions">
+                <div class="language-label">
+                    <span class="material-symbols-outlined">language</span>
+                    <span>VN - Tiếng Việt</span>
+                </div>
+
+                <button class="icon-button" type="button" title="Thông báo">
+                    <span class="material-symbols-outlined">notifications</span>
+                </button>
+
+                <div class="topbar-divider"></div>
+
+                <div class="topbar-user">
+                    <div class="avatar">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <span id="headerUserName">Quản trị viên</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- CONTENT -->
+        <main class="page-content">
+
+            <!-- PAGE HEADING -->
+            <section class="page-heading">
+                <div class="heading-content">
+                    <div class="breadcrumb">
+                        <span>FCA CULINARY</span>
+                        <span class="material-symbols-outlined">chevron_right</span>
+                        <span class="current">QUẢN LÝ THỰC ĐƠN</span>
+                    </div>
+
+                    <h1>Quản lý thực đơn & món ăn</h1>
+
+                    <p>
+                        Quản lý danh mục, thông tin món ăn, giá bán và trạng thái
+                        kinh doanh của thực đơn.
+                    </p>
+                </div>
+
+                <div class="heading-actions">
+                    <button class="button button-primary" id="addDishButton"
+                            type="button">
+                        <span class="material-symbols-outlined">add_circle</span>
+                        Thêm món ăn
+                    </button>
+                </div>
+            </section>
+
+            <!-- SUMMARY -->
+            <section class="summary-grid">
+                <article class="summary-card">
+                    <div class="summary-top">
+                        <span class="summary-label">Tổng số món ăn</span>
+                        <div class="summary-icon green">
+                            <span class="material-symbols-outlined">restaurant</span>
+                        </div>
+                    </div>
+                    <div class="summary-value" id="totalDishes">—</div>
+                    <p class="summary-description">Dữ liệu từ hệ thống</p>
+                </article>
+
+                <article class="summary-card">
+                    <div class="summary-top">
+                        <span class="summary-label">Món đang kinh doanh</span>
+                        <div class="summary-icon blue">
+                            <span class="material-symbols-outlined">verified</span>
+                        </div>
+                    </div>
+                    <div class="summary-value" id="activeDishes">—</div>
+                    <p class="summary-description">Dữ liệu từ hệ thống</p>
+                </article>
+
+                <article class="summary-card">
+                    <div class="summary-top">
+                        <span class="summary-label">Món ngừng kinh doanh</span>
+                        <div class="summary-icon red">
+                            <span class="material-symbols-outlined">inventory_2</span>
+                        </div>
+                    </div>
+                    <div class="summary-value" id="inactiveDishes">—</div>
+                    <p class="summary-description">Dữ liệu từ hệ thống</p>
+                </article>
+
+            </section>
+
+            <!-- MAIN GRID -->
+            <section class="content-grid">
+
+                <!-- LEFT CONTENT -->
+                <div class="menu-main-column">
+
+                    <!-- FILTER PANEL -->
+                    <section class="panel filter-panel">
+                        <div class="filter-row">
+                            <div class="search-field">
+                                <span class="material-symbols-outlined">search</span>
+                                <input type="search" id="dishSearch"
+                                       placeholder="Tìm theo tên món ăn...">
+                            </div>
+
+                            <select id="branchFilter" class="form-control">
+                                <option value="">Tất cả chi nhánh</option>
+                            </select>
+
+                            <select id="statusFilter" class="form-control">
+                                <option value="">Tất cả trạng thái</option>
+                                <option value="true">Đang kích hoạt</option>
+                                <option value="false">Ngừng kích hoạt</option>
+                            </select>
+
+                            <button class="icon-button filter-reset" id="resetFiltersButton"
+                                    type="button" title="Xóa bộ lọc">
+                                <span class="material-symbols-outlined">filter_alt_off</span>
+                            </button>
+                        </div>
+
+                    </section>
+
+                    <!-- DISH TABLE -->
+                    <section class="panel table-panel">
+                        <div class="panel-heading">
+                            <div>
+                                <h2>Danh sách món ăn</h2>
+                                <p id="dishResultCount">Chưa có dữ liệu</p>
+                            </div>
+
+                            <button class="button button-outline button-small"
+                                    id="refreshDishesButton" type="button">
+                                <span class="material-symbols-outlined">refresh</span>
+                                Làm mới
+                            </button>
+                        </div>
+
+                        <div class="table-wrapper">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Thông tin món ăn</th>
+                                        <th class="text-right">Giá bán</th>
+                                        <th>Chi nhánh</th>
+                                        <th class="text-center">Trạng thái</th>
+                                        <th class="text-right">Thao tác</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody id="dishTableBody">
+                                    <tr>
+                                        <td colspan="5">
+                                            <div class="empty-state">
+                                                <span class="material-symbols-outlined">restaurant</span>
+                                                <strong>Chưa có dữ liệu món ăn</strong>
+                                                <p>Dữ liệu sẽ hiển thị sau khi kết nối API.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="table-footer">
+                            <span id="paginationInfo">Chưa có dữ liệu</span>
+
+                            <div class="pagination" id="pagination">
+                                <button class="page-button" type="button" disabled>
+                                    <span class="material-symbols-outlined">chevron_left</span>
+                                </button>
+                                <button class="page-button" type="button" disabled>
+                                    <span class="material-symbols-outlined">chevron_right</span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+            </section>
+        </main>
+    </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="dishModal" aria-hidden="true">
+    <div class="modal">
+        <div class="modal-header">
+            <div>
+                <h2 id="dishModalTitle">Thêm món ăn</h2>
+                <p>Nhập thông tin món ăn</p>
+            </div>
+
+            <button class="icon-button" type="button" id="closeDishModal">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <form id="dishForm">
+            <input type="hidden" id="dishId">
+
+            <div class="form-group">
+                <label for="dishName">Tên món ăn</label>
+                <input type="text" id="dishName" class="form-control"
+                       required maxlength="150" placeholder="Nhập tên món ăn">
+            </div>
+
+            <div class="form-group">
+                <label for="dishDescription">Mô tả</label>
+                <textarea id="dishDescription" class="form-control"
+                          rows="3" maxlength="1000" placeholder="Nhập mô tả món ăn"></textarea>
+            </div>
+
+            <div class="form-group">
+                    <label for="dishPrice">Giá bán</label>
+                    <input type="number" id="dishPrice" class="form-control"
+                           required min="0" step="1000" placeholder="Nhập giá">
+            </div>
+
+            <div class="form-group">
+                <label for="dishImage">Đường dẫn hình ảnh</label>
+                <input type="text" id="dishImage" class="form-control"
+                       list="dish-image-options"
+                       maxlength="500" placeholder="/FE/images/menuItems/ten-anh.jpg">
+                <datalist id="dish-image-options">
+                    <option value="/FE/images/menuItems/FCA%20Test/com-ga.jpg"></option>
+                    <option value="/FE/images/menuItems/FCA%20Test/tra-dao.jpg"></option>
+                </datalist>
+                <div class="dish-image-preview empty" id="dishImagePreview">
+                    <img alt="Xem trước ảnh món ăn">
+                    <span>Chưa có ảnh xem trước</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="dishBranch">Chi nhánh</label>
+                <select id="dishBranch" class="form-control" required>
+                    <option value="">Chọn chi nhánh</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="dishActive" checked>
+                    Món ăn đang được kích hoạt
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="dishAvailable" checked>
+                    Hiện có thể phục vụ
+                </label>
+            </div>
+
+            <div class="modal-actions">
+                <button class="button button-outline" type="button"
+                        id="cancelDishModal">Hủy</button>
+
+                <button class="button button-primary" type="submit"
+                        id="saveDishButton">Lưu món ăn</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- NOTIFICATION -->
+<div class="toast-container" id="toastContainer"></div>
+
+</body>
+</html>

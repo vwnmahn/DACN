@@ -19,7 +19,7 @@ let currentAvailablePoints = 0;
    LẤY TOKEN ĐĂNG NHẬP
 ========================= */
 function getAccessToken() {
-    return localStorage.getItem("accessToken");
+    return localStorage.getItem("userAccessToken");
 }
 
 /* =========================
@@ -29,7 +29,7 @@ function getAccessToken() {
 let refreshTokenPromise = null;
 
 function getRefreshToken() {
-    return localStorage.getItem("refreshToken");
+    return localStorage.getItem("userRefreshToken");
 }
 
 function saveTokens(data) {
@@ -37,15 +37,15 @@ function saveTokens(data) {
         throw new Error("API refresh không trả về accessToken.");
     }
 
-    localStorage.setItem("accessToken", data.accessToken);
+    localStorage.setItem("userAccessToken", data.accessToken);
 
     // Backend trả refreshToken mới thì cập nhật luôn.
     if (data.refreshToken) {
-        localStorage.setItem("refreshToken", data.refreshToken);
+        localStorage.setItem("userRefreshToken", data.refreshToken);
     }
 
     if (data.tokenType) {
-        localStorage.setItem("tokenType", data.tokenType);
+        localStorage.setItem("userTokenType", data.tokenType);
     }
 
     return data.accessToken;
@@ -130,9 +130,9 @@ async function fetchWithAuthRetry(url, options = {}) {
         console.error("Không thể refresh token:", error);
 
         // Chỉ xóa token khi refresh thất bại.
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("tokenType");
+        localStorage.removeItem("userAccessToken");
+        localStorage.removeItem("userRefreshToken");
+        localStorage.removeItem("userTokenType");
 
         throw new Error(
             "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."

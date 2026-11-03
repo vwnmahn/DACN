@@ -48,10 +48,7 @@
             return shell.getAccessToken();
         }
 
-        return localStorage.getItem('accessToken')
-            || localStorage.getItem('access_token')
-            || localStorage.getItem('token')
-            || '';
+        return localStorage.getItem('userAccessToken') || '';
     }
 
     function getAuthHeaders() {

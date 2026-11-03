@@ -1,0 +1,496 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FCA Culinary - Quản lý tài khoản</title>
+
+    <link rel="stylesheet" href="admin-accounts.css">
+    <link rel="stylesheet" href="admin-shell.css">
+    <script src="admin-shell.js" defer></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="admin-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+        <div>
+            <div class="brand">
+                <div class="brand-icon">
+                    <span class="material-symbols-outlined">restaurant_menu</span>
+                </div>
+
+                <div>
+                    <strong>FCA Culinary</strong>
+                    <small>ADMIN PORTAL</small>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <p>BẢNG ĐIỀU KHIỂN</p>
+
+                <nav>
+                    <a href="dashboard.html" data-path="dashboard">
+                        <span class="material-symbols-outlined">dashboard</span>
+                        Tổng quan
+                    </a>
+
+                    <a href="admin-branches.html" data-path="restaurants-outlets">
+                        <span class="material-symbols-outlined">storefront</span>
+                        Nhà hàng & Chi nhánh
+                    </a>
+
+                    <a href="menu-management.html" data-path="menu-management">
+                        <span class="material-symbols-outlined">menu_book</span>
+                        Thực đơn & Món ăn
+                    </a>
+
+                    <a href="reservations-orders.html" data-path="reservations-orders">
+                        <span class="material-symbols-outlined">table_restaurant</span>
+                        Đặt bàn & Đơn hàng
+                    </a>
+
+                    <a href="admin-revenue.html" data-path="analytics-revenue">
+                        <span class="material-symbols-outlined">insights</span>
+                        Doanh thu & Báo cáo
+                    </a>
+
+                    <a href="admin-accounts.html" class="active" data-path="account-management">
+                        <span class="material-symbols-outlined">admin_panel_settings</span>
+                        Tài khoản & Phân quyền
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <div class="sidebar-bottom">
+            <div class="admin-profile">
+                <div class="avatar">
+                    <span class="material-symbols-outlined">person</span>
+                </div>
+
+                <div class="profile-info">
+                    <strong>Admin</strong>
+                    <small>Quản trị hệ thống</small>
+                </div>
+
+                <button id="logout-btn" type="button" title="Đăng xuất">
+                    <span class="material-symbols-outlined">logout</span>
+                </button>
+            </div>
+        </div>
+
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main-area">
+
+        <header class="topbar">
+
+            <div class="search-box">
+                <span class="material-symbols-outlined">search</span>
+                <input
+                    id="global-search"
+                    type="text"
+                    placeholder="Tìm kiếm tài khoản..."
+                >
+            </div>
+
+            <div class="topbar-right">
+
+                <div class="language">
+                    <span class="material-symbols-outlined">language</span>
+                    VN (Tiếng Việt)
+                </div>
+
+                <div class="topbar-admin">
+                    <div class="avatar">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <span>Admin</span>
+                </div>
+
+            </div>
+
+        </header>
+
+        <main class="content">
+
+            <!-- HEADING -->
+            <section class="page-heading">
+
+                <div>
+                    <span class="page-label">
+                        HỆ THỐNG BẢO MẬT / RBAC & IAM
+                    </span>
+
+                    <h1>Quản lý tài khoản & phân quyền</h1>
+
+                    <p>
+                        Quản lý tài khoản người dùng, quyền truy cập
+                        và trạng thái hoạt động trong hệ thống FCA Culinary.
+                    </p>
+                </div>
+
+                <button
+                    class="btn-secondary"
+                    id="refresh-btn"
+                    type="button"
+                >
+                    <span class="material-symbols-outlined">refresh</span>
+                    Làm mới dữ liệu
+                </button>
+
+            </section>
+
+            <!-- MESSAGE -->
+            <div
+                id="page-message"
+                class="message hidden"
+                role="status"
+            ></div>
+
+            <!-- STATISTICS -->
+            <section class="stats-grid">
+
+                <article class="stat-card">
+                    <div class="stat-icon green">
+                        <span class="material-symbols-outlined">groups</span>
+                    </div>
+
+                    <div>
+                        <span>Tổng tài khoản</span>
+                        <h2 id="total-accounts">—</h2>
+                        <small>Toàn bộ hệ thống</small>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon blue">
+                        <span class="material-symbols-outlined">shield_person</span>
+                    </div>
+
+                    <div>
+                        <span>ADMIN</span>
+                        <h2 id="admin-count">—</h2>
+                        <small>Trong trang hiện tại</small>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon purple">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+
+                    <div>
+                        <span>USER</span>
+                        <h2 id="user-count">—</h2>
+                        <small>Trong trang hiện tại</small>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon orange">
+                        <span class="material-symbols-outlined">lock</span>
+                    </div>
+
+                    <div>
+                        <span>Đã khóa</span>
+                        <h2 id="locked-count">—</h2>
+                        <small>Trong trang hiện tại</small>
+                    </div>
+                </article>
+
+            </section>
+
+            <!-- ROLE INFORMATION -->
+            <section class="role-section">
+
+                <div class="section-heading">
+                    <div>
+                        <h2>Hệ thống phân quyền</h2>
+                        <p>Các quyền được sử dụng trong Backend hiện tại.</p>
+                    </div>
+                </div>
+
+                <div class="role-grid">
+
+                    <article class="role-card">
+                        <div class="role-icon admin-role">
+                            <span class="material-symbols-outlined">shield_person</span>
+                        </div>
+
+                        <div>
+                            <h3>ADMIN</h3>
+                            <p>
+                                Tài khoản quản trị có quyền truy cập
+                                các chức năng quản lý hệ thống theo
+                                cấu hình Backend.
+                            </p>
+                        </div>
+                    </article>
+
+                    <article class="role-card">
+                        <div class="role-icon user-role">
+                            <span class="material-symbols-outlined">person</span>
+                        </div>
+
+                        <div>
+                            <h3>USER</h3>
+                            <p>
+                                Tài khoản người dùng thông thường,
+                                sử dụng các chức năng dành cho khách hàng.
+                            </p>
+                        </div>
+                    </article>
+
+                </div>
+
+            </section>
+
+            <!-- ACCOUNT MANAGEMENT -->
+            <section class="account-section">
+
+                <div class="section-heading">
+                    <div>
+                        <h2>Danh sách tài khoản</h2>
+                        <p id="result-count">Đang tải dữ liệu...</p>
+                    </div>
+                </div>
+
+                <!-- FILTER -->
+                <div class="filter-panel">
+
+                    <div class="filter-search">
+                        <span class="material-symbols-outlined">search</span>
+
+                        <input
+                            id="account-search"
+                            type="text"
+                            placeholder="Tìm username, email hoặc số điện thoại..."
+                        >
+                    </div>
+
+                    <select id="role-filter">
+                        <option value="">Tất cả quyền</option>
+                        <option value="ADMIN">ADMIN</option>
+                        <option value="USER">USER</option>
+                    </select>
+
+                    <select id="locked-filter">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="false">Đang hoạt động</option>
+                        <option value="true">Đã khóa</option>
+                    </select>
+
+                    <button
+                        id="clear-filter"
+                        class="btn-secondary"
+                        type="button"
+                    >
+                        Xóa lọc
+                    </button>
+
+                </div>
+
+                <!-- TABLE -->
+                <div class="table-wrapper">
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th>TÀI KHOẢN</th>
+                                <th>THÔNG TIN LIÊN HỆ</th>
+                                <th>QUYỀN</th>
+                                <th>TRẠNG THÁI</th>
+                                <th>NGÀY TẠO</th>
+                                <th class="text-right">THAO TÁC</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="account-table-body">
+
+                            <tr>
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        Đang tải dữ liệu tài khoản...
+                                    </div>
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                <!-- PAGINATION -->
+                <div class="pagination">
+
+                    <span id="pagination-info">
+                        Chưa có dữ liệu
+                    </span>
+
+                    <div class="pagination-controls">
+
+                        <button
+                            id="previous-page"
+                            type="button"
+                            disabled
+                        >
+                            <span class="material-symbols-outlined">
+                                chevron_left
+                            </span>
+                        </button>
+
+                        <span id="page-info">—</span>
+
+                        <button
+                            id="next-page"
+                            type="button"
+                            disabled
+                        >
+                            <span class="material-symbols-outlined">
+                                chevron_right
+                            </span>
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+</div>
+
+<!-- ACCOUNT DETAIL MODAL -->
+<div class="modal hidden" id="account-modal">
+
+    <div class="modal-backdrop" data-close-modal></div>
+
+    <div class="modal-content">
+
+        <div class="modal-heading">
+
+            <div>
+                <span class="page-label">ACCOUNT INFORMATION</span>
+                <h2>Thông tin tài khoản</h2>
+            </div>
+
+            <button
+                class="close-button"
+                id="close-modal"
+                type="button"
+            >×</button>
+
+        </div>
+
+        <div id="account-detail">
+
+            <div class="empty-state">
+                Chưa có thông tin tài khoản.
+            </div>
+
+        </div>
+
+        <div class="modal-actions">
+            <button
+                class="btn-secondary"
+                id="close-detail-btn"
+                type="button"
+            >
+                Đóng
+            </button>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- ROLE MODAL -->
+<div class="modal hidden" id="role-modal">
+
+    <div class="modal-backdrop" data-close-role-modal></div>
+
+    <div class="modal-content modal-small">
+
+        <div class="modal-heading">
+            <div>
+                <span class="page-label">ACCOUNT PERMISSION</span>
+                <h2>Thay đổi quyền tài khoản</h2>
+            </div>
+
+            <button
+                class="close-button"
+                id="close-role-modal"
+                type="button"
+            >×</button>
+        </div>
+
+        <form id="role-form">
+
+            <input type="hidden" id="role-account-id">
+
+            <div class="form-group">
+                <label>Tài khoản</label>
+                <div id="role-account-name" class="readonly-field">—</div>
+            </div>
+
+            <div class="form-group">
+                <label for="new-role">Quyền mới</label>
+
+                <select id="new-role" required>
+                    <option value="USER">USER</option>
+                    <option value="ADMIN">ADMIN</option>
+                </select>
+            </div>
+
+            <div class="warning-note">
+                <span class="material-symbols-outlined">warning</span>
+                <span>
+                    Thay đổi quyền sẽ ảnh hưởng đến khả năng
+                    truy cập các chức năng của tài khoản.
+                </span>
+            </div>
+
+            <div class="modal-actions">
+                <button
+                    type="button"
+                    class="btn-secondary"
+                    id="cancel-role"
+                >
+                    Hủy
+                </button>
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                    id="save-role"
+                >
+                    Lưu thay đổi
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<script src="admin-accounts.js"></script>
+
+</body>
+</html>

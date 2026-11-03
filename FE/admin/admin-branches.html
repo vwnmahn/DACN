@@ -1,0 +1,631 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FCA Culinary - Quản lý chi nhánh</title>
+
+    <link rel="stylesheet" href="admin-branches.css">
+    <link rel="stylesheet" href="admin-shell.css">
+    <script src="admin-shell.js" defer></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+</head>
+
+<body>
+
+<div class="admin-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+        <div>
+            <div class="brand">
+                <div class="brand-icon">
+                    <span class="material-symbols-outlined">restaurant_menu</span>
+                </div>
+                <div>
+                    <strong>FCA Culinary</strong>
+                    <small>ADMIN PORTAL</small>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <p>BẢNG ĐIỀU KHIỂN</p>
+
+                <nav>
+                    <a href="dashboard.html" data-path="dashboard">
+                        <span class="material-symbols-outlined">dashboard</span>
+                        Tổng quan
+                    </a>
+
+                    <a href="admin-branches.html" class="active" data-path="restaurants-outlets">
+                        <span class="material-symbols-outlined">storefront</span>
+                        Nhà hàng & Chi nhánh
+                    </a>
+
+                    <a href="menu-management.html" data-path="menu-management">
+                        <span class="material-symbols-outlined">menu_book</span>
+                        Thực đơn & Món ăn
+                    </a>
+
+                    <a href="reservations-orders.html" data-path="reservations-orders">
+                        <span class="material-symbols-outlined">table_restaurant</span>
+                        Đặt bàn & Đơn hàng
+                    </a>
+
+                    <a href="admin-revenue.html" data-path="analytics-revenue">
+                        <span class="material-symbols-outlined">insights</span>
+                        Doanh thu & Báo cáo
+                    </a>
+
+                    <a href="admin-accounts.html" data-path="account-management">
+                        <span class="material-symbols-outlined">admin_panel_settings</span>
+                        Tài khoản & Phân quyền
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <div class="sidebar-bottom">
+
+            <div class="admin-profile">
+                <div class="avatar">
+                    <span class="material-symbols-outlined">person</span>
+                </div>
+
+                <div class="profile-info">
+                    <strong id="admin-name">Admin</strong>
+                    <small id="admin-email">Đang tải...</small>
+                </div>
+
+                <button id="logout-btn" type="button" title="Đăng xuất">
+                    <span class="material-symbols-outlined">logout</span>
+                </button>
+            </div>
+
+        </div>
+
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main-area">
+
+        <!-- TOPBAR -->
+        <header class="topbar">
+
+            <div class="search-box">
+                <span class="material-symbols-outlined">search</span>
+
+                <input
+                    id="global-search"
+                    type="text"
+                    placeholder="Tìm kiếm chi nhánh..."
+                >
+            </div>
+
+            <div class="topbar-right">
+
+                <div class="language">
+                    <span class="material-symbols-outlined">language</span>
+                    VN (Tiếng Việt)
+                </div>
+
+                <button class="icon-button" type="button">
+                    <span class="material-symbols-outlined">notifications</span>
+                </button>
+
+                <div class="topbar-admin">
+                    <div class="avatar">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+
+                    <span id="topbar-admin-name">Admin</span>
+                </div>
+
+            </div>
+
+        </header>
+
+        <!-- CONTENT -->
+        <main class="content">
+
+            <!-- PAGE HEADING -->
+            <section class="page-heading">
+
+                <div>
+                    <span class="page-label">
+                        ADMIN PORTAL / RESTAURANTS
+                    </span>
+
+                    <h1>Quản lý hệ thống nhà hàng & chi nhánh</h1>
+
+                    <p>
+                        Quản lý thông tin, địa chỉ, sức chứa và tình trạng
+                        hoạt động của các chi nhánh.
+                    </p>
+                </div>
+
+                <div class="heading-actions">
+
+                    <button
+                        class="btn-secondary"
+                        id="refresh-btn"
+                        type="button"
+                    >
+                        <span class="material-symbols-outlined">refresh</span>
+                        Làm mới
+                    </button>
+
+                    <button
+                        class="btn-primary"
+                        id="add-branch-btn"
+                        type="button"
+                    >
+                        <span class="material-symbols-outlined">add</span>
+                        Thêm chi nhánh mới
+                    </button>
+
+                </div>
+
+            </section>
+
+            <!-- MESSAGE -->
+            <div
+                id="page-message"
+                class="message hidden"
+                role="status"
+            ></div>
+
+            <!-- STATISTICS -->
+            <section class="stats-grid">
+
+                <article class="stat-card">
+                    <div class="stat-icon green">
+                        <span class="material-symbols-outlined">storefront</span>
+                    </div>
+
+                    <div>
+                        <span>Tổng số chi nhánh</span>
+                        <h2 id="total-branches">—</h2>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon blue">
+                        <span class="material-symbols-outlined">door_open</span>
+                    </div>
+
+                    <div>
+                        <span>Đang hoạt động</span>
+                        <h2 id="active-branches">—</h2>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon orange">
+                        <span class="material-symbols-outlined">schedule</span>
+                    </div>
+
+                    <div>
+                        <span>Xác nhận tự động</span>
+                        <h2 id="upcoming-branches">—</h2>
+                    </div>
+                </article>
+
+                <article class="stat-card">
+                    <div class="stat-icon purple">
+                        <span class="material-symbols-outlined">build</span>
+                    </div>
+
+                    <div>
+                        <span>Ngừng hoạt động</span>
+                        <h2 id="inactive-branches">—</h2>
+                    </div>
+                </article>
+
+            </section>
+
+            <!-- SEARCH AND FILTER -->
+            <section class="filter-panel">
+
+                <div class="filter-search">
+                    <span class="material-symbols-outlined">search</span>
+
+                    <input
+                        type="text"
+                        id="branch-search"
+                        placeholder="Tìm theo tên, địa chỉ, số điện thoại..."
+                    >
+                </div>
+
+                <select id="status-filter">
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="ACTIVE">Đang hoạt động</option>
+                    <option value="INACTIVE">Ngừng hoạt động</option>
+                </select>
+
+                <button
+                    class="btn-secondary"
+                    id="clear-filter-btn"
+                    type="button"
+                >
+                    Xóa bộ lọc
+                </button>
+
+            </section>
+
+            <!-- BRANCH CONTENT -->
+            <section class="branch-layout">
+
+                <!-- BRANCH LIST -->
+                <div class="branch-main">
+
+                    <div class="section-heading">
+                        <div>
+                            <h2>Danh sách chi nhánh</h2>
+                            <p id="branch-result-count">
+                                Chưa có dữ liệu
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        id="branch-list"
+                        class="branch-list"
+                    >
+                        <div class="empty-state">
+                            Chưa có dữ liệu chi nhánh
+                        </div>
+                    </div>
+
+                    <!-- PAGINATION -->
+                    <div class="pagination" id="pagination">
+                        <button
+                            id="previous-page"
+                            type="button"
+                            disabled
+                        >
+                            <span class="material-symbols-outlined">chevron_left</span>
+                        </button>
+
+                        <span id="page-information">—</span>
+
+                        <button
+                            id="next-page"
+                            type="button"
+                            disabled
+                        >
+                            <span class="material-symbols-outlined">chevron_right</span>
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- DETAIL MODAL -->
+                <div class="branch-detail-modal hidden" id="branch-detail-modal">
+                  <button class="branch-detail-backdrop" type="button" data-close-detail aria-label="Đóng chi tiết"></button>
+                  <aside class="branch-detail" role="dialog" aria-modal="true" aria-labelledby="branch-detail-title">
+
+                    <div class="detail-heading">
+                        <span class="material-symbols-outlined">store</span>
+                        <h2 id="branch-detail-title">Thông tin chi nhánh</h2>
+                        <button class="close-button" id="close-detail-btn" type="button" aria-label="Đóng">×</button>
+                    </div>
+
+                    <div class="detail-tabs" role="tablist">
+                        <button class="active" type="button" data-detail-tab="information">Thông tin</button>
+                        <button type="button" data-detail-tab="menu">Thực đơn / Món ăn</button>
+                        <button type="button" data-detail-tab="workforce">Nhân sự &amp; chi phí</button>
+                    </div>
+
+                    <div
+                        id="branch-detail-content"
+                        class="detail-content detail-panel active"
+                        data-detail-panel="information"
+                    >
+                        <div class="empty-state">
+                            Chọn một chi nhánh để xem thông tin.
+                        </div>
+                    </div>
+
+                    <div class="detail-panel branch-menu-panel" data-detail-panel="menu">
+                        <div id="branch-menu-content" class="branch-menu-content"></div>
+                    </div>
+
+                    <div class="detail-panel workforce-panel" data-detail-panel="workforce">
+                        <div class="workforce-toolbar">
+                            <input id="employee-search" type="search" placeholder="Tìm tên hoặc mã nhân viên">
+                            <select id="employee-position-filter"><option value="">Tất cả chức vụ</option><option value="MANAGER">Quản lý</option><option value="CASHIER">Thu ngân</option><option value="CHEF">Đầu bếp</option><option value="SERVER">Phục vụ</option><option value="SHIPPER">Shipper</option><option value="OTHER">Khác</option></select>
+                            <select id="employee-status-filter"><option value="">Tất cả trạng thái</option><option value="ACTIVE">Đang làm việc</option><option value="PENDING_TERMINATION">Chờ chấm dứt</option><option value="TERMINATED">Đã chấm dứt</option></select>
+                            <button class="btn-primary" id="add-employee-btn" type="button">Thêm nhân viên</button>
+                        </div>
+                        <div id="workforce-summary" class="workforce-summary"></div>
+                        <div id="employee-list" class="employee-list"></div>
+                        <section class="cost-section">
+                            <h3>Chi phí vận hành theo tháng</h3>
+                            <div class="cost-controls"><input id="cost-period" type="month"><input id="rent-amount" type="number" min="0" step="1000" placeholder="Tiền thuê mặt bằng"><button id="save-rent-btn" type="button">Lưu tiền thuê</button><button id="load-cost-report-btn" type="button">Xem báo cáo</button></div>
+                            <div id="cost-report"></div>
+                        </section>
+                    </div>
+
+                    <div class="detail-actions">
+
+                        <button
+                            class="btn-secondary full-width"
+                            id="edit-selected-btn"
+                            type="button"
+                            disabled
+                        >
+                            <span class="material-symbols-outlined">edit</span>
+                            Chỉnh sửa thông tin
+                        </button>
+
+                    </div>
+
+                  </aside>
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+</div>
+
+<!-- BRANCH MODAL -->
+<div class="modal hidden" id="branch-modal">
+
+    <div class="modal-backdrop" data-close-modal></div>
+
+    <div class="modal-content">
+
+        <div class="modal-heading">
+
+            <div>
+                <span class="page-label">CẤU HÌNH HỆ THỐNG</span>
+                <h2 id="modal-title">Thêm chi nhánh mới</h2>
+            </div>
+
+            <button
+                id="close-modal-btn"
+                class="close-button"
+                type="button"
+            >
+                ×
+            </button>
+
+        </div>
+
+        <form id="branch-form">
+
+            <input type="hidden" id="branch-id">
+
+            <div class="modal-form-scroll">
+
+            <h3 class="form-section-title">Thông tin chung</h3>
+
+            <div class="form-group">
+                <label for="branch-name">
+                    Tên chi nhánh *
+                </label>
+
+                <input
+                    id="branch-name"
+                    name="name"
+                    type="text"
+                    required
+                    maxlength="255"
+                    placeholder="Nhập tên chi nhánh"
+                >
+            </div>
+
+            <div class="form-row">
+
+                <div class="form-group">
+                    <label for="branch-category">
+                        Danh mục *
+                    </label>
+
+                    <select id="branch-category" name="categoryStatus" required>
+                        <option value="RESTAURANT">Nhà hàng</option>
+                        <option value="FAST_FOOD">Đồ ăn nhanh</option>
+                        <option value="DESSERT">Tráng miệng</option>
+                        <option value="ICE_CREAM">Kem</option>
+                        <option value="BIRTHDAY_CAKE">Bánh sinh nhật</option>
+                        <option value="MILK_TEA">Trà sữa</option>
+                        <option value="COFFEE">Cà phê</option>
+                        <option value="PASTRY">Bánh ngọt</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="branch-status">
+                        Trạng thái
+                    </label>
+
+                    <select id="branch-status" name="status">
+                        <option value="ACTIVE">Đang hoạt động</option>
+                        <option value="INACTIVE">Ngừng hoạt động</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <h3 class="form-section-title">Vận hành và giao hàng</h3>
+
+            <div class="form-group">
+                <label for="branch-address">
+                    Địa chỉ *
+                </label>
+
+                <input
+                    id="branch-address"
+                    name="address"
+                    type="text"
+                    required
+                    maxlength="500"
+                    placeholder="Nhập địa chỉ chi nhánh"
+                >
+            </div>
+
+            <div class="form-row">
+
+                <div class="form-group">
+                    <label for="branch-opening-time">
+                        Giờ mở cửa *
+                    </label>
+
+                    <input
+                        id="branch-opening-time"
+                        name="openingTime"
+                        type="time"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="branch-phone">
+                        Số điện thoại
+                    </label>
+
+                    <input
+                        id="branch-phone"
+                        name="phoneNumber"
+                        type="tel"
+                        maxlength="10"
+                        pattern="0[0-9]{9}"
+                        required
+                        placeholder="Số điện thoại chi nhánh"
+                    >
+                </div>
+
+            </div>
+
+            <div class="form-row">
+
+                <div class="form-group">
+                    <label for="branch-closing-time">
+                        Giờ đóng cửa *
+                    </label>
+
+                    <input
+                        id="branch-closing-time"
+                        name="closingTime"
+                        type="time"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="branch-delivery-fee">
+                        Phí giao hàng (đ) *
+                    </label>
+
+                    <input
+                        id="branch-delivery-fee"
+                        name="deliveryFee"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        required
+                    >
+                </div>
+
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="branch-delivery-radius">Bán kính giao hàng (km) *</label>
+                    <input id="branch-delivery-radius" name="deliveryRadiusKm" type="number" min="0.01" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="branch-base-distance">Khoảng cách cơ bản (km) *</label>
+                    <input id="branch-base-distance" name="baseDistanceKm" type="number" min="0" step="0.01" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="branch-additional-fee">Phụ phí mỗi km (đ) *</label>
+                <input id="branch-additional-fee" name="additionalFeePerKm" type="number" min="0" step="0.01" required>
+            </div>
+
+            <h3 class="form-section-title">Vị trí chi nhánh</h3>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="branch-latitude">Vĩ độ *</label>
+                    <input id="branch-latitude" name="latitude" type="number" min="-90" max="90" step="any" required>
+                </div>
+                <div class="form-group">
+                    <label for="branch-longitude">Kinh độ *</label>
+                    <input id="branch-longitude" name="longitude" type="number" min="-180" max="180" step="any" required>
+                </div>
+            </div>
+
+            <h3 class="form-section-title">Hình ảnh</h3>
+
+            <div class="form-group">
+                <label for="branch-image-url">URL ảnh chính</label>
+                <input id="branch-image-url" name="imageUrl" type="text" maxlength="500"
+                       list="restaurant-image-options"
+                       placeholder="/FE/images/restaurant/ten-anh.jpg">
+                <datalist id="restaurant-image-options">
+                    <option value="/FE/images/restaurant/FCA%20Test/anh-pho.jpg"></option>
+                    <option value="/FE/images/restaurant/FCA%20Test/pho-thai-1.jpg"></option>
+                    <option value="/FE/images/restaurant/FCA%20Test/quan-pho-sang-trong.jpg"></option>
+                </datalist>
+                <div class="image-preview empty" id="branch-image-preview">
+                    <img alt="Xem trước ảnh nhà hàng">
+                    <span>Chưa có ảnh xem trước</span>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="branch-image-url-2">URL ảnh phụ 2</label>
+                    <input id="branch-image-url-2" name="imageUrl2" type="text" maxlength="500">
+                </div>
+                <div class="form-group">
+                    <label for="branch-image-url-3">URL ảnh phụ 3</label>
+                    <input id="branch-image-url-3" name="imageUrl3" type="text" maxlength="500">
+                </div>
+            </div>
+
+            </div>
+
+            <div class="modal-actions">
+
+                <button
+                    class="btn-secondary"
+                    id="cancel-modal-btn"
+                    type="button"
+                >
+                    Hủy bỏ
+                </button>
+
+                <button
+                    class="btn-primary"
+                    id="save-branch-btn"
+                    type="submit"
+                >
+                    <span class="material-symbols-outlined">save</span>
+                    Lưu chi nhánh
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+<script src="admin-branches.js"></script>
+
+</body>
+</html>

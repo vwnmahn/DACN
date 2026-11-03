@@ -18,11 +18,28 @@ function escapeHtml(value) {
   })[character]);
 }
 
+function resolveImageUrl(value) {
+  const url = String(value ?? '').trim();
+  if (!url) return '';
+
+  try {
+    const parsed = new URL(url, window.location.href);
+    if (parsed.origin === window.location.origin && /^\/images\//i.test(parsed.pathname)) {
+      const prefix = window.location.pathname.startsWith('/FE/') ? '/FE' : '';
+      return `${prefix}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+  } catch (_error) {
+    return url;
+  }
+
+  return url;
+}
+
 function authHeaders() {
   if (typeof window.FCA_SHELL?.authHeaders === 'function') {
     return window.FCA_SHELL.authHeaders();
   }
-  const token = localStorage.getItem('accessToken');
+  const token = localStorage.getItem('userAccessToken');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -453,7 +470,7 @@ function distanceKm(latitude1, longitude1, latitude2, longitude2) {
         id: r.id,
         name: r.name,
         address: r.address,
-        image: r.imageUrl,
+        image: resolveImageUrl(r.imageUrl),
         rating: r.averageRating,
         reviewCount: r.reviewCount,
         categoryStatus: r.categoryStatus,

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý đặt bàn & đơn hàng | FCA Culinary</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+    <link rel="stylesheet" href="reservations-orders.css">
+    <link rel="stylesheet" href="admin-shell.css">
+    <script src="admin-shell.js" defer></script>
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+<div class="admin-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="brand-logo">
+                <i class="fa-solid fa-utensils"></i>
+            </div>
+
+            <div class="brand-info">
+                <h2>FCA Culinary</h2>
+                <span>ADMIN PORTAL</span>
+            </div>
+
+            <button class="sidebar-close" id="sidebarClose" type="button">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <nav class="sidebar-menu">
+            <p class="menu-label">BẢNG ĐIỀU KHIỂN</p>
+
+            <a href="dashboard.html" class="menu-item">
+                <i class="fa-solid fa-border-all"></i>
+                <span>Tổng quan</span>
+            </a>
+
+            <a href="admin-branches.html" class="menu-item">
+                <i class="fa-solid fa-store"></i>
+                <span>Nhà hàng & Chi nhánh</span>
+            </a>
+
+            <a href="menu-management.html" class="menu-item">
+                <i class="fa-solid fa-book-open"></i>
+                <span>Thực đơn & Món ăn</span>
+            </a>
+
+            <a href="reservations-orders.html" class="menu-item active">
+                <i class="fa-solid fa-chair"></i>
+                <span>Đặt bàn & Đơn hàng</span>
+            </a>
+
+            <a href="admin-revenue.html" class="menu-item">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Doanh thu & Báo cáo</span>
+            </a>
+
+            <a href="admin-accounts.html" class="menu-item">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Tài khoản & Phân quyền</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="admin-avatar">
+                <i class="fa-solid fa-user-shield"></i>
+            </div>
+
+            <div class="admin-info">
+                <strong id="adminName">Quản trị viên</strong>
+                <span>Administrator</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main-content">
+
+        <!-- TOPBAR -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="menu-toggle" id="menuToggle" type="button">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+
+                <div class="breadcrumb">
+                    <span>Quản lý</span>
+                    <i class="fa-solid fa-chevron-right"></i>
+                    <strong>Đặt bàn & Đơn hàng</strong>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <button class="topbar-icon" id="refreshButton"
+                        type="button" title="Làm mới dữ liệu">
+                    <i class="fa-solid fa-rotate"></i>
+                </button>
+
+                <div class="topbar-user">
+                    <div class="user-avatar">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <span>Admin</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- PAGE CONTENT -->
+        <section class="page-content">
+
+            <div class="page-heading">
+                <div>
+                    <span class="heading-label">ADMINISTRATION</span>
+                    <h1>Quản lý đặt bàn & đơn hàng</h1>
+                    <p>Quản lý thông tin đặt bàn tiệc và đơn hàng trực tiếp tại nhà hàng.</p>
+                </div>
+            </div>
+
+            <!-- STATISTICS -->
+            <div class="statistics-grid">
+
+                <div class="stat-card">
+                    <div class="stat-icon purple">
+                        <i class="fa-solid fa-calendar-check"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span>Tổng đặt bàn</span>
+                        <h2 id="totalReservations">—</h2>
+                        <small id="reservationSummary">Chưa có dữ liệu</small>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon orange">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span>Đặt bàn chờ xác nhận</span>
+                        <h2 id="pendingReservations">—</h2>
+                        <small>Đang chờ xử lý</small>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon blue">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span>Tổng đơn hàng</span>
+                        <h2 id="totalOrders">—</h2>
+                        <small id="orderSummary">Chưa có dữ liệu</small>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon green">
+                        <i class="fa-solid fa-money-bill-wave"></i>
+                    </div>
+                    <div class="stat-content">
+                        <span>Doanh thu đơn hàng</span>
+                        <h2 id="totalRevenue">—</h2>
+                        <small>Chưa có dữ liệu thống kê</small>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- MANAGEMENT CONTENT -->
+            <div class="content-card">
+
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Danh sách quản lý</h2>
+                        <p>Theo dõi và xử lý các yêu cầu từ khách hàng.</p>
+                    </div>
+
+                    <button class="btn btn-outline" id="reloadDataButton"
+                            type="button">
+                        <i class="fa-solid fa-rotate"></i>
+                        Làm mới
+                    </button>
+                </div>
+
+                <!-- TABS -->
+                <div class="tabs">
+                    <button class="tab-button active" data-tab="reservations"
+                            type="button">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        Đặt bàn tiệc
+                    </button>
+
+                    <button class="tab-button" data-tab="orders" type="button">
+                        <i class="fa-solid fa-receipt"></i>
+                        Đơn hàng trực tiếp
+                    </button>
+                </div>
+
+                <!-- RESERVATIONS -->
+                <div class="tab-panel active" id="reservationsPanel">
+
+                    <div class="filter-area">
+                        <div class="filter-search">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text"
+                                   id="reservationSearch"
+                                   placeholder="Tìm mã, khách hàng, số điện thoại hoặc nhà hàng...">
+                        </div>
+
+                        <input type="text" id="reservationRestaurant"
+                               placeholder="Lọc theo nhà hàng">
+
+                        <select id="reservationStatus">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="PENDING">Chờ xác nhận</option>
+                            <option value="CONFIRMED">Đã xác nhận</option>
+                            <option value="COMPLETED">Hoàn thành</option>
+                            <option value="CANCELLED">Đã hủy</option>
+                            <option value="NO_SHOW">Khách không đến</option>
+                        </select>
+
+                        <input type="date" id="reservationDate">
+
+                        <button class="btn btn-primary"
+                                id="filterReservationButton" type="button">
+                            <i class="fa-solid fa-filter"></i>
+                            Lọc
+                        </button>
+
+                        <button class="btn btn-light"
+                                id="resetReservationFilter" type="button">
+                            Đặt lại
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                            <tr>
+                                <th>Mã đặt bàn</th>
+                                <th>Khách hàng</th>
+                                <th>Liên hệ</th>
+                                <th>Ngày đặt</th>
+                                <th>Thời gian</th>
+                                <th>Số khách</th>
+                                <th>Trạng thái</th>
+                                <th>Thao tác</th>
+                            </tr>
+                            </thead>
+
+                            <tbody id="reservationTableBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="table-footer">
+                        <span id="reservationResultInfo">Chưa có dữ liệu</span>
+                        <div class="pagination" id="reservationPagination"></div>
+                    </div>
+                </div>
+
+                <!-- ORDERS -->
+                <div class="tab-panel" id="ordersPanel">
+
+                    <div class="filter-area">
+                        <div class="filter-search">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text"
+                                   id="orderSearch"
+                                   placeholder="Tìm mã đơn hàng hoặc tên khách hàng...">
+                        </div>
+
+                        <input type="text" id="orderRestaurant"
+                               placeholder="Lọc theo nhà hàng">
+
+                        <select id="orderStatus">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="PENDING">Chờ xử lý</option>
+                            <option value="AWAITING_PAYMENT">Chờ thanh toán</option>
+                            <option value="CONFIRMED">Đã xác nhận</option>
+                            <option value="PREPARING">Đang chuẩn bị</option>
+                            <option value="READY_FOR_DELIVERY">Sẵn sàng giao</option>
+                            <option value="DELIVERING">Đang giao</option>
+                            <option value="ARRIVED">Đã đến nơi</option>
+                            <option value="COMPLETED">Hoàn thành</option>
+                            <option value="CANCELLED">Đã hủy</option>
+                        </select>
+
+                        <button class="btn btn-primary" id="filterOrderButton"
+                                type="button">
+                            <i class="fa-solid fa-filter"></i>
+                            Lọc
+                        </button>
+
+                        <button class="btn btn-light" id="resetOrderFilter"
+                                type="button">
+                            Đặt lại
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                            <tr>
+                                <th>Mã đơn hàng</th>
+                                <th>Khách hàng</th>
+                                <th>Ngày tạo</th>
+                                <th>Số món</th>
+                                <th>Tổng tiền</th>
+                                <th>Trạng thái đơn</th>
+                                <th>Phương thức</th>
+                                <th>Thanh toán</th>
+                                <th>Thao tác</th>
+                            </tr>
+                            </thead>
+
+                            <tbody id="orderTableBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="table-footer">
+                        <span id="orderResultInfo">Chưa có dữ liệu</span>
+                        <div class="pagination" id="orderPagination"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal">
+    <div class="modal">
+        <div class="modal-header">
+            <div>
+                <h2 id="detailModalTitle">Chi tiết</h2>
+                <p id="detailModalSubtitle"></p>
+            </div>
+
+            <button class="modal-close" id="closeDetailModal" type="button">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="modal-body" id="detailModalBody"></div>
+
+        <div class="modal-footer">
+            <button class="btn btn-light" id="closeDetailButton" type="button">
+                Đóng
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <div class="confirm-icon">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+
+        <h2 id="confirmTitle">Xác nhận hủy đơn hàng</h2>
+        <p id="confirmMessage">Kiểm tra thông tin trước khi xác nhận.</p>
+        <div class="cancel-order-summary" id="cancelOrderSummary"></div>
+        <label class="cancel-reason-field" for="cancelOrderReason">
+            <span>Lý do hủy <strong>*</strong></span>
+            <textarea id="cancelOrderReason" rows="3" maxlength="500"
+                      placeholder="Nhập lý do hủy đơn hàng"></textarea>
+            <small id="cancelOrderError" aria-live="polite"></small>
+        </label>
+
+        <div class="modal-footer">
+            <button class="btn btn-light" id="cancelConfirmButton"
+                    type="button">Không hủy</button>
+            <button class="btn btn-danger" id="acceptConfirmButton"
+                    type="button">Xác nhận hủy đơn</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+<script src="../order-realtime.js"></script>
+<script src="reservations-orders.js" defer></script>
+</body>
+</html>

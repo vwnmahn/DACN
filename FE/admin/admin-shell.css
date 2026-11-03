@@ -1,0 +1,269 @@
+:root {
+    --admin-shell-primary: #006b2c;
+    --admin-shell-primary-dark: #005522;
+    --admin-shell-primary-light: #e4f5e9;
+    --admin-shell-surface: #ffffff;
+    --admin-shell-surface-low: #f2f3ff;
+    --admin-shell-text: #131b2e;
+    --admin-shell-muted: #647064;
+    --admin-shell-width: 272px;
+}
+
+.admin-layout > .sidebar:not(.admin-shell-sidebar),
+.app-layout > .sidebar:not(.admin-shell-sidebar) {
+    visibility: hidden;
+}
+
+.admin-shell-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 100;
+    width: var(--admin-shell-width);
+    padding: 0 16px 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border: none;
+    background: var(--admin-shell-surface);
+    box-shadow: 1px 0 12px rgba(0, 0, 0, 0.035);
+    overflow-y: auto;
+    font-family: "Be Vietnam Pro", sans-serif;
+    font-size: 14px;
+    line-height: normal;
+    color: var(--admin-shell-text);
+    transform: none;
+    transition: none;
+    visibility: visible;
+}
+
+.admin-shell-sidebar,
+.admin-shell-sidebar * {
+    box-sizing: border-box;
+}
+
+.admin-shell-sidebar .brand {
+    height: 76px;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    border-bottom: 1px solid #f0f1f6;
+}
+
+.admin-shell-sidebar .brand > div:last-child {
+    display: block;
+}
+
+.admin-shell-sidebar .brand-logo {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: var(--admin-shell-primary);
+}
+
+.admin-shell-sidebar .brand-logo .material-symbols-outlined {
+    font-size: 25px;
+}
+
+.admin-shell-sidebar .brand-name {
+    color: var(--admin-shell-primary);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+}
+
+.admin-shell-sidebar .brand-subtitle {
+    margin-top: 3px;
+    color: var(--admin-shell-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: none;
+}
+
+.admin-shell-sidebar .sidebar-section { padding: 24px 0 0; }
+.admin-shell-sidebar .sidebar-heading {
+    display: block;
+    padding: 0 12px;
+    margin: 0 0 12px;
+    color: #899487;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+}
+
+.admin-shell-sidebar .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.admin-shell-sidebar .nav-link {
+    min-height: 44px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    border-radius: 10px;
+    color: var(--admin-shell-muted);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.2s, color 0.2s;
+}
+
+.admin-shell-sidebar .material-symbols-outlined {
+    line-height: 1;
+    font-weight: normal;
+    font-style: normal;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    direction: ltr;
+    font-family: "Material Symbols Outlined";
+    font-feature-settings: "liga";
+    -webkit-font-smoothing: antialiased;
+}
+
+.admin-shell-sidebar .nav-link .material-symbols-outlined { font-size: 20px; }
+.admin-shell-sidebar .nav-link > span:not(.material-symbols-outlined) { font-size: inherit; }
+.admin-shell-sidebar .nav-link:hover {
+    color: var(--admin-shell-text);
+    background: var(--admin-shell-surface-low);
+}
+.admin-shell-sidebar .nav-link.active {
+    color: var(--admin-shell-primary-dark);
+    background: var(--admin-shell-primary-light);
+    font-weight: 700;
+}
+.admin-shell-sidebar .sidebar-bottom {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.admin-shell-sidebar .sidebar-user {
+    min-width: 0;
+    margin: 0;
+    padding: 11px 9px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    border-radius: 12px;
+    background: var(--admin-shell-surface-low);
+}
+.admin-shell-sidebar .avatar,
+.admin-shell-topbar .avatar {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #fff;
+    background: var(--admin-shell-primary);
+}
+.admin-shell-sidebar .avatar .material-symbols-outlined { font-size: 19px; }
+.admin-shell-sidebar .user-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.admin-shell-sidebar .user-info strong,
+.admin-shell-sidebar .user-info span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-shell-sidebar .user-info strong { color: var(--admin-shell-text); font-size: 11px; }
+.admin-shell-sidebar .user-info span { color: var(--admin-shell-muted); font-size: 10px; }
+
+.admin-shell-sidebar .icon-button,
+.admin-shell-topbar .icon-button {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--admin-shell-muted);
+    background: transparent;
+    cursor: pointer;
+}
+.admin-shell-sidebar .icon-button:hover {
+    color: var(--admin-shell-primary);
+    background: var(--admin-shell-surface-low);
+}
+.admin-shell-sidebar .logout-button:hover { color: #ba1a1a; }
+
+.admin-shell-main { min-height: 100vh; margin-left: var(--admin-shell-width) !important; }
+.admin-shell-topbar {
+    position: fixed;
+    inset: 0 0 auto var(--admin-shell-width);
+    z-index: 80;
+    height: 68px;
+    padding: 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 1px 10px rgba(0, 0, 0, 0.045);
+    font-family: "Be Vietnam Pro", sans-serif;
+}
+.admin-shell-topbar .search-box {
+    width: min(430px, 45%);
+    height: 40px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    border: 1px solid #e6e9e5;
+    border-radius: 12px;
+    background: #f7f8f7;
+}
+.admin-shell-topbar .search-box input { width: 100%; border: 0; outline: 0; color: var(--admin-shell-text); background: transparent; font: inherit; }
+.admin-shell-topbar .topbar-actions,
+.admin-shell-topbar .topbar-user,
+.admin-shell-topbar .language-label { display: flex; align-items: center; }
+.admin-shell-topbar .topbar-actions { gap: 14px; }
+.admin-shell-topbar .topbar-user { gap: 9px; color: var(--admin-shell-text); font-size: 12px; font-weight: 600; }
+.admin-shell-topbar .language-label { gap: 6px; color: var(--admin-shell-muted); font-size: 12px; }
+.admin-shell-topbar .notification-button { width: 38px; height: 38px; border-radius: 10px; }
+.admin-shell-topbar .notification-button:hover { background: var(--admin-shell-surface-low); }
+.admin-shell-topbar .topbar-divider { width: 1px; height: 28px; background: #e5e9e5; }
+.admin-shell-topbar .mobile-menu-button { display: none; width: 40px; height: 40px; }
+
+@media (max-width: 1050px) {
+    :root {
+        --admin-shell-width: 235px;
+    }
+}
+
+@media (max-width: 700px) {
+    :root {
+        --admin-shell-width: 0px;
+    }
+
+    .admin-shell-sidebar {
+        width: 272px;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+    }
+    .admin-shell-sidebar.open { transform: translateX(0); }
+    .admin-shell-main { margin-left: 0 !important; }
+    .admin-shell-topbar { left: 0; padding: 0 16px; }
+    .admin-shell-topbar .mobile-menu-button { display: inline-flex; }
+    .admin-shell-topbar .language-label { display: none; }
+    .admin-shell-topbar .search-box { width: min(420px, 60%); }
+}
+
+@media (max-width: 620px) {
+    .admin-shell-topbar .search-box { flex: 1; width: auto; }
+    .admin-shell-topbar .topbar-divider,
+    .admin-shell-topbar .topbar-user { display: none; }
+}

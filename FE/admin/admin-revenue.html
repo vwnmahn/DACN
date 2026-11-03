@@ -1,0 +1,414 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FCA Culinary - Báo cáo doanh thu</title>
+
+    <link rel="stylesheet" href="admin-revenue.css">
+    <link rel="stylesheet" href="admin-shell.css">
+    <script src="admin-shell.js" defer></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<div class="admin-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+        <div>
+            <div class="brand">
+                <div class="brand-icon">
+                    <span class="material-symbols-outlined">restaurant_menu</span>
+                </div>
+
+                <div>
+                    <strong>FCA Culinary</strong>
+                    <small>ADMIN PORTAL</small>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <p>BẢNG ĐIỀU KHIỂN</p>
+
+                <nav>
+                    <a href="dashboard.html" data-path="dashboard">
+                        <span class="material-symbols-outlined">dashboard</span>
+                        Tổng quan
+                    </a>
+
+                    <a href="admin-branches.html" data-path="restaurants-outlets">
+                        <span class="material-symbols-outlined">storefront</span>
+                        Nhà hàng & Chi nhánh
+                    </a>
+
+                    <a href="menu-management.html" data-path="menu-management">
+                        <span class="material-symbols-outlined">menu_book</span>
+                        Thực đơn & Món ăn
+                    </a>
+
+                    <a href="reservations-orders.html" data-path="reservations-orders">
+                        <span class="material-symbols-outlined">table_restaurant</span>
+                        Đặt bàn & Đơn hàng
+                    </a>
+
+                    <a href="admin-revenue.html" class="active" data-path="analytics-revenue">
+                        <span class="material-symbols-outlined">insights</span>
+                        Doanh thu & Báo cáo
+                    </a>
+
+                    <a href="admin-accounts.html" data-path="account-management">
+                        <span class="material-symbols-outlined">admin_panel_settings</span>
+                        Tài khoản & Phân quyền
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <div class="sidebar-bottom">
+
+            <div class="admin-profile">
+                <div class="avatar">
+                    <span class="material-symbols-outlined">person</span>
+                </div>
+
+                <div class="profile-info">
+                    <strong id="admin-name">Admin</strong>
+                    <small id="admin-email">Đang tải...</small>
+                </div>
+
+                <button id="logout-btn" type="button" title="Đăng xuất">
+                    <span class="material-symbols-outlined">logout</span>
+                </button>
+            </div>
+
+        </div>
+
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main-area">
+
+        <!-- TOPBAR -->
+        <header class="topbar">
+
+            <div class="search-box">
+                <span class="material-symbols-outlined">search</span>
+
+                <input
+                    type="text"
+                    id="global-search"
+                    placeholder="Tìm kiếm chi nhánh, mã đơn hàng..."
+                >
+            </div>
+
+            <div class="topbar-right">
+
+                <div class="language">
+                    <span class="material-symbols-outlined">language</span>
+                    VN (Tiếng Việt)
+                </div>
+
+                <button class="icon-button" type="button" title="Thông báo">
+                    <span class="material-symbols-outlined">notifications</span>
+                </button>
+
+                <div class="topbar-admin">
+                    <div class="avatar">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+
+                    <span id="topbar-admin-name">Admin</span>
+                </div>
+
+            </div>
+
+        </header>
+
+        <!-- CONTENT -->
+        <main class="content">
+
+            <!-- PAGE HEADING -->
+            <section class="page-heading">
+
+                <div>
+                    <span class="page-label">ADMIN PORTAL / ANALYTICS</span>
+
+                    <h1>Báo cáo & Thống kê doanh thu</h1>
+
+                    <p>
+                        Theo dõi hiệu suất vận hành và tình hình kinh doanh
+                        của hệ thống FCA Culinary.
+                    </p>
+
+                    <small id="last-updated">
+                        Chưa có dữ liệu cập nhật
+                    </small>
+                </div>
+
+                <div class="heading-actions">
+
+                    <select id="branch-filter">
+                        <option value="">Tất cả chi nhánh</option>
+                    </select>
+
+                    <button
+                        class="btn-secondary"
+                        id="refresh-btn"
+                        type="button"
+                    >
+                        <span
+                            class="material-symbols-outlined"
+                            id="refresh-icon"
+                        >refresh</span>
+                        Làm mới
+                    </button>
+
+                </div>
+
+            </section>
+
+            <!-- DATE FILTER -->
+            <section class="filter-panel">
+
+                <div class="date-filter">
+
+                    <div class="date-filter-title">
+
+                        <span class="material-symbols-outlined">
+                            calendar_month
+                        </span>
+
+                        <div>
+                            <strong>Khoảng thời gian thống kê</strong>
+
+                            <small>
+                                Lựa chọn bất kỳ ngày bắt đầu và ngày kết thúc
+                            </small>
+                        </div>
+
+                    </div>
+
+                    <div class="date-filter-controls">
+
+                        <label>
+                            <span>Từ ngày</span>
+
+                            <input
+                                type="date"
+                                id="date-from"
+                            >
+                        </label>
+
+                        <span class="date-separator">Đến</span>
+
+                        <label>
+                            <span>Đến ngày</span>
+
+                            <input
+                                type="date"
+                                id="date-to"
+                            >
+                        </label>
+
+                        <button
+                            class="btn-primary"
+                            id="apply-date-btn"
+                            type="button"
+                        >
+                            <span class="material-symbols-outlined">
+                                filter_alt
+                            </span>
+                            Áp dụng
+                        </button>
+
+                        <button
+                            class="btn-secondary"
+                            id="reset-date-btn"
+                            type="button"
+                        >
+                            Đặt lại
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+            <!-- MESSAGE -->
+            <div
+                id="page-message"
+                class="message hidden"
+                role="status"
+            ></div>
+
+            <!-- STATISTICS -->
+            <section class="stats-grid">
+
+                <article class="stat-card">
+
+                    <div class="stat-heading">
+                        <div>
+                            <span>Tổng doanh thu</span>
+                            <h2 id="total-revenue">—</h2>
+                        </div>
+
+                        <div class="stat-icon green">
+                            <span class="material-symbols-outlined">
+                                payments
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="stat-footer" id="revenue-growth">
+                        Chưa có dữ liệu
+                    </div>
+
+                </article>
+
+                <article class="stat-card">
+
+                    <div class="stat-heading">
+                        <div>
+                            <span>Tổng đơn hàng</span>
+                            <h2 id="total-orders">—</h2>
+                        </div>
+
+                        <div class="stat-icon blue">
+                            <span class="material-symbols-outlined">
+                                receipt_long
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="stat-footer" id="order-average">
+                        Chưa có dữ liệu
+                    </div>
+
+                </article>
+
+            </section>
+
+            <!-- CHARTS -->
+            <section class="analytics-grid">
+
+                <article class="panel revenue-panel">
+
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Phân tích dòng tiền & doanh thu</h2>
+
+                            <p>
+                                Thống kê doanh thu theo khoảng thời gian đã chọn
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+
+                        <canvas id="revenue-chart"></canvas>
+
+                        <div
+                            class="empty-overlay"
+                            id="revenue-chart-empty"
+                        >
+                            Chưa có dữ liệu biểu đồ
+                        </div>
+
+                    </div>
+
+                </article>
+
+            </section>
+
+            <!-- BRANCHES AND PRODUCTS -->
+            <section class="bottom-grid">
+
+                <article class="panel">
+
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Doanh thu theo chi nhánh</h2>
+
+                            <p>
+                                Thống kê doanh thu từng chi nhánh
+                            </p>
+                        </div>
+                    </div>
+
+                    <div id="branch-list" class="branch-list">
+                        <div class="empty-state">
+                            Chưa có dữ liệu chi nhánh
+                        </div>
+                    </div>
+
+                </article>
+
+            </section>
+
+            <!-- TRANSACTIONS -->
+            <section class="panel transactions-panel">
+
+                <div class="panel-heading transaction-heading">
+
+                    <div>
+                        <h2>Nhật ký giao dịch doanh thu gần nhất</h2>
+
+                        <p>
+                            Lịch sử thanh toán theo dữ liệu hệ thống
+                        </p>
+                    </div>
+
+                </div>
+
+                <div class="table-wrapper">
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th>Mã hóa đơn</th>
+                                <th>Thời gian</th>
+                                <th>Chi nhánh</th>
+                                <th>Bàn / Dịch vụ</th>
+                                <th>Phương thức</th>
+                                <th>Số tiền</th>
+                                <th>Trạng thái</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="transaction-table">
+
+                            <tr>
+                                <td colspan="7" class="empty-state">
+                                    Chưa có dữ liệu giao dịch
+                                </td>
+                            </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+</div>
+
+<script src="admin-revenue.js"></script>
+
+</body>
+</html>

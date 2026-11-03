@@ -518,16 +518,27 @@ async function handleLogin(phoneNumber, password) {
   });
 
   const data = result?.data ?? result;
+  const role = typeof data?.account?.role === "string"
+    ? data.account.role.trim().toUpperCase()
+    : "";
 
-  if (data?.accessToken) {
-    localStorage.setItem("accessToken", data.accessToken);
+  if (role !== "ADMIN" && role !== "USER") {
+    throw new Error("Phản hồi đăng nhập không chứa vai trò tài khoản hợp lệ.");
   }
 
-  if (data?.refreshToken) {
-    localStorage.setItem("refreshToken", data.refreshToken);
-  }
+  const accessTokenKey = role === "ADMIN" ? "adminAccessToken" : "userAccessToken";
+  const refreshTokenKey = role === "ADMIN" ? "adminRefreshToken" : "userRefreshToken";
 
-  window.location.href = "Home.html";
+  if (data?.accessToken) localStorage.setItem(accessTokenKey, data.accessToken);
+  if (data?.refreshToken) localStorage.setItem(refreshTokenKey, data.refreshToken);
+
+  // Xóa key phiên dùng chung cũ; không đụng đến phiên của vai trò còn lại.
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+
+  window.location.href = role === "ADMIN"
+    ? "admin/dashboard.html"
+    : "Home.html";
   return result;
 }
 

@@ -366,14 +366,16 @@
 
   function authHeaders(json) {
     const headers = json ? { 'Content-Type': 'application/json' } : {};
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('userAccessToken');
     if (token) headers.Authorization = `Bearer ${token}`;
     return headers;
   }
 
   async function logout() {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = localStorage.getItem('userRefreshToken');
     if (!refreshToken) {
+      localStorage.removeItem('userAccessToken');
+      localStorage.removeItem('userRefreshToken');
       window.location.replace('login.html');
       return;
     }
@@ -382,8 +384,8 @@
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.message || 'Không thể đăng xuất. Vui lòng thử lại.');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userAccessToken');
+    localStorage.removeItem('userRefreshToken');
     window.location.replace('login.html');
   }
 
@@ -431,24 +433,54 @@
   /* ============================================================
      6. ĐỒNG BỘ SỐ LƯỢNG GIỎ HÀNG TRÊN TRANG HOME
      ============================================================ */
-  function updateCartBadge() {
+  const GUEST_CART_KEY = 'fca_guest_cart';
+
+  async function cartApiRequest(path = '', options = {}, retry = true) {
+    const response = await fetch(`${API_ORIGIN}/api/v1/cart${path}`, {
+      ...options,
+      headers: { ...authHeaders(options.body !== undefined), ...(options.headers || {}) }
+    });
+    if (response.status === 401 && retry && localStorage.getItem('userRefreshToken')) {
+      const refreshResponse = await fetch(`${API_ORIGIN}/api/v1/auth/refresh`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: localStorage.getItem('userRefreshToken') })
+      });
+      const refreshPayload = await refreshResponse.json().catch(() => ({}));
+      const refreshData = refreshPayload.data || refreshPayload;
+      if (refreshResponse.ok && refreshData.accessToken) {
+        localStorage.setItem('userAccessToken', refreshData.accessToken);
+        if (refreshData.refreshToken) localStorage.setItem('userRefreshToken', refreshData.refreshToken);
+        return cartApiRequest(path, options, false);
+      }
+    }
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(payload?.message || `Không thể tải giỏ hàng (HTTP ${response.status}).`);
+    return payload?.data ?? payload;
+  }
+
+  function guestCart() {
+    try {
+      const value = JSON.parse(localStorage.getItem(GUEST_CART_KEY) || '[]');
+      return Array.isArray(value) ? value : [];
+    } catch { return []; }
+  }
+
+  async function updateCartBadge() {
     const badge = document.getElementById('cart-count-badge');
     if (!badge) return;
 
     try {
-      const raw = localStorage.getItem('fca_cart');
-      const cart = raw ? JSON.parse(raw) : [];
-
-      const count = Array.isArray(cart)
-        ? cart.reduce((total, item) => {
+      const token = localStorage.getItem('userAccessToken');
+      const cart = token ? await cartApiRequest() : { items: guestCart() };
+      const items = Array.isArray(cart?.items) ? cart.items : [];
+      const count = items.reduce((total, item) => {
             const quantity = Number(item?.quantity);
             return total + (
               Number.isFinite(quantity) && quantity > 0
                 ? Math.floor(quantity)
                 : 1
             );
-          }, 0)
-        : 0;
+          }, 0);
 
       badge.textContent = count > 99 ? '99+' : String(count);
       badge.dataset.count = String(count);
@@ -474,7 +506,11 @@
 
   // Đồng bộ nếu giỏ hàng thay đổi từ tab khác.
   window.addEventListener('storage', (event) => {
-    if (event.key === 'fca_cart') {
+    if (event.key === 'userAccessToken') {
+      window.location.reload();
+      return;
+    }
+    if (event.key === GUEST_CART_KEY) {
       updateCartBadge();
     }
   });
@@ -516,5 +552,18 @@
   // Cho phép các script khác cập nhật badge sau khi sửa giỏ hàng.
   window.FCA = window.FCA || {};
   window.FCA.updateCartBadge = updateCartBadge;
+  window.FCA_CART_API = {
+    get: () => cartApiRequest(),
+    add: (menuItemId, quantity) => cartApiRequest('/items', {
+      method: 'POST', body: JSON.stringify({ menuItemId, quantity })
+    }),
+    update: (itemId, quantity) => cartApiRequest(`/items/${encodeURIComponent(itemId)}`, {
+      method: 'PUT', body: JSON.stringify({ quantity })
+    }),
+    remove: (itemId) => cartApiRequest(`/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' }),
+    clear: () => cartApiRequest('', { method: 'DELETE' }),
+    refreshBadge: updateCartBadge,
+    guestKey: GUEST_CART_KEY
+  };
 
 })();

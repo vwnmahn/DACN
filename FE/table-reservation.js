@@ -225,7 +225,7 @@ function getAuthHeaders(includeJson = false) {
     }
 
     const headers = { Accept: "application/json" };
-    const token = localStorage.getItem("accessToken");
+    const token = localStorage.getItem("userAccessToken");
 
     if (includeJson) {
         headers["Content-Type"] = "application/json";

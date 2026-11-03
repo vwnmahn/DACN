@@ -7,7 +7,7 @@
   // =====================================================
 
   const API_BASE_URL = "http://localhost:8080";
-  const CART_STORAGE_KEY = "fca_cart";
+  const CART_STORAGE_KEY = "fca_guest_cart";
 
   const API = {
     restaurant: id =>
@@ -126,6 +126,23 @@
     return String(value ?? "").trim();
   }
 
+  function resolveImageUrl(value) {
+    const url = normalizeText(value);
+    if (!url) return "";
+
+    try {
+      const parsed = new URL(url, window.location.href);
+      if (parsed.origin === window.location.origin && /^\/images\//i.test(parsed.pathname)) {
+        const prefix = window.location.pathname.startsWith("/FE/") ? "/FE" : "";
+        return `${prefix}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+    } catch (_error) {
+      return url;
+    }
+
+    return url;
+  }
+
   function getFirstValue(object, keys, fallback = "") {
     for (const key of keys) {
       const value = object?.[key];
@@ -196,7 +213,7 @@
 
         price: Number(item.price ?? item.unitPrice ?? 0),
 
-        image: normalizeText(
+        image: resolveImageUrl(
           getFirstValue(item, [
             "imageUrl",
             "imageURL",
@@ -402,7 +419,7 @@
       null
     );
 
-    const mainImage = getFirstValue(
+    const mainImage = resolveImageUrl(getFirstValue(
       restaurant,
       [
         "imageUrl",
@@ -412,19 +429,19 @@
         "image"
       ],
       ""
-    );
+    ));
 
-    const sideImage1 = getFirstValue(
+    const sideImage1 = resolveImageUrl(getFirstValue(
       restaurant,
       ["imageUrl2", "image2", "galleryImage1"],
       mainImage
-    );
+    ));
 
-    const sideImage2 = getFirstValue(
+    const sideImage2 = resolveImageUrl(getFirstValue(
       restaurant,
       ["imageUrl3", "image3", "galleryImage2"],
       mainImage
-    );
+    ));
 
     setText("restaurant-name", name);
     setText("breadcrumb-name", name);
@@ -590,7 +607,7 @@
   // ADD DISH TO CART
   // =====================================================
 
-  function addToCart(dish, quantityInput) {
+  async function addToCart(dish, quantityInput) {
     if (!dish || dish.id == null) {
       showToast("Không xác định được món ăn.");
       return;
@@ -620,6 +637,31 @@
 
     if (restaurantId == null) {
       showToast("Không xác định được ID nhà hàng.");
+      return;
+    }
+
+    if (localStorage.getItem("userAccessToken")) {
+      try {
+        if (!window.FCA_CART_API) throw new Error("Chưa tải được API giỏ hàng.");
+        const currentCart = await window.FCA_CART_API.get();
+        const currentItems = Array.isArray(currentCart?.items) ? currentCart.items : [];
+        if (currentItems.some(item => String(item.restaurantId) !== String(restaurantId))) {
+          const confirmed = window.confirm(
+            "Giỏ hàng đang có món của nhà hàng khác.\n\n" +
+            "Bạn có muốn xóa giỏ cũ và thêm món của nhà hàng này không?"
+          );
+          if (!confirmed) return;
+          await window.FCA_CART_API.clear();
+        }
+        const result = await window.FCA_CART_API.add(Number(dish.id), quantity);
+        window.dispatchEvent(new CustomEvent("fca:cart-count", {
+          detail: { count: Number(result?.totalQuantity) || 0 }
+        }));
+        if (quantityInput) quantityInput.value = "0";
+        showToast(`Đã thêm ${quantity} phần "${dish.name}" vào giỏ hàng.`);
+      } catch (error) {
+        showToast(error.message || "Không thêm được món vào giỏ hàng.");
+      }
       return;
     }
 

@@ -14,17 +14,21 @@
   let reservationsLoading = false;
   let ordersLoaded = false;
   let ordersLoading = false;
+  let ordersReloadQueued = false;
+  let userOrders = [];
+  const pendingOrderEvents = new Map();
   let ownedVouchersLoaded = false;
   let profileSaving = false;
   let profileConfirmOpen = false;
   let refreshAccessTokenPromise = null;
+  let orderRealtimeConnection = null;
 
 
 
   function headers(json) {
     if (window.FCA_SHELL?.authHeaders) return window.FCA_SHELL.authHeaders(json);
     const result = json ? { 'Content-Type': 'application/json' } : {};
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('userAccessToken');
     if (token) result.Authorization = `Bearer ${token}`;
     return result;
   }
@@ -32,7 +36,7 @@
   async function refreshAccessToken() {
     if (refreshAccessTokenPromise) return refreshAccessTokenPromise;
     refreshAccessTokenPromise = (async () => {
-      const refreshToken = localStorage.getItem('refreshToken');
+      const refreshToken = localStorage.getItem('userRefreshToken');
       if (!refreshToken) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
       const response = await fetch(`${API}/auth/refresh`, {
         method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
@@ -41,13 +45,13 @@
       const payload = await response.json().catch(() => ({}));
       const data = payload.data ?? payload;
       if (!response.ok || !data?.accessToken) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userAccessToken');
+        localStorage.removeItem('userRefreshToken');
         window.location.replace('login.html');
         throw new Error(payload.message || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
       }
-      localStorage.setItem('accessToken', data.accessToken);
-      if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('userAccessToken', data.accessToken);
+      if (data.refreshToken) localStorage.setItem('userRefreshToken', data.refreshToken);
       return data.accessToken;
     })();
     try { return await refreshAccessTokenPromise; }
@@ -59,7 +63,7 @@
       ...options,
       headers: { ...headers(options.json), ...(options.headers || {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }
     });
-    let response = await send(localStorage.getItem('accessToken'));
+    let response = await send(localStorage.getItem('userAccessToken'));
     if (response.status === 401) response = await send(await refreshAccessToken());
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.message || 'Không thể kết nối hệ thống FCA.');
@@ -636,11 +640,12 @@ async function loadReservations(force = false) {
       return;
     }
     const steps = [
-      ['PENDING', 'Chờ xác nhận'], ['CONFIRMED', 'Đã xác nhận'], ['PREPARING', 'Chuẩn bị món'],
-      ['DELIVERING', 'Đang giao'], ['ARRIVED', 'Đã đến'], ['COMPLETED', 'Đã giao']
+      ['PENDING', 'Chờ xác nhận'], ['CONFIRMED', 'Đã xác nhận'], ['PREPARING', 'Đang chuẩn bị món'],
+      ['READY_FOR_DELIVERY', 'Sẵn sàng giao'], ['DELIVERING', 'Đang giao'],
+      ['ARRIVED', 'Đã giao, chờ xác nhận'], ['COMPLETED', 'Hoàn thành']
     ];
     const statusIndex = (status) => status === 'AWAITING_PAYMENT' ? 0
-      : status === 'READY_FOR_DELIVERY' ? 2 : steps.findIndex(([key]) => key === status);
+      : steps.findIndex(([key]) => key === status);
     container.innerHTML = orders.map((order) => {
       const current = statusIndex(order.status);
       const progress = steps.map(([key, label], index) => `
@@ -657,8 +662,42 @@ async function loadReservations(force = false) {
     }).join('');
   }
 
+  function renderUserOrders() {
+    const orderBadge = document.getElementById('order-count-badge');
+    if (orderBadge) orderBadge.textContent = userOrders.length;
+    renderActiveOrders(userOrders.filter(
+      (order) => order.status !== 'COMPLETED' && order.status !== 'CANCELLED'
+    ));
+    renderRecentOrders(userOrders.filter((order) => order.status === 'COMPLETED'));
+  }
+
+  async function applyPendingOrderEvents() {
+    for (const [orderId, event] of [...pendingOrderEvents]) {
+      let index = userOrders.findIndex((order) => String(order.id) === orderId);
+      if (index < 0) {
+        try {
+          const order = await request(`${API}/orders/${encodeURIComponent(orderId)}`);
+          if (order) { userOrders.unshift(order); index = 0; }
+        } catch (error) {
+          console.error('[User orders realtime] Không đồng bộ được đơn nhận trước khi render:', error);
+          continue;
+        }
+      }
+      userOrders[index] = {
+        ...userOrders[index],
+        status: event.status ?? userOrders[index].status,
+        paymentStatus: event.paymentStatus ?? userOrders[index].paymentStatus,
+      };
+      pendingOrderEvents.delete(orderId);
+    }
+  }
+
 async function loadCompletedOrders(force = false) {
-  if (ordersLoading || (ordersLoaded && !force)) return;
+  if (ordersLoading) {
+    if (force) ordersReloadQueued = true;
+    return;
+  }
+  if (ordersLoaded && !force) return;
 
   ordersLoading = true;
 
@@ -672,26 +711,12 @@ async function loadCompletedOrders(force = false) {
   try {
     const orders = await request(`${API}/orders`);
     const list = Array.isArray(orders) ? orders : [];
-
-    // Badge đếm tất cả đơn hàng, bao gồm cả đơn đã hủy.
-    const orderBadge = document.getElementById('order-count-badge');
-    if (orderBadge) {
-      orderBadge.textContent = list.length;
-    }
-
-    renderActiveOrders(
-      list.filter(
-        (order) =>
-          order.status !== 'COMPLETED' &&
-          order.status !== 'CANCELLED'
-      )
-    );
-
-    renderRecentOrders(
-      list.filter((order) => order.status === 'COMPLETED')
-    );
-
+    userOrders = list;
     ordersLoaded = true;
+    await applyPendingOrderEvents();
+
+    renderUserOrders();
+
   } catch (error) {
     if (container) {
       container.innerHTML =
@@ -699,8 +724,62 @@ async function loadCompletedOrders(force = false) {
     }
   } finally {
     ordersLoading = false;
+    if (ordersReloadQueued) {
+      ordersReloadQueued = false;
+      loadCompletedOrders(true);
+    }
   }
 }
+
+  function initializeOrderRealtime() {
+    if (orderRealtimeConnection || !window.FCA_ORDER_REALTIME) return;
+    const token = localStorage.getItem('userAccessToken');
+    const accountId = window.FCA_ORDER_REALTIME.accountIdFromToken(token || '');
+    if (!accountId) return;
+
+    orderRealtimeConnection = window.FCA_ORDER_REALTIME.connect({
+      connectionKey: 'user-my-orders',
+      apiOrigin: window.FCA_SHELL?.apiOrigin || 'http://localhost:8080',
+      getToken: () => localStorage.getItem('userAccessToken'),
+      destinations: () => {
+        const currentId = window.FCA_ORDER_REALTIME.accountIdFromToken(localStorage.getItem('userAccessToken') || '');
+        return currentId ? [`/topic/accounts/${currentId}/orders`] : [];
+      },
+      onEvent: async (event) => {
+        console.info('[User orders realtime] Processing event', {
+          type: event?.type,
+          orderId: event?.orderId,
+          status: event?.status,
+        });
+        if (!event?.orderId || (event.accountId && String(event.accountId) !== accountId)) return;
+        const eventKey = String(event.orderId);
+        pendingOrderEvents.set(eventKey, event);
+        if (!ordersLoaded) return;
+        let index = userOrders.findIndex(order => String(order.id) === String(event.orderId));
+        if (index < 0 && event.type === 'CREATED') {
+          try {
+            const created = await request(`${API}/orders/${encodeURIComponent(event.orderId)}`);
+            if (created) { userOrders.unshift(created); index = 0; }
+          } catch (error) {
+            console.error('[User orders realtime] Không tải được đơn mới:', error);
+            return;
+          }
+        }
+        if (index < 0) return;
+        userOrders[index] = { ...userOrders[index], status: event.status ?? userOrders[index].status, paymentStatus: event.paymentStatus ?? userOrders[index].paymentStatus };
+        pendingOrderEvents.delete(eventKey);
+        renderUserOrders();
+      },
+      onConnected: (reconnected) => {
+        if (reconnected && ordersLoaded) loadCompletedOrders(true);
+      },
+      onAuthError: () => {
+        localStorage.removeItem('userAccessToken');
+        localStorage.removeItem('userRefreshToken');
+        window.location.replace('login.html');
+      }
+    });
+  }
 
   /* ---- 4.6 Render footer branches ---- */
   function renderFooterBranches(branches) {
@@ -856,11 +935,12 @@ async function loadCompletedOrders(force = false) {
   }
 
   async function initialize() {
-    if (!localStorage.getItem('accessToken')) {
+    if (!localStorage.getItem('userAccessToken')) {
       window.location.href = 'login.html';
       return;
     }
     setupPersonalPanels();
+    initializeOrderRealtime();
     setupReservationHistory();
     setupProfileActions();
     try {

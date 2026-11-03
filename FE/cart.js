@@ -15,7 +15,7 @@
 
   /* ========================== CONFIG ========================== */
 
-  const CART_STORAGE_KEY = "fca_cart";
+  const CART_STORAGE_KEY = "fca_guest_cart";
   const API_BASE_URL = "http://localhost:8080";
   const AUTH_REFRESH_URL = `${API_BASE_URL}/api/v1/auth/refresh`;
 
@@ -110,7 +110,8 @@
       .filter(item => item && item.id != null && getRestaurantId(item) != null)
       .map(item => ({
         ...item,
-        id: item.id,
+        id: item.menuItemId ?? item.id,
+        cartItemId: item.cartItemId ?? (item.menuItemId != null ? item.id : null),
         restaurantId: getRestaurantId(item),
         name: String(item.name ?? item.menuItemName ?? "Món ăn"),
         price: getItemPrice(item),
@@ -157,7 +158,7 @@
     if (refreshPromise) return refreshPromise;
 
     refreshPromise = (async () => {
-      const refreshToken = localStorage.getItem("refreshToken");
+      const refreshToken = localStorage.getItem("userRefreshToken");
 
       if (!refreshToken) {
         throw new Error("Không tìm thấy refreshToken. Vui lòng đăng nhập lại.");
@@ -183,10 +184,10 @@
         );
       }
 
-      localStorage.setItem("accessToken", data.accessToken);
+      localStorage.setItem("userAccessToken", data.accessToken);
 
       if (data.refreshToken) {
-        localStorage.setItem("refreshToken", data.refreshToken);
+        localStorage.setItem("userRefreshToken", data.refreshToken);
       }
 
       return data.accessToken;
@@ -214,7 +215,7 @@
       return fetch(url, { ...options, headers });
     }
 
-    let response = await send(localStorage.getItem("accessToken"));
+    let response = await send(localStorage.getItem("userAccessToken"));
 
     if (response.status !== 401) return response;
 
@@ -244,6 +245,7 @@
   /* ========================== CART STORAGE ========================== */
 
   function getCart() {
+    if (localStorage.getItem("userAccessToken")) return state.items;
     try {
       return normalizeCartItems(
         JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || "[]")
@@ -257,7 +259,9 @@
   function saveCart(items) {
     try {
       const normalized = normalizeCartItems(items);
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(normalized));
+      if (!localStorage.getItem("userAccessToken")) {
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(normalized));
+      }
       state.items = normalized;
       updateCartBadge(normalized);
       return true;
@@ -266,6 +270,24 @@
       showToast("Không thể lưu giỏ hàng trên trình duyệt.");
       return false;
     }
+  }
+
+  function applyServerCart(cart) {
+    state.items = normalizeCartItems(cart?.items || []);
+    updateCartBadge(state.items);
+    window.dispatchEvent(new CustomEvent("fca:cart-count", {
+      detail: { count: Number(cart?.totalQuantity) || 0 }
+    }));
+    return state.items;
+  }
+
+  async function loadCurrentCart() {
+    if (!localStorage.getItem("userAccessToken")) {
+      state.items = getCart();
+      return state.items;
+    }
+    if (!window.FCA_CART_API) throw new Error("Chưa tải được API giỏ hàng.");
+    return applyServerCart(await window.FCA_CART_API.get());
   }
 
   function updateCartBadge(items = getCart()) {
@@ -1316,7 +1338,7 @@
 
   /* ========================== CART MUTATIONS ========================== */
 
-  function changeQuantity(id, delta) {
+  async function changeQuantity(id, delta) {
     const items = getCart();
     const item = items.find(entry => getItemId(entry) === String(id));
 
@@ -1334,31 +1356,44 @@
       return;
     }
 
-    item.quantity = quantity;
-
-    if (!saveCart(items)) return;
+    if (localStorage.getItem("userAccessToken")) {
+      try {
+        applyServerCart(await window.FCA_CART_API.update(item.cartItemId, quantity));
+      } catch (error) {
+        showToast(error.message || "Không cập nhật được số lượng.");
+        return;
+      }
+    } else {
+      item.quantity = quantity;
+      if (!saveCart(items)) return;
+    }
 
     const voucherCode = invalidateVoucherIfCartChanged();
 
-    updateCartItemRow(item);
+    const currentItem = getCart().find(entry => getItemId(entry) === String(id));
+    if (currentItem) updateCartItemRow(currentItem);
     recalculateCart(false);
 
     if (voucherCode) {
       scheduleVoucherRevalidation(voucherCode);
     }
 
-    syncCartToApi("quantity", item).catch(error =>
-      console.warn("Chưa đồng bộ số lượng lên API:", error)
-    );
   }
 
-  function removeItem(id) {
+  async function removeItem(id) {
     const items = getCart();
     const item = items.find(entry => getItemId(entry) === String(id));
 
     if (!item) return;
 
-    if (!saveCart(
+    if (localStorage.getItem("userAccessToken")) {
+      try {
+        applyServerCart(await window.FCA_CART_API.remove(item.cartItemId));
+      } catch (error) {
+        showToast(error.message || "Không xóa được món khỏi giỏ.");
+        return;
+      }
+    } else if (!saveCart(
       items.filter(entry => getItemId(entry) !== String(id))
     )) return;
 
@@ -1373,9 +1408,6 @@
 
     showToast(`Đã xóa "${item.name}" khỏi giỏ hàng.`);
 
-    syncCartToApi("remove", item).catch(error =>
-      console.warn("Chưa đồng bộ xóa món lên API:", error)
-    );
   }
 
   function clearCart() {
@@ -1385,23 +1417,6 @@
     }
 
     openDeleteModal({ type: "all" });
-  }
-
-  async function syncCartToApi(action, item) {
-    const endpoint = action === "remove"
-      ? API.removeCartItem
-      : API.updateCart;
-
-    if (!endpoint) return;
-
-    await fetchJson(endpoint, {
-      method: action === "remove" ? "DELETE" : "PUT",
-      body: JSON.stringify({
-        id: item.id,
-        restaurantId: item.restaurantId,
-        quantity: item.quantity
-      })
-    });
   }
 
   /* ========================== UPSSELLS ========================== */
@@ -1438,7 +1453,7 @@
       </article>`).join("");
   }
 
-  function addUpsell(id) {
+  async function addUpsell(id) {
     const upsell = state.upsells.find(
       item => String(item.id) === String(id)
     );
@@ -1453,6 +1468,18 @@
 
     if (restaurantId == null) {
       showToast("Không xác định được nhà hàng của món gợi ý.");
+      return;
+    }
+
+    if (localStorage.getItem("userAccessToken")) {
+      try {
+        applyServerCart(await window.FCA_CART_API.add(Number(upsell.id), 1));
+        recalculateCart();
+        renderCartItems(getCart());
+        showToast(`Đã thêm "${upsell.name}" vào giỏ hàng.`);
+      } catch (error) {
+        showToast(error.message || "Không thêm được món vào giỏ hàng.");
+      }
       return;
     }
 
@@ -1706,7 +1733,7 @@
 
   /* ========================== EVENT BINDINGS ========================== */
 
-  confirmDeleteBtn?.addEventListener("click", () => {
+  confirmDeleteBtn?.addEventListener("click", async () => {
     if (!pendingDelete) return;
 
     const action = pendingDelete;
@@ -1718,7 +1745,14 @@
     }
 
     if (action.type === "all") {
-      if (!saveCart([])) return;
+      if (localStorage.getItem("userAccessToken")) {
+        try {
+          applyServerCart(await window.FCA_CART_API.clear());
+        } catch (error) {
+          showToast(error.message || "Không xóa được giỏ hàng.");
+          return;
+        }
+      } else if (!saveCart([])) return;
 
       clearTimeout(voucherRevalidateTimer);
       voucherRevalidateTimer = null;
@@ -1737,11 +1771,6 @@
       recalculateCart();
       showToast("Đã xóa toàn bộ giỏ hàng.");
 
-      if (API.clearCart) {
-        fetchJson(API.clearCart, { method: "DELETE" }).catch(error =>
-          console.error("API xóa giỏ hàng thất bại:", error)
-        );
-      }
     }
   });
 
@@ -1833,10 +1862,15 @@
     await applyVoucherFromInput();
   }
 
-  function init() {
+  async function init() {
     bindEvents();
 
-    state.items = getCart();
+    try {
+      state.items = await loadCurrentCart();
+    } catch (error) {
+      state.items = [];
+      showToast(error.message || "Không tải được giỏ hàng.");
+    }
     renderCartItems(state.items);
     updateCartBadge(state.items);
     recalculateCart(false);

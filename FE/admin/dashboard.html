@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tổng quan quản trị | FCA Culinary</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="admin-shell.css">
+    <script src="admin-shell.js" defer></script>
+    <script src="dashboard.js" defer></script>
+</head>
+
+<body>
+<div class="admin-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div>
+            <div class="brand">
+                <div class="brand-logo">
+                    <span class="material-symbols-outlined">restaurant_menu</span>
+                </div>
+                <div>
+                    <div class="brand-name">FCA Culinary</div>
+                    <div class="brand-subtitle">ADMIN PORTAL</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <p class="sidebar-heading">QUẢN TRỊ HỆ THỐNG</p>
+
+                <nav class="sidebar-nav">
+                    <a href="dashboard.html" class="nav-link active">
+                        <span class="material-symbols-outlined">dashboard</span>
+                        <span>Tổng quan</span>
+                    </a>
+
+                    <a href="admin-branches.html" class="nav-link">
+                        <span class="material-symbols-outlined">store</span>
+                        <span>Nhà hàng & Chi nhánh</span>
+                    </a>
+
+                    <a href="menu-management.html" class="nav-link">
+                        <span class="material-symbols-outlined">restaurant</span>
+                        <span>Thực đơn & Món ăn</span>
+                    </a>
+
+                    <a href="reservations-orders.html" class="nav-link">
+                        <span class="material-symbols-outlined">event_note</span>
+                        <span>Đặt bàn & Đơn hàng</span>
+                    </a>
+
+                    <a href="admin-revenue.html" class="nav-link">
+                        <span class="material-symbols-outlined">monitoring</span>
+                        <span>Doanh thu & Báo cáo</span>
+                    </a>
+
+                    <a href="admin-accounts.html" class="nav-link">
+                        <span class="material-symbols-outlined">manage_accounts</span>
+                        <span>Tài khoản & Phân quyền</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <div class="sidebar-bottom">
+            <div class="sidebar-user">
+                <div class="avatar">
+                    <span class="material-symbols-outlined">person</span>
+                </div>
+
+                <div class="user-info">
+                    <strong id="sidebarAdminName">Quản trị viên</strong>
+                    <span id="sidebarAdminEmail">Đang tải thông tin...</span>
+                </div>
+
+                <button class="icon-button logout-button" id="logoutButton"
+                        type="button" title="Đăng xuất">
+                    <span class="material-symbols-outlined">logout</span>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main-wrapper">
+
+        <!-- HEADER -->
+        <header class="topbar">
+            <button class="icon-button mobile-menu-button" id="mobileMenuButton"
+                    type="button" aria-label="Mở menu">
+                <span class="material-symbols-outlined">menu</span>
+            </button>
+
+            <div class="search-box">
+                <span class="material-symbols-outlined">search</span>
+                <input type="text" id="globalSearch"
+                       placeholder="Tìm kiếm chi nhánh, đơn hàng, đặt bàn...">
+            </div>
+
+            <div class="topbar-actions">
+                <div class="language-label">
+                    <span class="material-symbols-outlined">language</span>
+                    <span>VN (Tiếng Việt)</span>
+                </div>
+
+                <button class="icon-button notification-button" type="button"
+                        id="notificationButton" aria-label="Thông báo">
+                    <span class="material-symbols-outlined">notifications</span>
+                </button>
+
+                <div class="topbar-divider"></div>
+
+                <div class="topbar-user">
+                    <div class="avatar">
+                        <span class="material-symbols-outlined">person</span>
+                    </div>
+                    <span id="topbarAdminName">Quản trị viên</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="dashboard-content">
+
+            <!-- PAGE INTRO -->
+            <section class="page-intro panel">
+                <div class="intro-text">
+                    <div class="intro-meta">
+                        <span class="live-badge">
+                            <span class="live-dot"></span>
+                            DỮ LIỆU HỆ THỐNG
+                        </span>
+                        <span class="last-updated" id="lastUpdated">
+                            Chưa có dữ liệu cập nhật
+                        </span>
+                    </div>
+
+                    <h1>Tổng Quan Vận Hành Toàn Hệ Thống</h1>
+                    <p>Thông tin tổng hợp hoạt động kinh doanh và vận hành nhà hàng.</p>
+                </div>
+
+                <div class="intro-actions">
+                    <div class="date-filter">
+                        <button class="filter-button active" data-period="today" type="button">
+                            Hôm nay
+                        </button>
+                        <button class="filter-button" data-period="week" type="button">
+                            Tuần này
+                        </button>
+                        <button class="filter-button" data-period="month" type="button">
+                            Tháng này
+                        </button>
+                    </div>
+
+                    <select id="branchFilter" class="branch-select">
+                        <option value="">Tất cả chi nhánh</option>
+                    </select>
+
+                    <button class="button button-secondary" id="refreshButton" type="button">
+                        <span class="material-symbols-outlined">refresh</span>
+                        Làm mới
+                    </button>
+
+                    <button class="button button-primary" id="exportButton" type="button">
+                        <span class="material-symbols-outlined">ios_share</span>
+                        Xuất báo cáo
+                    </button>
+                </div>
+            </section>
+
+            <!-- KPI -->
+            <section class="kpi-grid">
+
+                <article class="kpi-card panel">
+                    <div class="kpi-header">
+                        <span class="kpi-label">DOANH THU</span>
+                        <div class="kpi-icon green">
+                            <span class="material-symbols-outlined">payments</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-value" id="totalRevenue">--</div>
+                    <div class="kpi-description" id="revenueComparison">
+                        Chưa có dữ liệu thống kê
+                    </div>
+                    <div class="kpi-footer">
+                        <span>Doanh thu theo kỳ đã chọn</span>
+                    </div>
+                </article>
+
+                <article class="kpi-card panel">
+                    <div class="kpi-header">
+                        <span class="kpi-label">ĐƠN HÀNG</span>
+                        <div class="kpi-icon blue">
+                            <span class="material-symbols-outlined">receipt_long</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-value" id="totalOrders">--</div>
+                    <div class="kpi-description" id="orderDescription">
+                        Chưa có dữ liệu thống kê
+                    </div>
+                    <div class="kpi-footer">
+                        <span>Tổng số đơn hàng</span>
+                    </div>
+                </article>
+
+                <article class="kpi-card panel">
+                    <div class="kpi-header">
+                        <span class="kpi-label">ĐẶT BÀN</span>
+                        <div class="kpi-icon purple">
+                            <span class="material-symbols-outlined">table_restaurant</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-value" id="totalReservations">--</div>
+                    <div class="kpi-description" id="reservationDescription">
+                        Chưa có dữ liệu thống kê
+                    </div>
+                    <div class="kpi-footer">
+                        <span>Tổng lượt đặt bàn</span>
+                    </div>
+                </article>
+
+                <article class="kpi-card panel">
+                    <div class="kpi-header">
+                        <span class="kpi-label">CHI NHÁNH</span>
+                        <div class="kpi-icon orange">
+                            <span class="material-symbols-outlined">store</span>
+                        </div>
+                    </div>
+
+                    <div class="kpi-value" id="totalBranches">--</div>
+                    <div class="kpi-description" id="branchDescription">
+                        Chưa có dữ liệu thống kê
+                    </div>
+                    <div class="kpi-footer">
+                        <span>Số chi nhánh trong hệ thống</span>
+                    </div>
+                </article>
+
+            </section>
+
+            <!-- MAIN GRID -->
+            <div class="dashboard-grid">
+
+                <div class="dashboard-left">
+
+                    <!-- REVENUE CHART -->
+                    <section class="panel section-panel">
+                        <div class="section-header">
+                            <div>
+                                <h2>Doanh Thu Theo Thời Gian</h2>
+                                <p>Biểu đồ doanh thu theo khoảng thời gian đã chọn</p>
+                            </div>
+
+                            <span class="section-icon">
+                                <span class="material-symbols-outlined">show_chart</span>
+                            </span>
+                        </div>
+
+                        <div class="chart-summary">
+                            <div>
+                                <span class="summary-label">Tổng doanh thu</span>
+                                <strong id="chartTotalRevenue">--</strong>
+                            </div>
+                            <div>
+                                <span class="summary-label">Số kỳ thống kê</span>
+                                <strong id="chartDataCount">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="chart-container" id="revenueChartContainer">
+                            <div class="empty-state">
+                                <span class="material-symbols-outlined">bar_chart</span>
+                                <strong>Chưa có dữ liệu biểu đồ</strong>
+                                <p>Dữ liệu sẽ được hiển thị khi API thống kê được kết nối.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- BRANCH STATUS -->
+                    <section class="panel section-panel">
+                        <div class="section-header">
+                            <div>
+                                <h2>Trạng Thái Chi Nhánh</h2>
+                                <p>Tổng hợp tình trạng hoạt động của các chi nhánh</p>
+                            </div>
+
+                            <a href="admin-branches.html" class="text-link">
+                                Quản lý chi nhánh
+                                <span class="material-symbols-outlined">chevron_right</span>
+                            </a>
+                        </div>
+
+                        <div class="branch-grid" id="branchList">
+                            <div class="empty-state full-width">
+                                <span class="material-symbols-outlined">storefront</span>
+                                <strong>Chưa có dữ liệu chi nhánh</strong>
+                                <p>Không có dữ liệu để hiển thị.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- IMPORTANT ITEMS -->
+                    <section class="panel section-panel">
+                        <div class="section-header">
+                            <div>
+                                <h2>Yêu Cầu Cần Chú Ý</h2>
+                                <p>Các yêu cầu hoặc công việc cần được xử lý</p>
+                            </div>
+
+                            <span class="count-badge" id="urgentCount">--</span>
+                        </div>
+
+                        <div class="urgent-list" id="urgentList">
+                            <div class="empty-state">
+                                <span class="material-symbols-outlined">priority_high</span>
+                                <strong>Chưa có yêu cầu cần xử lý</strong>
+                                <p>Dữ liệu sẽ xuất hiện khi có API tương ứng.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+
+                <!-- RIGHT COLUMN -->
+                <div class="dashboard-right">
+
+                    <!-- KDS -->
+                    <section class="panel section-panel">
+                        <div class="section-header">
+                            <div>
+                                <h2>Trạng Thái Bếp</h2>
+                                <p>Thông tin xử lý món ăn</p>
+                            </div>
+                            <span class="section-icon">
+                                <span class="material-symbols-outlined">skillet</span>
+                            </span>
+                        </div>
+
+                        <div class="kds-grid">
+                            <div class="kds-item">
+                                <strong id="kdsWaiting">--</strong>
+                                <span>Chờ xử lý</span>
+                            </div>
+
+                            <div class="kds-item">
+                                <strong id="kdsProcessing">--</strong>
+                                <span>Đang xử lý</span>
+                            </div>
+
+                            <div class="kds-item">
+                                <strong id="kdsDelayed">--</strong>
+                                <span>Quá hạn</span>
+                            </div>
+                        </div>
+
+                        <div class="information-state" id="kdsStatus">
+                            <span class="material-symbols-outlined">info</span>
+                            <span>Chưa có dữ liệu trạng thái bếp.</span>
+                        </div>
+                    </section>
+
+                    <!-- RECENT RESERVATIONS -->
+                    <section class="panel section-panel">
+                        <div class="section-header">
+                            <div>
+                                <h2>Đặt Bàn Mới Nhất</h2>
+                                <p>Các lượt đặt bàn gần đây</p>
+                            </div>
+                            <span class="section-icon">
+                                <span class="material-symbols-outlined">calendar_month</span>
+                            </span>
+                        </div>
+
+                        <div class="recent-list" id="recentReservations">
+                            <div class="empty-state">
+                                <span class="material-symbols-outlined">event_busy</span>
+                                <strong>Chưa có dữ liệu đặt bàn</strong>
+                                <p>Danh sách sẽ hiển thị khi kết nối API.</p>
+                            </div>
+                        </div>
+
+                        <a href="reservations-orders.html" class="full-link">
+                            Xem quản lý đặt bàn
+                            <span class="material-symbols-outlined">arrow_forward</span>
+                        </a>
+                    </section>
+
+                    <!-- INVENTORY -->
+                    <section class="panel section-panel">
+                        <div class="section-header">
+                            <div>
+                                <h2>Tồn Kho Nguyên Liệu</h2>
+                                <p>Tình trạng nguyên liệu hiện tại</p>
+                            </div>
+                            <span class="section-icon">
+                                <span class="material-symbols-outlined">inventory_2</span>
+                            </span>
+                        </div>
+
+                        <div class="inventory-list" id="inventoryList">
+                            <div class="empty-state">
+                                <span class="material-symbols-outlined">inventory</span>
+                                <strong>Chưa có dữ liệu tồn kho</strong>
+                                <p>Chưa có thông tin nguyên liệu để hiển thị.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+
+            <footer class="dashboard-footer">
+                FCA Culinary Admin Portal
+            </footer>
+
+        </main>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+</body>
+</html>

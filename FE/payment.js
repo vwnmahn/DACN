@@ -3,7 +3,7 @@
   'use strict';
 
   const API_ORIGIN = 'http://localhost:8080';
-  const CART_KEY = 'fca_cart';
+  const CART_KEY = 'fca_guest_cart';
   const LOCATION_KEY = 'fca_delivery_location';
   const CONTEXT_KEY = 'fca_checkout_context';
   const IDEMPOTENCY_KEY = 'fca_checkout_idempotency';
@@ -22,7 +22,7 @@
   function authHeaders(json = false) {
     if (window.FCA_SHELL?.authHeaders) return window.FCA_SHELL.authHeaders(json);
     const headers = json ? { 'Content-Type': 'application/json' } : {};
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('userAccessToken');
     if (token) headers.Authorization = `Bearer ${token}`;
     return headers;
   }
@@ -307,7 +307,12 @@
       });
       const createdOrderId = result.order?.id;
       if (createdOrderId) sessionStorage.setItem('fca_last_order_id', String(createdOrderId));
-      localStorage.removeItem(CART_KEY);
+      if (localStorage.getItem('userAccessToken') && window.FCA_CART_API) {
+        try { await window.FCA_CART_API.clear(); }
+        catch (cartError) { console.warn('Đơn đã tạo nhưng chưa xóa được giỏ hàng:', cartError); }
+      } else {
+        localStorage.removeItem(CART_KEY);
+      }
       sessionStorage.removeItem(CONTEXT_KEY);
       sessionStorage.removeItem(IDEMPOTENCY_KEY);
       window.dispatchEvent(new CustomEvent('fca:cart-count', { detail: { count: 0 } }));
@@ -358,7 +363,21 @@
   }
 
   async function init() {
-    state.cart = readStorage(localStorage, CART_KEY, []);
+    if (localStorage.getItem('userAccessToken') && window.FCA_CART_API) {
+      try {
+        const serverCart = await window.FCA_CART_API.get();
+        state.cart = (serverCart?.items || []).map((item) => ({
+          ...item,
+          id: item.menuItemId,
+          image: item.imageUrl || ''
+        }));
+      } catch (error) {
+        state.cart = [];
+        setStatus(error.message || 'Không tải được giỏ hàng.', true);
+      }
+    } else {
+      state.cart = readStorage(localStorage, CART_KEY, []);
+    }
     state.context = readStorage(sessionStorage, CONTEXT_KEY, {});
     state.location = readStorage(localStorage, LOCATION_KEY, null);
     setupInteractions();
