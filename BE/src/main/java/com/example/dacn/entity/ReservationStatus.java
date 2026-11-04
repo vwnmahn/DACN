@@ -1,7 +1,7 @@
 package com.example.dacn.entity;
 
 public enum ReservationStatus {
-    PENDING,    // Chờ nhà hàng xác nhận
+    PENDING,    // Dữ liệu cũ trước khi đặt bàn được tự động xác nhận
     CONFIRMED,  // Đã xác nhận
     CANCELLED,  // Đã hủy
     COMPLETED,  // Đã sử dụng xong

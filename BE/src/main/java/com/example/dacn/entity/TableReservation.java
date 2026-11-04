@@ -1,10 +1,7 @@
 package com.example.dacn.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
@@ -67,6 +64,7 @@ public class TableReservation extends BaseEntity{
     private LocalDateTime endTime;
 
     // Trạng thái phiếu đặt bàn
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
     private ReservationStatus status = ReservationStatus.PENDING;

@@ -1,6 +1,7 @@
 package com.example.dacn.entity;
 
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.NoArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
@@ -42,6 +43,7 @@ public class RestaurantTable extends BaseEntity {
     private Integer capacity;
 
     // Trạng thái quản lý: bàn có đang hoạt động không
+    @Builder.Default
     @Column(name = "active", nullable = false)
     private Boolean active = true;
 

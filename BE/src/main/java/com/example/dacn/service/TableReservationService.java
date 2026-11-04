@@ -4,6 +4,7 @@ package com.example.dacn.service;
 import com.example.dacn.dto.request.CreateTableReservationRequest;
 import com.example.dacn.dto.response.TableAvailabilityResponse;
 import com.example.dacn.dto.response.TableReservationResponse;
+import com.example.dacn.entity.ReservationStatus;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -27,6 +28,8 @@ public interface TableReservationService {
     List<TableReservationResponse> getAllForAdmin();
 
     TableReservationResponse getByIdForAdmin(Long reservationId);
+
+    TableReservationResponse updateStatusForAdmin(Long reservationId, ReservationStatus status);
 
     TableReservationResponse cancelReservation(Long reservationId);
 }

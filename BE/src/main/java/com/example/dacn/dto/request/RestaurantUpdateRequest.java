@@ -58,4 +58,9 @@ public class RestaurantUpdateRequest {
 
     @NotNull(message = "Danh mục nhà hàng không được để trống")
     private CategoryStatus categoryStatus;
+    @Size(max = 500, message = "URL ảnh không được vượt quá 500 ký tự")
+    private String imageUrl2;
+
+    @Size(max = 500, message = "URL ảnh không được vượt quá 500 ký tự")
+    private String imageUrl3;
 }

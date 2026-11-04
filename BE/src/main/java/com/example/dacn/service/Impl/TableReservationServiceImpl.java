@@ -5,6 +5,7 @@ import com.example.dacn.dto.request.CreateTableReservationRequest;
 import com.example.dacn.dto.response.TableAvailabilityResponse;
 import com.example.dacn.dto.response.TableReservationResponse;
 import com.example.dacn.entity.*;
+import com.example.dacn.event.TableReservationChangedEvent;
 import com.example.dacn.repository.RestaurantRepository;
 import com.example.dacn.repository.RestaurantTableRepository;
 import com.example.dacn.repository.TableReservationRepository;
@@ -17,6 +18,7 @@ import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +36,7 @@ import java.util.Set;
 public class TableReservationServiceImpl implements  TableReservationService {
 
     private static final int RESERVATION_MINUTES = 120;
-    private static final int CANCELLATION_LIMIT_MINUTES = 60;
+    private static final int CANCELLATION_LIMIT_MINUTES = 24 * 60;
 
     private static final Set<ReservationStatus> HOLDING_STATUSES =
             EnumSet.of(
@@ -45,6 +47,7 @@ public class TableReservationServiceImpl implements  TableReservationService {
     private final RestaurantTableRepository tableRepository;
     private final TableReservationRepository reservationRepository;
     private final RestaurantRepository restaurantRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -181,11 +184,13 @@ public class TableReservationServiceImpl implements  TableReservationService {
             reservation.setGuestCount(request.guestCount());
             reservation.setStartTime(start);
             reservation.setEndTime(end);
-            reservation.setStatus(ReservationStatus.PENDING);
+            reservation.setStatus(ReservationStatus.CONFIRMED);
             reservation.setNote(request.note());
 
             TableReservation saved =
                     reservationRepository.save(reservation);
+
+            publishChange(saved, TableReservationChangedEvent.Type.CREATED);
 
             return toResponse(saved);
         }
@@ -225,6 +230,26 @@ public class TableReservationServiceImpl implements  TableReservationService {
 
     @Override
     @Transactional
+    public TableReservationResponse updateStatusForAdmin(Long reservationId, ReservationStatus status) {
+        TableReservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phiếu đặt bàn"));
+        if (status == null || status == ReservationStatus.PENDING) {
+            throw new IllegalArgumentException("Trạng thái đặt bàn không hợp lệ");
+        }
+        if (reservation.getStatus() == ReservationStatus.CANCELLED
+                || reservation.getStatus() == ReservationStatus.COMPLETED
+                || reservation.getStatus() == ReservationStatus.NO_SHOW) {
+            throw new IllegalStateException("Không thể thay đổi phiếu đặt bàn đã kết thúc");
+        }
+
+        reservation.setStatus(status);
+        TableReservation saved = reservationRepository.save(reservation);
+        publishChange(saved, TableReservationChangedEvent.Type.STATUS_CHANGED);
+        return toResponse(saved);
+    }
+
+    @Override
+    @Transactional
     public TableReservationResponse cancelReservation(Long reservationId) {
         TableReservation reservation = reservationRepository
                 .findByIdAndAccount_Id(reservationId, currentAccount().getId())
@@ -243,10 +268,10 @@ public class TableReservationServiceImpl implements  TableReservationService {
                 reservation.getStartTime()
                         .minusMinutes(CANCELLATION_LIMIT_MINUTES);
 
-        // Phải hủy trước mốc còn đúng 60 phút.
+        // Khách hàng chỉ được hủy trước thời điểm đặt bàn ít nhất 24 giờ.
         if (!now.isBefore(cancellationDeadline)) {
             throw new IllegalStateException(
-                    "Chỉ được hủy trước giờ đặt bàn ít nhất hơn 1 tiếng. "
+                    "Chỉ được hủy trước giờ đặt bàn ít nhất 1 ngày. "
                             + "Vui lòng liên hệ nhà hàng để được hỗ trợ."
             );
         }
@@ -256,7 +281,19 @@ public class TableReservationServiceImpl implements  TableReservationService {
         TableReservation saved =
                 reservationRepository.save(reservation);
 
+        publishChange(saved, TableReservationChangedEvent.Type.STATUS_CHANGED);
+
         return toResponse(saved);
+    }
+
+    private void publishChange(TableReservation reservation, TableReservationChangedEvent.Type type) {
+        eventPublisher.publishEvent(new TableReservationChangedEvent(
+                type,
+                reservation.getId(),
+                reservation.getAccount().getId(),
+                reservation.getStatus(),
+                LocalDateTime.now()
+        ));
     }
 
     private Account currentAccount() {
