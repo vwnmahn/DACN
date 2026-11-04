@@ -17,6 +17,7 @@ const API_BASE = "http://localhost:8080/api/v1";
 const API_ENDPOINTS = {
     reservations: "/admin/table-reservations",
     reservationDetail: "/admin/table-reservations/{id}",
+    reservationStatus: "/admin/table-reservations/{id}/status",
 
     orders: "/admin/orders",
     orderDetail: "/admin/orders/{id}",
@@ -524,6 +525,13 @@ function mapReservation(item) {
     };
 }
 
+function renderReservationStatus(status) {
+    if (status === "PENDING") {
+        return '<span class="status-badge status-pending">Chưa xác nhận (dữ liệu cũ)</span>';
+    }
+    return renderStatus(status);
+}
+
 function mapOrder(item) {
     const order = item.order || {};
 
@@ -699,7 +707,7 @@ function renderReservationTable() {
                 <td>${formatDate(item.date)}</td>
                 <td>${formatTime(item.time)}</td>
                 <td>${escapeHtml(item.guestCount ?? "—")}</td>
-                <td>${renderStatus(item.status)}</td>
+                <td>${renderReservationStatus(item.status)}</td>
 
                 <td>
                     <div class="action-group">
@@ -1076,11 +1084,11 @@ async function loadStatistics() {
     if (reservationResult.status === "fulfilled") {
         const reservations = extractList(reservationResult.value);
         const pendingCount = reservations.reduce((count, item) =>
-            count + (mapReservation(item).status === "PENDING" ? 1 : 0), 0);
+            count + (mapReservation(item).status === "CONFIRMED" ? 1 : 0), 0);
         setText("totalReservations", reservations.length);
         setText("pendingReservations", pendingCount);
         setText("reservationSummary", reservations.length ? "Dữ liệu đặt bàn hiện có" : "Chưa có lượt đặt bàn");
-        setText("pendingReservationSummary", pendingCount ? "Đang chờ xử lý" : "Không có lượt chờ xác nhận");
+        setText("pendingReservationSummary", pendingCount ? "Đã được xác nhận" : "Chưa có lượt đã xác nhận");
     } else {
         console.error("Load reservation statistics error:", reservationResult.reason);
         setText("totalReservations", "—");
@@ -1364,6 +1372,7 @@ function closeDetailModal() {
     const modal = getElement("detailModal");
     modal.classList.remove("show");
     delete modal.dataset.orderId;
+    delete modal.dataset.reservationId;
 }
 
 function stopOrderDetailRefresh() {
@@ -1396,11 +1405,12 @@ function renderDetailItem(label, value, full = false) {
 function renderReservationDetail(item) {
     stopOrderDetailRefresh();
     const data = mapReservation(item);
+    getElement("detailModal").dataset.reservationId = String(data.id);
 
     const html = `
         <div class="detail-grid">
             ${renderDetailItem("Mã đặt bàn", data.code)}
-            ${renderDetailItem("Trạng thái", data.status)}
+            ${renderDetailItem("Trạng thái", data.status === "PENDING" ? "Chưa xác nhận (dữ liệu cũ)" : (STATUS_CONFIG[data.status]?.label || data.status))}
             ${renderDetailItem("Nhà hàng", data.restaurantName)}
             ${renderDetailItem("Số bàn", data.tableNumber)}
             ${renderDetailItem("Tên khách hàng", data.customerName)}
@@ -1411,6 +1421,22 @@ function renderReservationDetail(item) {
             ${renderDetailItem("Số lượng khách", data.guestCount)}
             ${renderDetailItem("Ghi chú", data.note, true)}
         </div>
+        ${!["CANCELLED", "COMPLETED", "NO_SHOW"].includes(data.status) ? `
+            <section class="shipper-assignment" data-reservation-id="${escapeHtml(data.id)}">
+                <label for="reservation-status-select">Cập nhật trạng thái đặt bàn</label>
+                <div class="shipper-assignment-controls">
+                    <select id="reservation-status-select">
+                        <option value="CONFIRMED" ${data.status === "CONFIRMED" ? "selected" : ""}>Đã xác nhận</option>
+                        <option value="COMPLETED">Hoàn thành</option>
+                        <option value="CANCELLED">Đã hủy</option>
+                        <option value="NO_SHOW">Khách không đến</option>
+                    </select>
+                    <button class="btn btn-primary" id="update-reservation-status-button" type="button">
+                        Cập nhật
+                    </button>
+                </div>
+                <p class="shipper-assignment-message" id="reservation-status-message" aria-live="polite"></p>
+            </section>` : ""}
     `;
 
     openDetailModal(
@@ -1418,6 +1444,32 @@ function renderReservationDetail(item) {
         data.code,
         html
     );
+}
+
+async function updateReservationStatus() {
+    const section = document.querySelector(".shipper-assignment[data-reservation-id]");
+    const select = getElement("reservation-status-select");
+    const button = getElement("update-reservation-status-button");
+    const message = getElement("reservation-status-message");
+    if (!section || !select || !button || !message) return;
+
+    button.disabled = true;
+    message.textContent = "Đang cập nhật…";
+    try {
+        const endpoint = API_ENDPOINTS.reservationStatus.replace(
+            "{id}", encodeURIComponent(section.dataset.reservationId)
+        );
+        await apiRequest(endpoint, {
+            method: "PATCH",
+            body: JSON.stringify({ status: select.value })
+        });
+        message.textContent = "Cập nhật trạng thái thành công.";
+        await Promise.all([loadReservations(), loadStatistics()]);
+        await viewReservationDetail(section.dataset.reservationId);
+    } catch (error) {
+        message.textContent = error.message;
+        button.disabled = false;
+    }
 }
 
 function renderOrderDetail(item) {
@@ -1735,6 +1787,11 @@ function bindModalEvents() {
         }
     });
     getElement("detailModalBody").addEventListener("click", event => {
+        if (event.target.closest("#update-reservation-status-button")) {
+            updateReservationStatus();
+        }
+    });
+    getElement("detailModalBody").addEventListener("click", event => {
         if (event.target.closest("#assign-shipper-button")) assignSelectedShipper();
     });
     getElement("closeDetailModal").addEventListener(
@@ -1829,8 +1886,23 @@ function initializeOrderRealtime() {
         connectionKey: "admin-orders",
         apiOrigin: API_BASE.replace(/\/api\/v1$/, ""),
         getToken: getAccessToken,
-        destinations: () => ["/topic/admin/orders"],
+        destinations: () => ["/topic/admin/orders", "/topic/admin/reservations"],
         onEvent: event => {
+            if (event?.reservationId) {
+                console.info("[Admin reservation realtime] Processing event", {
+                    type: event.type,
+                    reservationId: event.reservationId,
+                    status: event.status
+                });
+                loadReservations();
+                loadStatistics();
+                const modal = getElement("detailModal");
+                if (modal?.classList.contains("show")
+                        && modal.dataset.reservationId === String(event.reservationId)) {
+                    viewReservationDetail(event.reservationId);
+                }
+                return;
+            }
             console.info("[Admin order realtime] Processing event", {
                 type: event?.type,
                 orderId: event?.orderId
@@ -1852,7 +1924,9 @@ function initializeOrderRealtime() {
             }
         },
         onConnected: reconnected => {
-            if (reconnected && state.activeTab === "orders") loadOrders();
+            if (!reconnected) return;
+            if (state.activeTab === "orders") loadOrders();
+            if (state.activeTab === "reservations") loadReservations();
         },
         onAuthError: () => {
             localStorage.removeItem("adminAccessToken");

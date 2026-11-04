@@ -127,7 +127,7 @@
 
   function reservationStatusLabel(status) {
     return ({
-      PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', CANCELLED: 'Đã hủy',
+      PENDING: 'Chưa xác nhận (dữ liệu cũ)', CONFIRMED: 'Đã xác nhận', CANCELLED: 'Đã hủy',
       COMPLETED: 'Đã hoàn tất', NO_SHOW: 'Không đến'
     })[status] || status || 'Không xác định';
   }
@@ -743,9 +743,22 @@ async function loadCompletedOrders(force = false) {
       getToken: () => localStorage.getItem('userAccessToken'),
       destinations: () => {
         const currentId = window.FCA_ORDER_REALTIME.accountIdFromToken(localStorage.getItem('userAccessToken') || '');
-        return currentId ? [`/topic/accounts/${currentId}/orders`] : [];
+        return currentId ? [
+          `/topic/accounts/${currentId}/orders`,
+          `/topic/accounts/${currentId}/reservations`
+        ] : [];
       },
       onEvent: async (event) => {
+        if (event?.reservationId) {
+          if (event.accountId && String(event.accountId) !== accountId) return;
+          console.info('[User reservation realtime] Processing event', {
+            type: event.type,
+            reservationId: event.reservationId,
+            status: event.status,
+          });
+          if (reservationsLoaded) await loadReservations(true);
+          return;
+        }
         console.info('[User orders realtime] Processing event', {
           type: event?.type,
           orderId: event?.orderId,
@@ -771,7 +784,9 @@ async function loadCompletedOrders(force = false) {
         renderUserOrders();
       },
       onConnected: (reconnected) => {
-        if (reconnected && ordersLoaded) loadCompletedOrders(true);
+        if (!reconnected) return;
+        if (ordersLoaded) loadCompletedOrders(true);
+        if (reservationsLoaded) loadReservations(true);
       },
       onAuthError: () => {
         localStorage.removeItem('userAccessToken');
