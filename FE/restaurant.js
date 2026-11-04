@@ -64,11 +64,17 @@
     }
   }
 
-  function updateCartBadge(items = getCart()) {
+  function updateCartBadge(items) {
+    // Giỏ hàng tài khoản được site-shell.js đồng bộ từ API. Không dùng giỏ
+    // local của khách để ghi đè badge, đặc biệt trong lần chuyển từ 0 sang 1.
+    if (localStorage.getItem("userAccessToken")) return;
+
     const badge = $("cart-count-badge");
     if (!badge) return;
 
-    const count = items.reduce(
+    const cartItems = Array.isArray(items) ? items : getCart();
+
+    const count = cartItems.reduce(
       (sum, item) => sum + (Number(item.quantity) || 0),
       0
     );
@@ -126,22 +132,42 @@
     return String(value ?? "").trim();
   }
 
+  function frontendAssetUrl(path) {
+    const prefix = window.location.pathname.startsWith("/FE/") ? "/FE" : "";
+    return new URL(`${prefix}/${String(path).replace(/^\/+/, "")}`, window.location.origin).href;
+  }
+
   function resolveImageUrl(value) {
     const url = normalizeText(value);
     if (!url) return "";
 
+    const normalized = url.replace(/\\/g, "/");
+    if (/^(?:https?:|data:|blob:)/i.test(normalized)) {
+      try {
+        return new URL(normalized, window.location.href).href;
+      } catch (_error) {
+        return url;
+      }
+    }
+    const imagesIndex = normalized.toLowerCase().indexOf("/images/");
+    if (imagesIndex >= 0) return frontendAssetUrl(normalized.slice(imagesIndex + 1));
+    if (/^images\//i.test(normalized)) return frontendAssetUrl(normalized);
+    if (/^(?:restaurant\/)?fca test\//i.test(normalized)) {
+      return frontendAssetUrl(`images/restaurant/${normalized.replace(/^restaurant\//i, "")}`);
+    }
+    if (/^(?:anh-pho|pho-thai-1|quan-pho-sang-trong)\.jpg$/i.test(normalized)) {
+      return frontendAssetUrl(`images/restaurant/FCA Test/${normalized}`);
+    }
+
     try {
       const parsed = new URL(url, window.location.href);
-      if (parsed.origin === window.location.origin && /^\/images\//i.test(parsed.pathname)) {
-        const prefix = window.location.pathname.startsWith("/FE/") ? "/FE" : "";
-        return `${prefix}${parsed.pathname}${parsed.search}${parsed.hash}`;
-      }
+      return parsed.href;
     } catch (_error) {
       return url;
     }
-
-    return url;
   }
+
+  const RESTAURANT_IMAGE_FALLBACK = frontendAssetUrl("images/restaurant/FCA Test/quan-pho-sang-trong.jpg");
 
   function getFirstValue(object, keys, fallback = "") {
     for (const key of keys) {
@@ -315,17 +341,26 @@
     }
   }
 
-  function setImageBackground(id, url) {
+  function setImageBackground(id, url, fallbackUrl = "") {
     const element = $(id);
     if (!element) return;
 
     element.style.backgroundImage = "";
 
     if (url) {
-      const safeUrl = String(url).replace(/"/g, '\\"');
-
-      element.style.backgroundImage =
-        `linear-gradient(rgba(0,0,0,0.02), rgba(0,0,0,0.02)), url("${safeUrl}")`;
+      const image = new Image();
+      image.onload = () => {
+        const safeUrl = String(url).replace(/"/g, '\\"');
+        element.style.backgroundImage =
+          `linear-gradient(rgba(0,0,0,0.02), rgba(0,0,0,0.02)), url("${safeUrl}")`;
+      };
+      image.onerror = () => {
+        if (!fallbackUrl || fallbackUrl === url) return;
+        const safeFallback = String(fallbackUrl).replace(/"/g, '\\"');
+        element.style.backgroundImage =
+          `linear-gradient(rgba(0,0,0,0.02), rgba(0,0,0,0.02)), url("${safeFallback}")`;
+      };
+      image.src = url;
     }
   }
 
@@ -428,7 +463,7 @@
         "thumbnail",
         "image"
       ],
-      ""
+      RESTAURANT_IMAGE_FALLBACK
     ));
 
     const sideImage1 = resolveImageUrl(getFirstValue(
@@ -456,9 +491,9 @@
       );
     }
 
-    setImageBackground("restaurant-main-image", mainImage);
-    setImageBackground("restaurant-side-image-1", sideImage1);
-    setImageBackground("restaurant-side-image-2", sideImage2);
+    setImageBackground("restaurant-main-image", mainImage, RESTAURANT_IMAGE_FALLBACK);
+    setImageBackground("restaurant-side-image-1", sideImage1, RESTAURANT_IMAGE_FALLBACK);
+    setImageBackground("restaurant-side-image-2", sideImage2, RESTAURANT_IMAGE_FALLBACK);
 
     const meta = $("restaurant-meta");
 
@@ -653,10 +688,7 @@
           if (!confirmed) return;
           await window.FCA_CART_API.clear();
         }
-        const result = await window.FCA_CART_API.add(Number(dish.id), quantity);
-        window.dispatchEvent(new CustomEvent("fca:cart-count", {
-          detail: { count: Number(result?.totalQuantity) || 0 }
-        }));
+        await window.FCA_CART_API.add(Number(dish.id), quantity);
         if (quantityInput) quantityInput.value = "0";
         showToast(`Đã thêm ${quantity} phần "${dish.name}" vào giỏ hàng.`);
       } catch (error) {

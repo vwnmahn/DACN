@@ -36,7 +36,6 @@
         error: $('redeem-error'),
         errorText: $('redeem-error-text'),
         list: $('redeem-voucher-list'),
-        refresh: $('refresh-redeem'),
         retryEmpty: $('retry-empty'),
         retryError: $('retry-error')
     };
@@ -651,7 +650,6 @@
     }
 
     function bindEvents() {
-        elements.refresh?.addEventListener('click', refreshPageData);
         elements.retryEmpty?.addEventListener('click', refreshPageData);
         elements.retryError?.addEventListener('click', refreshPageData);
     }

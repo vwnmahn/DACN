@@ -1,19 +1,6 @@
 
 "use strict";
 
-/*
- * CẤU HÌNH API
- *
- * Thay ORDER_API_URL bằng endpoint GET chi tiết đơn hàng đang có
- * trong Spring Boot của dự án.
- *
- * Ví dụ dạng URL:
- * /api/v1/orders/{id}
- *
- * Không để nguyên URL ví dụ nếu backend không có endpoint đó.
- */
-const REFRESH_INTERVAL = 10000;
-
 const STATUS_FLOW = [
     {
         code: "PENDING",
@@ -85,7 +72,6 @@ const STATUS_TEXT = {
 
 const $ = (id) => document.getElementById(id);
 
-let refreshTimer = null;
 let isLoading = false;
 let orderRefreshQueued = false;
 let currentOrder = null;
@@ -160,7 +146,12 @@ async function request(path, options = {}) {
     if (!origin) throw new Error("Không xác định được cấu hình API dùng chung.");
     const send = (token) => fetch(`${origin}${path}`, {
         ...options,
-        headers: { Accept: "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: {
+            Accept: "application/json",
+            ...(options.body ? { "Content-Type": "application/json" } : {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(options.headers || {})
+        },
         cache: "no-store"
     });
     let response = await send(localStorage.getItem("userAccessToken"));
@@ -170,6 +161,25 @@ async function request(path, options = {}) {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.message || payload.error || `Không thể tải dữ liệu (HTTP ${response.status}).`);
     return payload.data ?? payload;
+}
+
+function resolveOrderImageUrl(value) {
+    const raw = String(value ?? "").trim();
+    if (!raw) return "";
+    const normalized = raw.replace(/\\/g, "/");
+    if (/^(?:https?:|data:|blob:)/i.test(normalized)) return normalized;
+    const frontendPrefix = window.location.pathname.startsWith("/FE/") ? "/FE" : "";
+    const imagesIndex = normalized.toLowerCase().indexOf("/images/");
+    if (imagesIndex >= 0) {
+        return new URL(`${frontendPrefix}/${normalized.slice(imagesIndex + 1)}`, window.location.origin).href;
+    }
+    if (/^(?:images\/|menuitems\/|fca test\/)/i.test(normalized)) {
+        const assetPath = /^images\//i.test(normalized)
+            ? normalized
+            : `images/menuItems/${normalized.replace(/^menuitems\//i, "")}`;
+        return new URL(`${frontendPrefix}/${assetPath}`, window.location.origin).href;
+    }
+    return new URL(normalized.replace(/^\/+/, ""), `${window.FCA_SHELL?.apiOrigin || "http://localhost:8080"}/`).href;
 }
 
 function renderCancelAction(order) {
@@ -299,6 +309,9 @@ function openCancelConfirmation() {
     cancelModalPreviousFocus = document.activeElement;
     $("cancel-confirm-error").hidden = true;
     $("cancel-confirm-error").textContent = "";
+    document.querySelectorAll('input[name="cancel-reason"]').forEach(input => { input.checked = false; });
+    $("cancel-other-reason").hidden = true;
+    $("cancel-other-reason-input").value = "";
     $("cancel-confirm-modal").hidden = false;
     $("cancel-confirm-modal").setAttribute("aria-hidden", "false");
     document.body.classList.add("receive-modal-open");
@@ -317,17 +330,48 @@ function closeCancelConfirmation() {
 function setCancelModalProcessing(processing) {
     $("cancel-confirm-keep").disabled = processing;
     $("cancel-confirm-submit").disabled = processing;
-    $("cancel-confirm-submit").textContent = processing ? "Đang hủy đơn..." : "Đồng ý hủy đơn";
+    $("cancel-confirm-submit").textContent = processing ? "Đang hủy đơn..." : "Xác nhận hủy đơn";
+}
+
+const CANCEL_REASON_LABELS = {
+    ADDRESS_CHANGE: "Muốn thay đổi địa chỉ giao hàng",
+    VOUCHER_CHANGE: "Muốn thay đổi voucher",
+    ITEM_CHANGE: "Muốn thay đổi món ăn",
+    OTHER: "Lý do khác"
+};
+
+function selectedCancellation() {
+    const selected = document.querySelector('input[name="cancel-reason"]:checked');
+    if (!selected) return null;
+    const reasonCode = selected.value;
+    const customReason = $("cancel-other-reason-input").value.trim();
+    return {
+        reasonCode,
+        reason: reasonCode === "OTHER" ? customReason : CANCEL_REASON_LABELS[reasonCode]
+    };
 }
 
 async function cancelCurrentOrder() {
     if (cancelPending || !currentOrder?.id) return;
+    const cancellation = selectedCancellation();
+    if (!cancellation) {
+        $("cancel-confirm-error").textContent = "Vui lòng chọn lý do hủy đơn hàng.";
+        $("cancel-confirm-error").hidden = false;
+        return;
+    }
+    if (cancellation.reasonCode === "OTHER" && !cancellation.reason) {
+        $("cancel-confirm-error").textContent = "Vui lòng nhập lý do bạn muốn hủy.";
+        $("cancel-confirm-error").hidden = false;
+        $("cancel-other-reason-input").focus();
+        return;
+    }
     cancelPending = true;
     setCancelModalProcessing(true);
     renderCancelAction(currentOrder);
     try {
         const updated = await request(`/api/v1/orders/${encodeURIComponent(currentOrder.id)}/cancel`, {
-            method: "PATCH"
+            method: "PATCH",
+            body: JSON.stringify(cancellation)
         });
         hideNotice();
         renderOrder(updated);
@@ -569,12 +613,30 @@ function renderItems(items) {
             item.lineTotal ??
             unitPrice * quantity
         );
+        const imageUrl = resolveOrderImageUrl(item.imageUrl ?? item.image);
 
         totalQuantity += quantity;
 
         const row = document.createElement("div");
         row.className = "order-item";
 
+        const main = document.createElement("div");
+        main.className = "order-item-main";
+        const image = imageUrl ? document.createElement("img") : document.createElement("div");
+        if (imageUrl) {
+            image.className = "order-item-image";
+            image.src = imageUrl;
+            image.alt = String(name);
+            image.addEventListener("error", () => {
+                const fallback = document.createElement("div");
+                fallback.className = "order-item-image-fallback";
+                fallback.innerHTML = '<span class="material-symbols-outlined">restaurant_menu</span>';
+                image.replaceWith(fallback);
+            }, { once: true });
+        } else {
+            image.className = "order-item-image-fallback";
+            image.innerHTML = '<span class="material-symbols-outlined">restaurant_menu</span>';
+        }
         const info = document.createElement("div");
 
         const title = document.createElement("h3");
@@ -582,15 +644,28 @@ function renderItems(items) {
 
         const detail = document.createElement("p");
         detail.textContent =
-            "Số lượng: " + quantity +
-            " × " + formatMoney(unitPrice);
+            "Số lượng: " + quantity + " · Đơn giá: " + formatMoney(unitPrice);
 
+        info.append(title, detail);
+        const note = String(item.note ?? "").trim();
+        if (note) {
+            const noteElement = document.createElement("p");
+            noteElement.className = "order-item-note";
+            noteElement.textContent = "Ghi chú: " + note;
+            info.appendChild(noteElement);
+        }
+
+        const priceBox = document.createElement("div");
+        priceBox.className = "order-item-total";
+        const priceLabel = document.createElement("span");
+        priceLabel.textContent = "Thành tiền";
         const price = document.createElement("strong");
         price.className = "order-item-price";
         price.textContent = formatMoney(lineTotal);
+        priceBox.append(priceLabel, price);
 
-        info.append(title, detail);
-        row.append(info, price);
+        main.append(image, info);
+        row.append(main, priceBox);
         container.appendChild(row);
     });
 
@@ -601,6 +676,10 @@ function renderOrder(order) {
     currentOrder = order;
     renderCancelAction(order);
     renderReceivedAction(order);
+    const cancellationDetail = String(order.cancellationDetail ?? "").trim();
+    const cancellationWrapper = $("order-cancellation-detail");
+    cancellationWrapper.hidden = getOrderStatus(order) !== "CANCELLED" || !cancellationDetail;
+    $("order-cancellation-reason").textContent = cancellationDetail;
 
     const orderId =
         order.orderCode ??
@@ -617,6 +696,13 @@ function renderOrder(order) {
         order.orderDate ??
         order.createdDate
     );
+    renderDeliveryEstimate(order);
+    const shipperPendingStatuses = new Set(["PENDING", "AWAITING_PAYMENT", "CONFIRMED", "PREPARING"]);
+    $("shipperName").textContent = String(order.shipperName || "").trim()
+        || (shipperPendingStatuses.has(getOrderStatus(order))
+            ? "Đang chờ phân công nhân viên giao hàng"
+            : "Chưa có tài xế");
+    $("shipperPhone").textContent = String(order.shipperPhone || "").trim() || "—";
     $("restaurantName").textContent = order.restaurantName || "--";
 
     $("paymentMethod").textContent =
@@ -667,9 +753,6 @@ function renderOrder(order) {
         order.address ??
         "--";
 
-    $("orderNote").textContent =
-        order.deliveryNote ?? order.note ?? order.orderNote ?? "Không có ghi chú";
-
     renderStatus(getOrderStatus(order));
 
     renderItems(
@@ -678,6 +761,17 @@ function renderOrder(order) {
         order.details ??
         []
     );
+}
+
+function renderDeliveryEstimate(order) {
+    const estimate = order.estimatedDeliveryAt;
+    const distance = Number(order.deliveryDistanceKm);
+    $("estimatedDeliveryAt").textContent = estimate ? formatDate(estimate) : "Chưa xác định";
+    $("deliveryDistance").textContent = Number.isFinite(distance)
+        ? `${new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(distance)} km`
+        : "Chưa xác định";
+
+    $("deliveryOverdueAlert").hidden = order.deliveryOverdue !== true;
 }
 
 function renderOrderList(orders) {
@@ -724,8 +818,8 @@ async function fetchOrder(requestedOrderId) {
     const refreshBtn = $("refreshBtn");
     const refreshIcon = $("refreshIcon");
 
-    refreshBtn.disabled = true;
-    refreshIcon.classList.add("spin");
+    if (refreshBtn) refreshBtn.disabled = true;
+    refreshIcon?.classList.add("spin");
 
     try {
         let order;
@@ -776,32 +870,13 @@ async function fetchOrder(requestedOrderId) {
         );
     } finally {
         isLoading = false;
-        refreshBtn.disabled = false;
-        refreshIcon.classList.remove("spin");
+        if (refreshBtn) refreshBtn.disabled = false;
+        refreshIcon?.classList.remove("spin");
         if (orderRefreshQueued) {
             orderRefreshQueued = false;
             fetchOrder(requestedOrderId || currentOrder?.id);
         }
     }
-}
-
-function startAutoRefresh() {
-    if (refreshTimer) {
-        clearInterval(refreshTimer);
-    }
-
-    refreshTimer = setInterval(() => {
-        /*
-         * Không tự gọi lại sau khi đơn hoàn tất.
-         */
-        if (lastStatusCode === "COMPLETED" || lastStatusCode === "CANCELLED") {
-            clearInterval(refreshTimer);
-            refreshTimer = null;
-            return;
-        }
-
-        fetchOrder();
-    }, REFRESH_INTERVAL);
 }
 
 function initializeOrderRealtime() {
@@ -832,11 +907,13 @@ function initializeOrderRealtime() {
             updateOrderListStatus(event);
 
             const visibleOrderId = getOrderIdFromUrl() || currentOrder?.id;
-            if (visibleOrderId && eventKey === String(visibleOrderId)
-                    && currentOrder && eventKey === String(currentOrder.id)) {
-                currentOrder = mergeOrderEvent(currentOrder, event);
+            if (visibleOrderId && eventKey === String(visibleOrderId)) {
+                if (currentOrder && eventKey === String(currentOrder.id)) {
+                    currentOrder = mergeOrderEvent(currentOrder, event);
+                    renderOrder(currentOrder);
+                }
+                await fetchOrder(eventKey);
                 pendingOrderEvents.delete(eventKey);
-                renderOrder(currentOrder);
                 markRealtimeUpdated();
             }
         },
@@ -852,10 +929,19 @@ function initializeOrderRealtime() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    $("refreshBtn").addEventListener("click", () => fetchOrder());
+    $("refreshBtn")?.addEventListener("click", () => fetchOrder());
     $("cancel-order-btn")?.addEventListener("click", openCancelConfirmation);
     $("cancel-confirm-keep")?.addEventListener("click", closeCancelConfirmation);
     $("cancel-confirm-submit")?.addEventListener("click", cancelCurrentOrder);
+    document.querySelectorAll('input[name="cancel-reason"]').forEach(input => {
+        input.addEventListener("change", () => {
+            const isOther = input.checked && input.value === "OTHER";
+            $("cancel-other-reason").hidden = !isOther;
+            if (!isOther) $("cancel-other-reason-input").value = "";
+            $("cancel-confirm-error").hidden = true;
+            if (isOther) $("cancel-other-reason-input").focus();
+        });
+    });
     const cancelOverlay = $("cancel-confirm-overlay");
     cancelOverlay?.addEventListener("pointerdown", () => {
         cancelPointerStartedOnOverlay = true;

@@ -140,15 +140,6 @@
                     </p>
                 </div>
 
-                <button
-                    class="btn-secondary"
-                    id="refresh-btn"
-                    type="button"
-                >
-                    <span class="material-symbols-outlined">refresh</span>
-                    Làm mới dữ liệu
-                </button>
-
             </section>
 
             <!-- MESSAGE -->
@@ -488,6 +479,52 @@
 
     </div>
 
+</div>
+
+<!-- LOCK ACCOUNT CONFIRMATION -->
+<div class="modal hidden" id="lock-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="lock-confirm-title">
+    <div class="modal-backdrop" data-close-lock-modal></div>
+    <div class="modal-content modal-small confirmation-card warning-confirmation">
+        <div class="confirmation-icon"><span class="material-symbols-outlined">lock</span></div>
+        <div class="confirmation-copy">
+            <span class="page-label">ACCOUNT SECURITY</span>
+            <h2 id="lock-confirm-title">Xác nhận khóa tài khoản</h2>
+            <p id="lock-confirm-message">Bạn có chắc chắn muốn khóa tài khoản này không?</p>
+            <div class="confirmation-target" id="lock-account-name">—</div>
+        </div>
+        <form id="lock-confirm-form" novalidate>
+            <div class="form-group" id="lock-reason-group">
+                <label for="lock-reason">Lý do khóa tài khoản *</label>
+                <textarea id="lock-reason" maxlength="500" placeholder="Nhập lý do khóa tài khoản..."></textarea>
+            </div>
+            <p class="confirmation-error" id="lock-confirm-error" hidden></p>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="cancel-lock-confirm">Hủy</button>
+                <button type="submit" class="btn-primary confirmation-submit" id="submit-lock-confirm">Xác nhận khóa</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- UNLOCK ACCOUNT CONFIRMATION -->
+<div class="modal hidden" id="unlock-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="unlock-confirm-title">
+    <div class="modal-backdrop" data-close-unlock-modal></div>
+    <div class="modal-content modal-small confirmation-card unlock-confirmation">
+        <div class="confirmation-icon"><span class="material-symbols-outlined">lock_open</span></div>
+        <div class="confirmation-copy">
+            <span class="page-label">ACCOUNT SECURITY</span>
+            <h2 id="unlock-confirm-title">Xác nhận mở khóa tài khoản</h2>
+            <p>Bạn có chắc chắn muốn mở khóa tài khoản này không?</p>
+            <div class="confirmation-target" id="unlock-account-name">—</div>
+        </div>
+        <form id="unlock-confirm-form" novalidate>
+            <p class="confirmation-error" id="unlock-confirm-error" hidden></p>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="cancel-unlock-confirm">Hủy</button>
+                <button type="submit" class="btn-primary unlock-confirmation-submit" id="submit-unlock-confirm">Xác nhận mở khóa</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script src="admin-accounts.js"></script>

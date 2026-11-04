@@ -13,6 +13,7 @@ const API_ENDPOINTS = {
     update: "/restaurants",
     delete: "/restaurants",
     status: "/restaurants",
+    confirmationMode: restaurantId => `/admin/restaurants/${restaurantId}/confirmation-mode`,
     menuItemsByRestaurant: "/menu-items/restaurant",
     workforce: restaurantId => `/admin/restaurants/${restaurantId}`
 };
@@ -35,10 +36,13 @@ const state = {
     loading: false,
     menuItems: [],
     menuLoadingFor: null,
-    employees: []
+    employees: [],
+    allEmployees: []
 };
 
 const $ = id => document.getElementById(id);
+let pendingDeleteBranch = null;
+let deleteBranchPending = false;
 
 /* =========================================
    FORMAT
@@ -75,22 +79,46 @@ function escapeHTML(value) {
     );
 }
 
+function frontendAssetUrl(path) {
+    const prefix = window.location.pathname.startsWith("/FE/") ? "/FE" : "";
+    return new URL(`${prefix}/${String(path).replace(/^\/+/, "")}`, window.location.origin).href;
+}
+
 function resolveImageUrl(value) {
     const url = String(value ?? "").trim();
     if (!url) return "";
 
+    const normalized = url.replace(/\\/g, "/");
+    if (/^(?:https?:|data:|blob:)/i.test(normalized)) {
+        try {
+            return new URL(normalized, window.location.href).href;
+        } catch (_error) {
+            return url;
+        }
+    }
+    const imagesIndex = normalized.toLowerCase().indexOf("/images/");
+    if (imagesIndex >= 0) {
+        return frontendAssetUrl(normalized.slice(imagesIndex + 1));
+    }
+    if (/^images\//i.test(normalized)) {
+        return frontendAssetUrl(normalized);
+    }
+    if (/^(?:restaurant\/)?fca test\//i.test(normalized)) {
+        return frontendAssetUrl(`images/restaurant/${normalized.replace(/^restaurant\//i, "")}`);
+    }
+    if (/^(?:anh-pho|pho-thai-1|quan-pho-sang-trong)\.jpg$/i.test(normalized)) {
+        return frontendAssetUrl(`images/restaurant/FCA Test/${normalized}`);
+    }
+
     try {
         const parsed = new URL(url, window.location.href);
-        if (parsed.origin === window.location.origin && /^\/images\//i.test(parsed.pathname)) {
-            const prefix = window.location.pathname.startsWith("/FE/") ? "/FE" : "";
-            return `${prefix}${parsed.pathname}${parsed.search}${parsed.hash}`;
-        }
+        return parsed.href;
     } catch (_error) {
         return url;
     }
-
-    return url;
 }
+
+const RESTAURANT_IMAGE_FALLBACK = frontendAssetUrl("images/restaurant/FCA Test/quan-pho-sang-trong.jpg");
 
 function updateBranchImagePreview() {
     const preview = $("branch-image-preview");
@@ -98,7 +126,13 @@ function updateBranchImagePreview() {
     const value = $("branch-image-url").value.trim();
     preview.classList.toggle("empty", !value);
     image.removeAttribute("src");
-    if (value) image.src = value;
+    if (value) {
+        image.onerror = () => {
+            image.onerror = null;
+            image.src = RESTAURANT_IMAGE_FALLBACK;
+        };
+        image.src = resolveImageUrl(value);
+    }
 }
 
 /* =========================================
@@ -136,12 +170,7 @@ function setLoading(loading) {
 
     state.loading = loading;
 
-    $("refresh-btn").disabled = loading;
     $("add-branch-btn").disabled = loading;
-
-    $("refresh-btn").querySelector(
-        ".material-symbols-outlined"
-    ).classList.toggle("spinning", loading);
 }
 
 /* =========================================
@@ -256,7 +285,7 @@ function normalizeBranch(raw) {
         longitude: raw.longitude ?? null,
         baseDistanceKm: raw.baseDistanceKm ?? null,
         additionalFeePerKm: raw.additionalFeePerKm ?? null,
-        imageUrl: resolveImageUrl(raw.imageUrl),
+        imageUrl: resolveImageUrl(raw.imageUrl) || RESTAURANT_IMAGE_FALLBACK,
         imageUrl2: resolveImageUrl(raw.imageUrl2),
         imageUrl3: resolveImageUrl(raw.imageUrl3),
         categoryStatus: raw.categoryStatus ?? "",
@@ -579,7 +608,7 @@ function renderBranchList() {
 
                     <div class="branch-main-info">
 
-                        ${branch.imageUrl ? `<img class="branch-image" src="${escapeHTML(branch.imageUrl)}" alt="${escapeHTML(branch.name || "Nhà hàng")}">` : `
+                        ${branch.imageUrl ? `<img class="branch-image" src="${escapeHTML(branch.imageUrl)}" alt="${escapeHTML(branch.name || "Nhà hàng")}" onerror="this.onerror=null;this.src='${escapeHTML(RESTAURANT_IMAGE_FALLBACK)}'">` : `
                             <div class="branch-symbol"><span class="material-symbols-outlined">storefront</span></div>`}
 
                         <div>
@@ -707,70 +736,22 @@ function renderBranchDetail() {
     const status = getStatus(branch.status);
 
     container.innerHTML = `
-
-        ${branch.imageUrl ? `<img class="branch-detail-image" src="${escapeHTML(branch.imageUrl)}" alt="${escapeHTML(branch.name || "Nhà hàng")}">` : ""}
-
-        <span class="status ${status.className}">
-            ${escapeHTML(status.label)}
-        </span>
-
-        <h3 class="detail-name">
-            ${escapeHTML(branch.name || "Chưa có tên")}
-        </h3>
-
-        <div class="detail-item">
-            <span>Địa chỉ</span>
-            <strong>
-                ${escapeHTML(branch.address || "—")}
-            </strong>
+        <div class="branch-detail-hero">
+            ${branch.imageUrl ? `<img class="branch-detail-image" src="${escapeHTML(resolveImageUrl(branch.imageUrl))}" alt="${escapeHTML(branch.name || "Nhà hàng")}" onerror="this.onerror=null;this.src='${escapeHTML(RESTAURANT_IMAGE_FALLBACK)}'">` : `<div class="branch-detail-image branch-detail-placeholder"><span class="material-symbols-outlined">storefront</span></div>`}
+            <div><span class="status ${status.className}">${escapeHTML(status.label)}</span><h3 class="detail-name">${escapeHTML(branch.name || "Chưa có tên")}</h3><p>${escapeHTML(branch.address || "Chưa có địa chỉ")}</p></div>
         </div>
-
-        <div class="detail-item">
-            <span>Danh mục</span>
-            <strong>
-                ${escapeHTML(branch.categoryStatus || "—")}
-            </strong>
-        </div>
-
-        <div class="detail-item">
-            <span>Giờ hoạt động</span>
-            <strong>
-                ${escapeHTML(branch.openingTime || "—")} – ${escapeHTML(branch.closingTime || "—")}
-            </strong>
-        </div>
-
-        <div class="detail-item">
-            <span>Số điện thoại</span>
-            <strong>
-                ${escapeHTML(branch.phone || "—")}
-            </strong>
-        </div>
-
-        <div class="detail-item">
-            <span>Phí giao hàng</span>
-            <strong>
-                ${branch.deliveryFee !== null ? formatNumber(branch.deliveryFee) + "đ" : "—"}
-            </strong>
-        </div>
-
-        <div class="detail-item">
-            <span>Bán kính giao hàng</span>
-            <strong>
-                ${branch.deliveryRadiusKm !== null ? formatNumber(branch.deliveryRadiusKm) + " km" : "—"}
-            </strong>
-        </div>
-
-        <div class="detail-item">
-            <span>Tọa độ</span>
-            <strong>${escapeHTML(branch.latitude ?? "—")}, ${escapeHTML(branch.longitude ?? "—")}</strong>
-        </div>
-
-        <div class="detail-item">
-            <span>Xác nhận đơn</span>
-            <strong>${escapeHTML(branch.orderConfirmationMode || "—")}</strong>
-        </div>
-
-    `;
+        <section class="detail-group"><h4>Thông tin liên hệ &amp; vận hành</h4><div class="detail-grid">
+            <div class="detail-item"><span>Số điện thoại</span><strong>${escapeHTML(branch.phone || "—")}</strong></div>
+            <div class="detail-item"><span>Danh mục</span><strong>${escapeHTML(branch.categoryStatus || "—")}</strong></div>
+            <div class="detail-item"><span>Giờ hoạt động</span><strong>${escapeHTML(branch.openingTime || "—")} – ${escapeHTML(branch.closingTime || "—")}</strong></div>
+            <div class="detail-item"><span>Xác nhận đơn</span><strong>${escapeHTML(branch.orderConfirmationMode || "—")}</strong></div>
+        </div></section>
+        <section class="detail-group"><h4>Giao hàng &amp; vị trí</h4><div class="detail-grid">
+            <div class="detail-item"><span>Phí giao hàng</span><strong>${branch.deliveryFee !== null ? formatNumber(branch.deliveryFee) + "đ" : "—"}</strong></div>
+            <div class="detail-item"><span>Bán kính giao hàng</span><strong>${branch.deliveryRadiusKm !== null ? formatNumber(branch.deliveryRadiusKm) + " km" : "—"}</strong></div>
+            <div class="detail-item detail-wide"><span>Địa chỉ</span><strong>${escapeHTML(branch.address || "—")}</strong></div>
+            <div class="detail-item detail-wide"><span>Tọa độ</span><strong>${escapeHTML(branch.latitude ?? "—")}, ${escapeHTML(branch.longitude ?? "—")}</strong></div>
+        </div></section>`;
 
     $("edit-selected-btn").disabled = false;
 }
@@ -833,29 +814,73 @@ const responseData = response => response?.data ?? response;
 
 async function loadEmployees() {
     const container = $("employee-list");
+    const restaurantId = state.selectedBranchId;
     container.innerHTML = '<div class="empty-state">Đang tải nhân sự…</div>';
-    const params = new URLSearchParams();
-    const keyword = $("employee-search").value.trim();
-    if (keyword) params.set("keyword", keyword);
-    if ($("employee-position-filter").value) params.set("position", $("employee-position-filter").value);
-    if ($("employee-status-filter").value) params.set("status", $("employee-status-filter").value);
+    $("total-employee-count").textContent = "…";
+    $("active-employee-count").textContent = "…";
+    $("active-shipper-count").textContent = "…";
     try {
-        const response = await apiRequest(`${API_ENDPOINTS.workforce(state.selectedBranchId)}/employees?${params}`);
-        state.employees = responseData(response) || [];
-        renderEmployees();
+        const response = await apiRequest(`${API_ENDPOINTS.workforce(restaurantId)}/employees`);
+        if (String(state.selectedBranchId) !== String(restaurantId)) return;
+        state.allEmployees = responseData(response) || [];
+        filterEmployees();
     } catch (error) {
+        state.allEmployees = [];
+        state.employees = [];
+        $("total-employee-count").textContent = "—";
+        $("active-employee-count").textContent = "—";
+        $("active-shipper-count").textContent = "—";
+        $("workforce-summary").replaceChildren();
         container.innerHTML = `<div class="empty-state error">${escapeHTML(error.message)}</div>`;
     }
 }
 
+function filterEmployees() {
+    const keyword = $("employee-search").value.trim().toLocaleLowerCase("vi");
+    const position = $("employee-position-filter").value;
+    const status = $("employee-status-filter").value;
+    state.employees = state.allEmployees.filter(employee => {
+        const searchable = [employee.fullName, employee.phoneNumber, employee.employeeCode]
+            .map(value => String(value || "").toLocaleLowerCase("vi"));
+        return (!keyword || searchable.some(value => value.includes(keyword)))
+            && (!position || employee.position === position)
+            && (!status || employee.status === status);
+    });
+    renderEmployees();
+}
+
 function renderEmployees() {
-    const active = state.employees.filter(employee => employee.status === "ACTIVE");
+    const active = state.allEmployees.filter(employee => employee.status === "ACTIVE");
     const groups = active.reduce((result, employee) => ((result[employee.position] = (result[employee.position] || 0) + 1), result), {});
+    $("total-employee-count").textContent = state.allEmployees.length;
+    $("active-employee-count").textContent = active.length;
+    $("active-shipper-count").textContent = groups.SHIPPER || 0;
     $("workforce-summary").innerHTML = Object.entries(workforceLabels).map(([key,label]) => `<button type="button" data-position-summary="${key}"><strong>${groups[key] || 0}</strong><span>${label}</span></button>`).join("");
-    $("employee-list").innerHTML = state.employees.length ? state.employees.map(employee => {
+    const rows = state.employees.map(employee => {
         const remaining = employee.status === "PENDING_TERMINATION" ? Math.max(0, Math.ceil((new Date(employee.terminationEffectiveAt) - Date.now()) / 86400000)) : null;
-        return `<article class="employee-card"><div><strong>${escapeHTML(employee.fullName)}</strong><small>${escapeHTML(employee.employeeCode)} · ${escapeHTML(workforceLabels[employee.position] || employee.position)}</small><span class="employee-status ${employee.status.toLowerCase()}">${escapeHTML(employmentLabels[employee.status] || employee.status)}</span>${remaining !== null ? `<small>Còn khoảng ${remaining} ngày · ${escapeHTML(employee.terminationReason || "")}</small>` : ""}</div><div><b>${formatNumber(employee.monthlySalary)}đ/tháng</b><small>${escapeHTML(employee.phoneNumber)}</small></div><div class="employee-actions"><button data-employee-history="${employee.id}">Lịch sử</button>${employee.status !== "TERMINATED" ? `<button data-employee-edit="${employee.id}">Chỉnh sửa</button>` : ""}${employee.status === "ACTIVE" ? `<button class="danger" data-employee-terminate="${employee.id}">Chấm dứt hợp đồng</button>` : ""}${employee.status === "PENDING_TERMINATION" ? `<button data-employee-cancel="${employee.id}">Hủy yêu cầu</button>` : ""}</div></article>`;
-    }).join("") : '<div class="empty-state">Quán chưa có hồ sơ nhân viên phù hợp.</div>';
+        return `<tr><td><strong>${escapeHTML(employee.fullName)}</strong><small>${escapeHTML(employee.employeeCode)}</small></td><td>${escapeHTML(employee.phoneNumber)}</td><td>${escapeHTML(workforceLabels[employee.position] || employee.position)}</td><td><strong>${formatNumber(employee.monthlySalary)}đ</strong><small>/ tháng</small></td><td><span class="employee-status ${employee.status.toLowerCase()}">${escapeHTML(employmentLabels[employee.status] || employee.status)}</span>${remaining !== null ? `<small class="termination-note">Còn khoảng ${remaining} ngày</small>` : ""}</td><td><div class="employee-actions"><button data-employee-view="${employee.id}">Xem</button>${employee.status !== "TERMINATED" ? `<button data-employee-edit="${employee.id}">Sửa</button><button data-employee-salary="${employee.id}">Cập nhật lương</button>` : ""}<button data-employee-history="${employee.id}">Lịch sử</button>${employee.status === "ACTIVE" ? `<button class="danger" data-employee-terminate="${employee.id}">Nghỉ việc</button>` : ""}${employee.status === "PENDING_TERMINATION" ? `<button data-employee-cancel="${employee.id}">Hủy yêu cầu</button>` : ""}</div></td></tr>`;
+    }).join("");
+    $("employee-list").innerHTML = rows ? `<div class="employee-table-wrap"><table class="employee-table"><thead><tr><th>Nhân viên</th><th>Liên hệ</th><th>Vai trò</th><th>Lương hiện tại</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty-state">Không có hồ sơ nhân sự phù hợp với bộ lọc.</div>';
+}
+
+function formatWorkforceDate(value, includeTime = false) {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat("vi-VN", includeTime ? {dateStyle:"short",timeStyle:"short"} : {dateStyle:"short"}).format(date);
+}
+
+function openEmployeeDetail(employee) {
+    const termination = employee.status === "PENDING_TERMINATION" ? `<section class="employee-detail-alert"><strong>Đang chờ chấm dứt hợp đồng</strong><span>Lý do: ${escapeHTML(employee.terminationReason || "—")}</span><span>Yêu cầu lúc: ${escapeHTML(formatWorkforceDate(employee.terminationRequestedAt, true))}</span><span>Dự kiến hoàn tất: ${escapeHTML(formatWorkforceDate(employee.terminationEffectiveAt, true))}</span></section>` : "";
+    openWorkforceInfoDialog(`Hồ sơ · ${employee.fullName}`, `<div class="employee-detail-grid"><span>Mã nhân viên<strong>${escapeHTML(employee.employeeCode)}</strong></span><span>Trạng thái<strong>${escapeHTML(employmentLabels[employee.status] || employee.status)}</strong></span><span>Số điện thoại<strong>${escapeHTML(employee.phoneNumber)}</strong></span><span>Vai trò<strong>${escapeHTML(workforceLabels[employee.position] || employee.position)}</strong></span><span>Ngày bắt đầu<strong>${escapeHTML(formatWorkforceDate(employee.startDate))}</strong></span><span>Lương hiện tại<strong>${formatNumber(employee.monthlySalary)}đ/tháng</strong></span><span class="wide">Ghi chú<strong>${escapeHTML(employee.note || "Không có ghi chú")}</strong></span></div>${termination}`);
+}
+
+function openWorkforceInfoDialog(title, body) {
+    openWorkforceDialog(title, body, "Đóng", async () => {});
+    const form = document.querySelector(".workforce-dialog form");
+    const submit = form.querySelector('button[type="submit"]');
+    submit.type = "button";
+    submit.addEventListener("click", () => document.querySelector(".workforce-dialog")?.remove());
 }
 
 function openWorkforceDialog(title, body, submitLabel, onSubmit) {
@@ -873,6 +898,11 @@ function openEmployeeForm(employee = null) {
     openWorkforceDialog(employee ? "Chỉnh sửa nhân viên" : "Thêm nhân viên", `<label>Họ và tên<input name="fullName" required value="${value("fullName")}"></label><label>Số điện thoại<input name="phoneNumber" required value="${value("phoneNumber")}"></label><label>Chức vụ<select name="position" required>${positions}</select></label><label>Ngày bắt đầu<input name="startDate" type="date" required value="${value("startDate")}"></label><label>Lương tháng<input name="monthlySalary" type="number" min="0" required value="${value("monthlySalary")}"></label><label class="wide">Ghi chú<textarea name="note">${value("note")}</textarea></label>`, "Lưu", async form => { const payload=Object.fromEntries(form); payload.monthlySalary=Number(payload.monthlySalary); await apiRequest(`${API_ENDPOINTS.workforce(state.selectedBranchId)}/employees${employee?`/${employee.id}`:""}`, {method:employee?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); });
 }
 
+function openSalaryForm(employee) {
+    const today = new Date().toISOString().slice(0, 10);
+    openWorkforceDialog(`Cập nhật lương · ${employee.fullName}`, `<div class="salary-current"><span>Lương hiện tại</span><strong>${formatNumber(employee.monthlySalary)}đ/tháng</strong></div><label>Mức lương mới<input name="salary" type="number" min="0" required value="${escapeHTML(employee.monthlySalary)}"></label><label>Ngày hiệu lực<input name="effectiveFrom" type="date" required value="${today}"></label>`, "Cập nhật lương", async form => apiRequest(`${API_ENDPOINTS.workforce(state.selectedBranchId)}/employees/${employee.id}/salary`, {method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({salary:Number(form.get("salary")),effectiveFrom:form.get("effectiveFrom")})}));
+}
+
 function openTermination(employee) {
     openWorkforceDialog("Chấm dứt hợp đồng", `<p>Nhân viên sẽ chuyển sang trạng thái chờ và chấm dứt chính thức sau 3 ngày.</p><label>Lý do<textarea name="reason" required minlength="3"></textarea></label>`, "Xác nhận chấm dứt", async form => apiRequest(`${API_ENDPOINTS.workforce(state.selectedBranchId)}/employees/${employee.id}/termination`, {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:form.get("reason")})}));
 }
@@ -886,14 +916,31 @@ async function openEmployeeHistory(employee) {
         const base=`${API_ENDPOINTS.workforce(state.selectedBranchId)}/employees/${employee.id}`;
         const [salaryResponse,terminationResponse]=await Promise.all([apiRequest(`${base}/salary-history`),apiRequest(`${base}/termination-history`)]);
         const salary=responseData(salaryResponse)||[],termination=responseData(terminationResponse)||[];
-        openWorkforceDialog(`Lịch sử · ${employee.fullName}`, `<section class="history-block"><h4>Lương</h4>${salary.length?salary.map(item=>`<p>${escapeHTML(item.effectiveFrom)}: ${formatNumber(item.oldSalary)}đ → <strong>${formatNumber(item.newSalary)}đ</strong></p>`).join(""):"<p>Chưa có lịch sử.</p>"}</section><section class="history-block"><h4>Hợp đồng</h4>${termination.length?termination.map(item=>`<p><strong>${escapeHTML(item.action)}</strong> · ${escapeHTML(item.reason)}${item.effectiveAt?` · hiệu lực ${escapeHTML(item.effectiveAt)}`:""}</p>`).join(""):"<p>Chưa có lịch sử.</p>"}</section>`, "Đóng", async()=>{});
-        const form=document.querySelector(".workforce-dialog form"),submit=form.querySelector('button[type="submit"]'); submit.type="button"; submit.addEventListener("click",()=>document.querySelector(".workforce-dialog")?.remove());
+        openWorkforceInfoDialog(`Lịch sử · ${employee.fullName}`, `<section class="history-block"><h4>Lịch sử thay đổi lương</h4>${salary.length?salary.map(item=>`<p><span>${escapeHTML(formatWorkforceDate(item.effectiveFrom))}</span><span>${formatNumber(item.oldSalary)}đ → <strong>${formatNumber(item.newSalary)}đ</strong></span></p>`).join(""):"<p>Chưa có lịch sử thay đổi lương.</p>"}</section><section class="history-block"><h4>Lịch sử hợp đồng</h4>${termination.length?termination.map(item=>`<p><span><strong>${escapeHTML(item.action)}</strong></span><span>${escapeHTML(item.reason)}${item.effectiveAt?` · hiệu lực ${escapeHTML(formatWorkforceDate(item.effectiveAt, true))}`:""}</span></p>`).join(""):"<p>Chưa có lịch sử nghỉ việc.</p>"}</section>`);
     } catch(error){showMessage(error.message,"error");}
 }
 
 async function loadCostReport() {
+    const restaurantId = state.selectedBranchId;
     const [year,month] = $("cost-period").value.split("-"); if(!year||!month){showMessage("Hãy chọn tháng báo cáo.","error");return;}
-    try { const data=responseData(await apiRequest(`${API_ENDPOINTS.workforce(state.selectedBranchId)}/cost-report?year=${year}&month=${Number(month)}`)); $("rent-amount").value=data.rentCost||0; const roles=Object.entries(data.salaryByPosition||{}).map(([role,salary])=>`<li>${escapeHTML(workforceLabels[role]||role)}: ${data.employeeCountByPosition?.[role]||0} người · <strong>${formatNumber(salary)}đ</strong></li>`).join(""); const people=(data.includedEmployees||[]).map(item=>`<li>${escapeHTML(item.employeeCode)} · ${escapeHTML(item.fullName)} · ${escapeHTML(workforceLabels[item.position]||item.position)}</li>`).join(""); $("cost-report").innerHTML=`<div class="cost-grid"><span>Nhân viên trong kỳ<strong>${data.activeEmployees}</strong></span><span>Shipper<strong>${data.activeShippers}</strong></span><span>Tổng lương<strong>${formatNumber(data.totalSalary)}đ</strong></span><span>Tiền thuê<strong>${formatNumber(data.rentCost)}đ</strong></span><span>Tổng chi phí vận hành<strong>${formatNumber(data.totalManagedOperatingCost)}đ</strong></span></div><div class="cost-details"><h4>Chi tiết theo chức vụ</h4><ul>${roles||"<li>Không có dữ liệu.</li>"}</ul><h4>Nhân viên được tính trong kỳ</h4><ul>${people||"<li>Không có dữ liệu.</li>"}</ul></div>`; } catch(error){$("cost-report").innerHTML=`<div class="empty-state error">${escapeHTML(error.message)}</div>`;}
+    const report = $("cost-report");
+    const button = $("load-cost-report-btn");
+    report.innerHTML = '<div class="empty-state">Đang tải báo cáo chi phí…</div>';
+    button.disabled = true;
+    try { const data=responseData(await apiRequest(`${API_ENDPOINTS.workforce(restaurantId)}/cost-report?year=${year}&month=${Number(month)}`)); if(String(state.selectedBranchId)!==String(restaurantId))return; $("rent-amount").value=data.rentCost||0; $("rent-current-value").textContent=`${formatNumber(data.rentCost)}đ / tháng`; const roles=Object.entries(data.salaryByPosition||{}).map(([role,salary])=>`<li>${escapeHTML(workforceLabels[role]||role)}: ${data.employeeCountByPosition?.[role]||0} người · <strong>${formatNumber(salary)}đ</strong></li>`).join(""); const people=(data.includedEmployees||[]).map(item=>`<li>${escapeHTML(item.employeeCode)} · ${escapeHTML(item.fullName)} · ${escapeHTML(workforceLabels[item.position]||item.position)}</li>`).join(""); report.innerHTML=`<div class="cost-grid"><span>Nhân viên trong kỳ<strong>${data.activeEmployees}</strong></span><span>Shipper<strong>${data.activeShippers}</strong></span><span>Tổng lương<strong>${formatNumber(data.totalSalary)}đ</strong></span><span>Tiền thuê<strong>${formatNumber(data.rentCost)}đ</strong></span><span class="cost-total">Tổng chi phí vận hành<strong>${formatNumber(data.totalManagedOperatingCost)}đ</strong></span></div><div class="cost-details"><div><h4>Chi tiết theo chức vụ</h4><ul>${roles||"<li>Không có dữ liệu.</li>"}</ul></div><div><h4>Nhân viên được tính trong kỳ</h4><ul>${people||"<li>Không có dữ liệu.</li>"}</ul></div></div>`; } catch(error){if(String(state.selectedBranchId)===String(restaurantId)){report.innerHTML=`<div class="empty-state error">${escapeHTML(error.message)}</div>`;$("rent-current-value").textContent="Không tải được dữ liệu";}} finally { if(String(state.selectedBranchId)===String(restaurantId))button.disabled = false; }
+}
+
+async function loadRentHistory() {
+    const container = $("rent-history");
+    const restaurantId = state.selectedBranchId;
+    container.innerHTML = '<div class="empty-state compact">Đang tải lịch sử tiền thuê…</div>';
+    try {
+        const history = responseData(await apiRequest(`${API_ENDPOINTS.workforce(restaurantId)}/rent-history`)) || [];
+        if (String(state.selectedBranchId) !== String(restaurantId)) return;
+        container.innerHTML = history.length ? `<div class="rent-history-table-wrap"><table class="rent-history-table"><thead><tr><th>Kỳ áp dụng</th><th>Mức thuê cũ</th><th>Mức thuê mới</th><th>Thời điểm thay đổi</th><th>Người thực hiện</th></tr></thead><tbody>${history.map(item=>`<tr><td>${String(item.month).padStart(2,"0")}/${item.year}</td><td>${item.oldAmount===null||item.oldAmount===undefined?"Chưa thiết lập":`${formatNumber(item.oldAmount)}đ`}</td><td><strong>${formatNumber(item.newAmount)}đ</strong></td><td>${escapeHTML(formatWorkforceDate(item.changedAt,true))}</td><td>${String(item.performedByRole||"").toUpperCase()==="ADMIN"?"Admin":item.performedByAccountId?`Tài khoản #${escapeHTML(item.performedByAccountId)}`:"—"}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty-state compact">Chi nhánh chưa có lịch sử thay đổi tiền thuê.</div>';
+    } catch (error) {
+        if (String(state.selectedBranchId) === String(restaurantId)) container.innerHTML = `<div class="empty-state compact error">${escapeHTML(error.message)}</div>`;
+    }
 }
 
 function setDetailTab(tab) {
@@ -902,7 +949,11 @@ function setDetailTab(tab) {
     document.querySelectorAll("[data-detail-panel]").forEach(panel =>
         panel.classList.toggle("active", panel.dataset.detailPanel === tab));
     if (tab === "menu" && state.selectedBranchId !== null) loadBranchMenu(state.selectedBranchId);
-    if (tab === "workforce" && state.selectedBranchId !== null) loadEmployees();
+    if (tab === "workforce" && state.selectedBranchId !== null) {
+        loadEmployees();
+        loadCostReport();
+        loadRentHistory();
+    }
 }
 
 function closeBranchDetail() {
@@ -949,13 +1000,14 @@ function openBranchModal(branch = null) {
         ? "Chỉnh sửa chi nhánh"
         : "Thêm chi nhánh mới";
 
-    $("branch-category").disabled = Boolean(branch);
+    $("branch-category").disabled = false;
     $("branch-image-url-2").disabled = Boolean(branch);
     $("branch-image-url-3").disabled = Boolean(branch);
     $("branch-status").disabled = !branch;
 
     if (!branch) {
         $("branch-status").value = "ACTIVE";
+        $("branch-confirmation-mode").value = "MANUAL";
     }
 
     if (branch) {
@@ -981,6 +1033,7 @@ function openBranchModal(branch = null) {
         $("branch-base-distance").value = branch.baseDistanceKm ?? "";
         $("branch-additional-fee").value = branch.additionalFeePerKm ?? "";
         $("branch-category").value = branch.categoryStatus || "RESTAURANT";
+        $("branch-confirmation-mode").value = branch.orderConfirmationMode || "MANUAL";
         $("branch-image-url").value = branch.imageUrl || "";
         $("branch-image-url-2").value = branch.imageUrl2 || "";
         $("branch-image-url-3").value = branch.imageUrl3 || "";
@@ -1117,15 +1170,19 @@ async function saveBranch(event) {
             : endpoint;
 
         const payload = { ...data };
+        const confirmationMode = $("branch-confirmation-mode").value;
         delete payload.active;
 
+        const currentBranch = isEditing
+            ? state.branches.find(item => String(item.id) === String(state.editingBranchId))
+            : null;
+
         if (isEditing) {
-            delete payload.categoryStatus;
             delete payload.imageUrl2;
             delete payload.imageUrl3;
         }
 
-        await apiRequest(url, {
+        const savedBranch = await apiRequest(url, {
 
             method: isEditing ? "PUT" : "POST",
 
@@ -1133,9 +1190,14 @@ async function saveBranch(event) {
 
         });
 
-        const currentBranch = isEditing
-            ? state.branches.find(item => String(item.id) === String(state.editingBranchId))
-            : null;
+        const savedData = responseData(savedBranch);
+        const savedBranchId = isEditing ? state.editingBranchId : savedData?.id;
+        if (savedBranchId && confirmationMode !== (currentBranch?.orderConfirmationMode || "MANUAL")) {
+            await apiRequest(API_ENDPOINTS.confirmationMode(savedBranchId), {
+                method: "PATCH",
+                body: JSON.stringify({ mode: confirmationMode })
+            });
+        }
 
         if (isEditing && currentBranch && currentBranch.active !== data.active) {
             await apiRequest(
@@ -1227,21 +1289,62 @@ function handleBranchAction(event) {
 }
 
 async function deleteBranch(branch) {
-    if (!window.confirm(`Xóa nhà hàng "${branch.name}"?`)) return;
+    pendingDeleteBranch = branch;
+    $("delete-branch-name").textContent = branch.name || `Quán ăn #${branch.id}`;
+    $("delete-branch-reason").value = "";
+    $("delete-branch-error").hidden = true;
+    $("delete-branch-modal").classList.remove("hidden");
+    window.setTimeout(() => $("delete-branch-reason").focus(), 0);
+}
+
+function closeDeleteBranchModal() {
+    if (deleteBranchPending) return;
+    $("delete-branch-modal").classList.add("hidden");
+    $("delete-branch-form").reset();
+    $("delete-branch-error").hidden = true;
+    pendingDeleteBranch = null;
+}
+
+async function confirmDeleteBranch(event) {
+    event.preventDefault();
+    if (!pendingDeleteBranch || deleteBranchPending) return;
+
+    const reason = $("delete-branch-reason").value.trim();
+    const errorElement = $("delete-branch-error");
+    if (!reason) {
+        errorElement.textContent = "Vui lòng nhập lý do xóa quán ăn.";
+        errorElement.hidden = false;
+        $("delete-branch-reason").focus();
+        return;
+    }
+
+    const branchId = pendingDeleteBranch.id;
+    const button = $("submit-delete-branch");
+    deleteBranchPending = true;
+    button.disabled = true;
+    button.textContent = "Đang xóa…";
+    errorElement.hidden = true;
 
     hideMessage();
 
     try {
         await apiRequest(
-            `${API_ENDPOINTS.delete}/${encodeURIComponent(branch.id)}`,
+            `${API_ENDPOINTS.delete}/${encodeURIComponent(branchId)}`,
             { method: "DELETE" }
         );
         state.selectedBranchId = null;
         showMessage("Xóa nhà hàng thành công.", "success");
+        deleteBranchPending = false;
+        closeDeleteBranchModal();
         await loadBranches();
     } catch (error) {
         console.error(error);
-        showMessage(error.message, "error");
+        errorElement.textContent = error.message;
+        errorElement.hidden = false;
+    } finally {
+        deleteBranchPending = false;
+        button.disabled = false;
+        if (pendingDeleteBranch) button.textContent = "Xác nhận xóa";
     }
 }
 
@@ -1293,11 +1396,6 @@ function initializePage() {
     let pointerStartedOutsideBranchContent = false;
     let pointerEndedOutsideBranchContent = false;
 
-    $("refresh-btn").addEventListener(
-        "click",
-        loadBranches
-    );
-
     $("add-branch-btn").addEventListener(
         "click",
         () => openBranchModal()
@@ -1313,26 +1411,40 @@ function initializePage() {
         closeBranchModal
     );
 
+    $("cancel-delete-branch").addEventListener("click", closeDeleteBranchModal);
+    $("delete-branch-form").addEventListener("submit", confirmDeleteBranch);
+    $("delete-branch-modal").addEventListener("click", event => {
+        if (event.target === $("delete-branch-modal") || event.target.hasAttribute("data-close-delete-modal")) {
+            closeDeleteBranchModal();
+        }
+    });
+
     $("close-detail-btn").addEventListener("click", closeBranchDetail);
     document.querySelector("[data-close-detail]").addEventListener("click", closeBranchDetail);
     document.querySelectorAll("[data-detail-tab]").forEach(button =>
         button.addEventListener("click", () => setDetailTab(button.dataset.detailTab)));
     $("cost-period").value = new Date().toISOString().slice(0, 7);
     $("add-employee-btn").addEventListener("click", () => openEmployeeForm());
-    $("employee-search").addEventListener("change", loadEmployees);
-    $("employee-position-filter").addEventListener("change", loadEmployees);
-    $("employee-status-filter").addEventListener("change", loadEmployees);
-    $("workforce-summary").addEventListener("click", event => { const button=event.target.closest("[data-position-summary]"); if(button){$("employee-position-filter").value=button.dataset.positionSummary;loadEmployees();} });
+    let employeeSearchTimer;
+    $("employee-search").addEventListener("input", () => { clearTimeout(employeeSearchTimer); employeeSearchTimer = setTimeout(filterEmployees, 300); });
+    $("employee-position-filter").addEventListener("change", filterEmployees);
+    $("employee-status-filter").addEventListener("change", filterEmployees);
+    $("workforce-summary").addEventListener("click", event => { const button=event.target.closest("[data-position-summary]"); if(button){$("employee-position-filter").value=button.dataset.positionSummary;filterEmployees();} });
     $("employee-list").addEventListener("click", async event => {
-        const edit=event.target.closest("[data-employee-edit]"), terminate=event.target.closest("[data-employee-terminate]"), cancel=event.target.closest("[data-employee-cancel]"), history=event.target.closest("[data-employee-history]");
+        const view=event.target.closest("[data-employee-view]"), edit=event.target.closest("[data-employee-edit]"), salary=event.target.closest("[data-employee-salary]"), terminate=event.target.closest("[data-employee-terminate]"), cancel=event.target.closest("[data-employee-cancel]"), history=event.target.closest("[data-employee-history]");
+        if(view) openEmployeeDetail(state.employees.find(item => String(item.id)===view.dataset.employeeView));
         if(history) openEmployeeHistory(state.employees.find(item => String(item.id)===history.dataset.employeeHistory));
         if(edit) openEmployeeForm(state.employees.find(item => String(item.id)===edit.dataset.employeeEdit));
+        if(salary) openSalaryForm(state.employees.find(item => String(item.id)===salary.dataset.employeeSalary));
         if(terminate) openTermination(state.employees.find(item => String(item.id)===terminate.dataset.employeeTerminate));
         if(cancel) openCancelTermination(state.employees.find(item => String(item.id)===cancel.dataset.employeeCancel));
     });
     $("load-cost-report-btn").addEventListener("click", loadCostReport);
-    $("save-rent-btn").addEventListener("click", async () => { const [year,month]=$("cost-period").value.split("-"); if(!year||!month||$("rent-amount").value===""){showMessage("Hãy nhập tháng và tiền thuê.","error");return;} try{await apiRequest(`${API_ENDPOINTS.workforce(state.selectedBranchId)}/rent`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({year:Number(year),month:Number(month),amount:Number($("rent-amount").value)})});showMessage("Đã lưu tiền thuê.","success");await loadCostReport();}catch(error){showMessage(error.message,"error");} });
+    $("save-rent-btn").addEventListener("click", async () => { const button=$("save-rent-btn");const [year,month]=$("cost-period").value.split("-"); if(!year||!month||$("rent-amount").value===""){showMessage("Hãy nhập tháng và tiền thuê.","error");return;} button.disabled=true;const label=button.textContent;button.textContent="Đang lưu…";try{await apiRequest(`${API_ENDPOINTS.workforce(state.selectedBranchId)}/rent`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({year:Number(year),month:Number(month),amount:Number($("rent-amount").value)})});showMessage("Đã lưu tiền thuê.","success");await Promise.all([loadCostReport(),loadRentHistory()]);}catch(error){showMessage(error.message,"error");}finally{button.disabled=false;button.textContent=label;} });
     document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && !$("delete-branch-modal").classList.contains("hidden")) {
+            closeDeleteBranchModal();
+        }
         if (event.key === "Escape" && !$("branch-detail-modal").classList.contains("hidden")) {
             closeBranchDetail();
         }
@@ -1366,7 +1478,7 @@ function initializePage() {
                 return;
             }
 
-            selectBranch(card.dataset.id);
+            selectBranch(card.dataset.id, false);
 
         }
     );

@@ -26,10 +26,9 @@ function showMessage(message, type = "info") {
 function hideMessage() { $("page-message").className = "message hidden"; }
 function setLoading(loading) {
     state.loading = loading;
-    ["refresh-btn", "apply-date-btn", "reset-date-btn", "branch-filter"].forEach(id => {
+    ["apply-date-btn", "reset-date-btn", "branch-filter"].forEach(id => {
         if ($(id)) $(id).disabled = loading;
     });
-    $("refresh-icon")?.classList.toggle("spinning", loading);
 }
 function localDate(date = new Date()) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -142,7 +141,6 @@ function initializePage() {
         state.fromDate = from; state.toDate = to; loadDashboard();
     });
     $("reset-date-btn").addEventListener("click", () => { setDefaultDates(); loadDashboard(); });
-    $("refresh-btn").addEventListener("click", loadDashboard);
     $("branch-filter").addEventListener("change", event => { state.restaurantId = event.target.value; loadDashboard(); });
     loadRestaurants();
     loadDashboard();

@@ -774,6 +774,18 @@ a {
     background: var(--warning-bg);
 }
 
+.delivery-estimate,
+.delivery-overdue {
+    display: block;
+    margin-top: 6px;
+    white-space: nowrap;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.delivery-estimate { color: var(--muted); }
+.delivery-overdue { color: var(--danger); }
+
 /* =========================
    ACTIONS
 ========================= */
@@ -1068,6 +1080,45 @@ a {
     overflow-wrap: anywhere;
 }
 
+.shipper-assignment {
+    margin-top: 22px;
+    padding: 18px;
+    border: 1px solid #dbe5e1;
+    border-radius: 12px;
+    background: #f7faf9;
+}
+
+.shipper-assignment > label {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.shipper-assignment-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.shipper-assignment-controls select {
+    min-width: 0;
+    flex: 1;
+    min-height: 42px;
+    padding: 0 12px;
+    border: 1px solid #ccd9d4;
+    border-radius: 9px;
+    background: #fff;
+    color: var(--text);
+}
+
+.shipper-assignment-message {
+    min-height: 18px;
+    margin: 8px 0 0;
+    color: #b42318;
+    font-size: 11px;
+}
+
 /* =========================
    TOAST
 ========================= */
@@ -1240,6 +1291,10 @@ a {
 
     .detail-item.full {
         grid-column: auto;
+    }
+
+    .shipper-assignment-controls {
+        flex-direction: column;
     }
 
     .modal-overlay {

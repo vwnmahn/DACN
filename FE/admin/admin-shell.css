@@ -200,6 +200,10 @@
 .admin-shell-sidebar .logout-button:hover { color: #ba1a1a; }
 
 .admin-shell-main { min-height: 100vh; margin-left: var(--admin-shell-width) !important; }
+.admin-shell-main > .content,
+.admin-shell-main > .page-content {
+    padding-top: 96px !important;
+}
 .admin-shell-topbar {
     position: fixed;
     inset: 0 0 auto var(--admin-shell-width);

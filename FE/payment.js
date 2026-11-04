@@ -7,12 +7,35 @@
   const LOCATION_KEY = 'fca_delivery_location';
   const CONTEXT_KEY = 'fca_checkout_context';
   const IDEMPOTENCY_KEY = 'fca_checkout_idempotency';
-  const state = { cart: [], account: null, accountError: null, location: null, context: {}, availability: null, submitting: false };
+  const state = { cart: [], restaurant: null, account: null, accountError: null, location: null, context: {}, availability: null, submitting: false };
   const $ = (id) => document.getElementById(id);
   const formatVND = (value) => `${new Intl.NumberFormat('vi-VN').format(Number(value) || 0)}đ`;
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[character]);
+
+  function frontendAssetUrl(path) {
+    const prefix = window.location.pathname.startsWith('/FE/') ? '/FE' : '';
+    return new URL(`${prefix}/${String(path).replace(/^\/+/, '')}`, window.location.origin).href;
+  }
+
+  function resolveImageUrl(value, kind = 'menuItems') {
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+    const normalized = raw.replace(/\\/g, '/');
+    if (/^(?:https?:|data:|blob:)/i.test(normalized)) return normalized;
+    const imagesIndex = normalized.toLowerCase().indexOf('/images/');
+    if (imagesIndex >= 0) return frontendAssetUrl(normalized.slice(imagesIndex + 1));
+    if (/^images\//i.test(normalized)) return frontendAssetUrl(normalized);
+    if (/^(?:restaurant|menuitems)\//i.test(normalized)) return frontendAssetUrl(`images/${normalized}`);
+    if (/^fca test\//i.test(normalized)) return frontendAssetUrl(`images/${kind}/${normalized}`);
+    if (normalized.startsWith('/') || /^(?:uploads?|files?)\//i.test(normalized)) {
+      return new URL(normalized.replace(/^\/+/, ''), `${API_ORIGIN}/`).href;
+    }
+    return frontendAssetUrl(`images/${kind}/${normalized}`);
+  }
+
+  const RESTAURANT_IMAGE_FALLBACK = frontendAssetUrl('images/restaurant/FCA Test/quan-pho-sang-trong.jpg');
 
   function readStorage(storage, key, fallback) {
     try { return JSON.parse(storage.getItem(key) || 'null') ?? fallback; }
@@ -114,18 +137,41 @@
     if ($('order-item-count')) $('order-item-count').textContent = `${count} món`;
     if ($('subtotal-count')) $('subtotal-count').textContent = String(count);
     if (!container) return;
-    container.innerHTML = state.cart.map((item) => {
+    const restaurantName = state.restaurant?.name || state.cart[0]?.restaurantName || 'Nhà hàng';
+    const restaurantImage = resolveImageUrl(state.restaurant?.imageUrl, 'restaurant') || RESTAURANT_IMAGE_FALLBACK;
+    const restaurantHeader = `<div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 mb-space-md">
+      <img class="h-14 w-14 shrink-0 rounded-lg object-cover" src="${escapeHtml(restaurantImage)}" alt="${escapeHtml(restaurantName)}" onerror="this.onerror=null;this.src='${escapeHtml(RESTAURANT_IMAGE_FALLBACK)}'">
+      <div><span class="text-xs text-outline">Nhà hàng phục vụ</span><strong class="block text-on-surface">${escapeHtml(restaurantName)}</strong></div>
+    </div>`;
+    container.innerHTML = restaurantHeader + state.cart.map((item) => {
       const quantity = Number(item.quantity) || 1;
-      const image = item.image ? `<img class="w-full h-full object-cover" src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}">`
-        : '<span class="material-symbols-outlined w-full h-full flex items-center justify-center text-outline">restaurant</span>';
+      const itemImage = resolveImageUrl(item.image ?? item.imageUrl, 'menuItems');
+      const image = itemImage ? `<img class="w-full h-full object-cover" src="${escapeHtml(itemImage)}" alt="${escapeHtml(item.name)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="material-symbols-outlined w-full h-full flex items-center justify-center text-outline" hidden>restaurant_menu</span>`
+        : '<span class="material-symbols-outlined w-full h-full flex items-center justify-center text-outline">restaurant_menu</span>';
+      const note = String(item.note || '').trim();
       return `<div class="flex items-center gap-space-sm pb-space-sm">
         <div class="w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-surface-container">${image}</div>
         <div class="flex-1 min-w-0"><div class="flex justify-between gap-2">
           <strong class="truncate">${escapeHtml(item.name || item.menuItemName || 'Món ăn')}</strong>
           <strong class="shrink-0">${formatVND((Number(item.price) || 0) * quantity)}</strong>
-        </div><span class="text-sm text-on-surface-variant">Số lượng: ${quantity}</span></div>
+        </div><span class="text-sm text-on-surface-variant">Số lượng: ${quantity}</span>
+        ${note ? `<p class="mt-1 text-sm text-on-surface-variant"><strong>Ghi chú:</strong> ${escapeHtml(note)}</p>` : ''}</div>
       </div>`;
     }).join('');
+  }
+
+  async function loadCheckoutRestaurant() {
+    const restaurantId = commonRestaurantId();
+    if (restaurantId == null) return;
+    try {
+      const restaurants = await request('/api/v1/restaurants/active');
+      state.restaurant = Array.isArray(restaurants)
+        ? restaurants.find(item => String(item.id) === String(restaurantId)) || null
+        : null;
+    } catch (error) {
+      console.warn('Không tải được ảnh nhà hàng khi thanh toán:', error);
+      state.restaurant = null;
+    }
   }
 
   function renderSummary() {
@@ -298,11 +344,15 @@
           restaurantId: commonRestaurantId(), idempotencyKey: getIdempotencyKey(),
           recipientName: state.location.recipientName || state.account.username,
           recipientPhone: state.location.recipientPhone || state.account.phoneNumber,
-          deliveryAddress: state.location.address, deliveryNote: $('shipper-note')?.value.trim() || null,
+          deliveryAddress: state.location.address, deliveryNote: null,
           paymentMethod: document.querySelector('input[name="payment_method"]:checked')?.value || 'COD',
           locale: 'vn', voucherCode: state.context.voucherCode || null,
           deliveryLatitude: state.location.latitude, deliveryLongitude: state.location.longitude,
-          items: state.cart.map((item) => ({ menuItemId: Number(item.id), quantity: Number(item.quantity) || 1 }))
+          items: state.cart.map((item) => ({
+            menuItemId: Number(item.id),
+            quantity: Number(item.quantity) || 1,
+            note: String(item.note || '').trim() || null
+          }))
         })
       });
       const createdOrderId = result.order?.id;
@@ -369,7 +419,7 @@
         state.cart = (serverCart?.items || []).map((item) => ({
           ...item,
           id: item.menuItemId,
-          image: item.imageUrl || ''
+          image: resolveImageUrl(item.imageUrl, 'menuItems')
         }));
       } catch (error) {
         state.cart = [];
@@ -379,7 +429,12 @@
       state.cart = readStorage(localStorage, CART_KEY, []);
     }
     state.context = readStorage(sessionStorage, CONTEXT_KEY, {});
+    state.cart = state.cart.map(item => ({
+      ...item,
+      note: String(item.note || state.context.itemNotes?.[String(item.id)] || '').trim()
+    }));
     state.location = readStorage(localStorage, LOCATION_KEY, null);
+    await loadCheckoutRestaurant();
     setupInteractions();
     renderOrderItems();
     renderSummary();

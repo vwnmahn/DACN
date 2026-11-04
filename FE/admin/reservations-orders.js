@@ -20,8 +20,9 @@ const API_ENDPOINTS = {
 
     orders: "/admin/orders",
     orderDetail: "/admin/orders/{id}",
-
-    statistics: ""
+    assignShipper: "/admin/orders/{id}/shipper",
+    restaurantEmployees: "/admin/restaurants/{restaurantId}/employees",
+    revenueReport: "/admin/reports/revenue"
 };
 
 /*
@@ -37,6 +38,7 @@ const PAGE_SIZE = 10;
 const TOKEN_STORAGE_KEY = "adminAccessToken";
 let orderRealtimeConnection = null;
 let orderDetailRequestSequence = 0;
+let orderDetailRefreshTimer = null;
 let pendingCancelOrder = null;
 
 /*
@@ -532,14 +534,22 @@ function mapOrder(item) {
         customerPhone: item.phoneNumber,
         customerEmail: item.email,
         createdAt: order.createdAt,
+        estimatedDeliveryAt: order.estimatedDeliveryAt,
+        deliveryDistanceKm: order.deliveryDistanceKm,
+        deliveryOverdue: order.deliveryOverdue,
         itemCount: Array.isArray(order.items) ? order.items.length : 0,
         totalAmount: order.totalAmount,
         status: order.status,
+        restaurantId: order.restaurantId,
         restaurantName: order.restaurantName,
+        shipperId: order.shipperId,
+        shipperName: order.shipperName,
         deliveryAddress: order.deliveryAddress,
         paymentMethod: item.paymentMethod,
         paymentStatus: item.paymentStatus,
-        items: order.items || []
+        items: order.items || [],
+        cancellationCode: order.cancellationCode,
+        cancellationDetail: order.cancellationDetail
     };
 }
 
@@ -736,6 +746,7 @@ function renderOrderTable() {
         const canCancel = [
             "PENDING", "AWAITING_PAYMENT", "CONFIRMED", "PREPARING", "READY_FOR_DELIVERY"
         ].includes(item.status);
+        const isOverdue = item.deliveryOverdue === true;
 
         return `
             <tr>
@@ -772,7 +783,7 @@ function renderOrderTable() {
                     </span>
                 </td>
 
-                <td>${renderStatus(item.status)}</td>
+                <td>${renderStatus(item.status)}${item.estimatedDeliveryAt ? `<small class="delivery-estimate">Dự kiến: ${escapeHtml(formatDateTime(item.estimatedDeliveryAt))}</small>` : ""}${isOverdue ? '<span class="delivery-overdue">Trễ trên 20 phút</span>' : ""}</td>
                 <td>${escapeHtml(paymentMethodLabel(item.paymentMethod))}</td>
                 <td>${renderPaymentStatus(item.paymentStatus)}</td>
 
@@ -1027,61 +1038,77 @@ function resetStatistics() {
     setText("totalRevenue", "—");
 
     setText("reservationSummary", "Chưa có dữ liệu");
+    setText("pendingReservationSummary", "Chưa có dữ liệu");
     setText("orderSummary", "Chưa có dữ liệu");
+    setText("revenueSummary", "Chưa có dữ liệu");
 }
 
-function renderStatistics(data) {
-    if (!data || typeof data !== "object") {
-        resetStatistics();
-        return;
-    }
+function statisticsMonthRange() {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), 1);
+    const toDate = value => [
+        value.getFullYear(),
+        String(value.getMonth() + 1).padStart(2, "0"),
+        String(value.getDate()).padStart(2, "0")
+    ].join("-");
 
-    setText(
-        "totalReservations",
-        data.totalReservations ?? "—"
-    );
-
-    setText(
-        "pendingReservations",
-        data.pendingReservations ?? "—"
-    );
-
-    setText(
-        "totalOrders",
-        data.totalOrders ?? "—"
-    );
-
-    setText(
-        "totalRevenue",
-        data.totalRevenue !== undefined
-            ? formatCurrency(data.totalRevenue)
-            : "—"
-    );
-
-    if (data.reservationSummary !== undefined) {
-        setText("reservationSummary", data.reservationSummary);
-    }
-
-    if (data.orderSummary !== undefined) {
-        setText("orderSummary", data.orderSummary);
-    }
+    return { from: toDate(from), to: toDate(now) };
 }
 
 async function loadStatistics() {
-    if (!API_ENDPOINTS.statistics) {
-        resetStatistics();
-        return;
+    setText("totalReservations", "…");
+    setText("pendingReservations", "…");
+    setText("totalOrders", "…");
+    setText("totalRevenue", "…");
+    setText("reservationSummary", "Đang tải dữ liệu đặt bàn…");
+    setText("pendingReservationSummary", "Đang tải dữ liệu đặt bàn…");
+    setText("orderSummary", "Đang tải dữ liệu đơn hàng…");
+    setText("revenueSummary", "Đang tải báo cáo doanh thu…");
+
+    const period = statisticsMonthRange();
+    const revenueParams = new URLSearchParams(period);
+    const [reservationResult, orderResult, revenueResult] = await Promise.allSettled([
+        apiRequest(API_ENDPOINTS.reservations),
+        apiRequest(`${API_ENDPOINTS.orders}?page=0&size=1`),
+        apiRequest(`${API_ENDPOINTS.revenueReport}?${revenueParams.toString()}`)
+    ]);
+
+    if (reservationResult.status === "fulfilled") {
+        const reservations = extractList(reservationResult.value);
+        const pendingCount = reservations.reduce((count, item) =>
+            count + (mapReservation(item).status === "PENDING" ? 1 : 0), 0);
+        setText("totalReservations", reservations.length);
+        setText("pendingReservations", pendingCount);
+        setText("reservationSummary", reservations.length ? "Dữ liệu đặt bàn hiện có" : "Chưa có lượt đặt bàn");
+        setText("pendingReservationSummary", pendingCount ? "Đang chờ xử lý" : "Không có lượt chờ xác nhận");
+    } else {
+        console.error("Load reservation statistics error:", reservationResult.reason);
+        setText("totalReservations", "—");
+        setText("pendingReservations", "—");
+        setText("reservationSummary", "Không tải được dữ liệu đặt bàn");
+        setText("pendingReservationSummary", "Không tải được dữ liệu đặt bàn");
     }
 
-    try {
-        const response = await apiRequest(API_ENDPOINTS.statistics);
-        const data = extractData(response);
+    if (orderResult.status === "fulfilled") {
+        const list = extractList(orderResult.value);
+        const total = extractTotal(orderResult.value, list);
+        setText("totalOrders", total);
+        setText("orderSummary", total ? "Dữ liệu đơn hàng hiện có" : "Chưa có đơn hàng");
+    } else {
+        console.error("Load order statistics error:", orderResult.reason);
+        setText("totalOrders", "—");
+        setText("orderSummary", "Không tải được dữ liệu đơn hàng");
+    }
 
-        renderStatistics(data);
-
-    } catch (error) {
-        console.error("Load statistics error:", error);
-        resetStatistics();
+    if (revenueResult.status === "fulfilled") {
+        const report = extractData(revenueResult.value);
+        const totalRevenue = report?.summary?.totalRevenue;
+        setText("totalRevenue", totalRevenue !== undefined ? formatCurrency(totalRevenue) : "—");
+        setText("revenueSummary", `Từ ${period.from.split("-").reverse().join("/")} đến ${period.to.split("-").reverse().join("/")}`);
+    } else {
+        console.error("Load revenue statistics error:", revenueResult.reason);
+        setText("totalRevenue", "—");
+        setText("revenueSummary", "Không tải được báo cáo doanh thu");
     }
 }
 
@@ -1332,9 +1359,29 @@ function openDetailModal(title, subtitle, html) {
 }
 
 function closeDetailModal() {
+    stopOrderDetailRefresh();
+    orderDetailRequestSequence += 1;
     const modal = getElement("detailModal");
     modal.classList.remove("show");
     delete modal.dataset.orderId;
+}
+
+function stopOrderDetailRefresh() {
+    if (!orderDetailRefreshTimer) return;
+    window.clearInterval(orderDetailRefreshTimer);
+    orderDetailRefreshTimer = null;
+}
+
+function startOrderDetailRefresh(orderId) {
+    stopOrderDetailRefresh();
+    orderDetailRefreshTimer = window.setInterval(() => {
+        const modal = getElement("detailModal");
+        if (!modal.classList.contains("show") || modal.dataset.orderId !== String(orderId)) {
+            stopOrderDetailRefresh();
+            return;
+        }
+        viewOrderDetail(orderId, false);
+    }, 10000);
 }
 
 function renderDetailItem(label, value, full = false) {
@@ -1347,6 +1394,7 @@ function renderDetailItem(label, value, full = false) {
 }
 
 function renderReservationDetail(item) {
+    stopOrderDetailRefresh();
     const data = mapReservation(item);
 
     const html = `
@@ -1374,6 +1422,7 @@ function renderReservationDetail(item) {
 
 function renderOrderDetail(item) {
     const data = mapOrder(item);
+    const isOverdue = data.deliveryOverdue === true;
 
     const html = `
         <div class="detail-grid">
@@ -1389,10 +1438,31 @@ function renderOrderDetail(item) {
             ${renderDetailItem("Email", data.customerEmail)}
             ${renderDetailItem("Nhà hàng", data.restaurantName)}
             ${renderDetailItem("Ngày tạo", formatDateTime(data.createdAt))}
+            ${renderDetailItem("Dự kiến nhận hàng", data.estimatedDeliveryAt ? formatDateTime(data.estimatedDeliveryAt) : "Chưa xác định")}
+            ${renderDetailItem("Khoảng cách giao hàng", Number.isFinite(Number(data.deliveryDistanceKm)) ? `${Number(data.deliveryDistanceKm).toLocaleString("vi-VN", {maximumFractionDigits: 3})} km` : "Chưa xác định")}
+            ${renderDetailItem("Nhân viên giao hàng (Shipper)", data.shipperName || (["PENDING", "AWAITING_PAYMENT", "CONFIRMED", "PREPARING"].includes(data.status) ? "Chưa phân công tài xế" : "Chưa có tài xế"))}
+            ${isOverdue ? renderDetailItem("Cảnh báo giao hàng", "Đã trễ hơn thời gian dự kiến 20 phút") : ""}
             ${renderDetailItem("Số lượng món", data.itemCount)}
             ${renderDetailItem("Tổng tiền", formatCurrency(data.totalAmount))}
             ${renderDetailItem("Địa chỉ giao hàng", data.deliveryAddress, true)}
+            ${data.status === "CANCELLED" && data.cancellationDetail
+                ? renderDetailItem("Lý do hủy", data.cancellationDetail, true)
+                : ""}
         </div>
+        ${!["DELIVERING", "ARRIVED", "COMPLETED", "CANCELLED"].includes(data.status) ? `
+            <section class="shipper-assignment" data-order-id="${escapeHtml(data.id)}"
+                     data-restaurant-id="${escapeHtml(data.restaurantId)}">
+                <label for="order-shipper-select">Phân công nhân viên giao hàng</label>
+                <div class="shipper-assignment-controls">
+                    <select id="order-shipper-select" disabled>
+                        <option value="">Đang tải danh sách shipper…</option>
+                    </select>
+                    <button class="btn btn-primary" id="assign-shipper-button" type="button" disabled>
+                        Xác nhận phân công
+                    </button>
+                </div>
+                <p class="shipper-assignment-message" id="shipper-assignment-message" aria-live="polite"></p>
+            </section>` : ""}
     `;
 
     openDetailModal(
@@ -1400,6 +1470,67 @@ function renderOrderDetail(item) {
         data.code,
         html
     );
+
+    if (!["DELIVERING", "ARRIVED", "COMPLETED", "CANCELLED"].includes(data.status)) {
+        loadAvailableShippers(data);
+    }
+}
+
+async function loadAvailableShippers(order) {
+    const select = getElement("order-shipper-select");
+    const button = getElement("assign-shipper-button");
+    const message = getElement("shipper-assignment-message");
+    if (!select || !button || !message || !order.restaurantId) return;
+
+    try {
+        const endpoint = API_ENDPOINTS.restaurantEmployees
+            .replace("{restaurantId}", encodeURIComponent(order.restaurantId));
+        const params = new URLSearchParams({ position: "SHIPPER", status: "ACTIVE" });
+        const employees = extractData(await apiRequest(`${endpoint}?${params}`));
+        const shippers = Array.isArray(employees) ? employees : [];
+
+        select.innerHTML = '<option value="">Chọn nhân viên giao hàng</option>'
+            + shippers.map(shipper => `<option value="${escapeHtml(shipper.id)}"`
+                + `${String(shipper.id) === String(order.shipperId) ? " selected" : ""}>`
+                + `${escapeHtml(shipper.fullName)} (${escapeHtml(shipper.employeeCode)})</option>`).join("");
+        select.disabled = shippers.length === 0;
+        button.disabled = shippers.length === 0 || !select.value;
+        message.textContent = shippers.length === 0
+            ? "Nhà hàng chưa có nhân viên SHIPPER đang hoạt động."
+            : "";
+    } catch (error) {
+        select.innerHTML = '<option value="">Không tải được danh sách shipper</option>';
+        select.disabled = true;
+        button.disabled = true;
+        message.textContent = error.message;
+    }
+}
+
+async function assignSelectedShipper() {
+    const modal = getElement("detailModal");
+    const select = getElement("order-shipper-select");
+    const button = getElement("assign-shipper-button");
+    const message = getElement("shipper-assignment-message");
+    const orderId = modal?.dataset.orderId;
+    if (!orderId || !select?.value || !button || !message) return;
+
+    button.disabled = true;
+    const originalLabel = button.textContent;
+    button.textContent = "Đang phân công…";
+    message.textContent = "";
+    try {
+        const endpoint = API_ENDPOINTS.assignShipper.replace("{id}", encodeURIComponent(orderId));
+        await apiRequest(endpoint, {
+            method: "PATCH",
+            body: JSON.stringify({ shipperId: Number(select.value) })
+        });
+        showToast("Phân công nhân viên giao hàng thành công.", "success");
+        await viewOrderDetail(orderId, false);
+    } catch (error) {
+        message.textContent = error.message;
+        button.disabled = false;
+        button.textContent = originalLabel;
+    }
 }
 
 /*
@@ -1439,7 +1570,7 @@ async function viewReservationDetail(id) {
     }
 }
 
-async function viewOrderDetail(id) {
+async function viewOrderDetail(id, startRefresh = true) {
     const requestSequence = ++orderDetailRequestSequence;
     try {
         let item;
@@ -1466,6 +1597,7 @@ async function viewOrderDetail(id) {
 
         getElement("detailModal").dataset.orderId = String(id);
         renderOrderDetail(item);
+        if (startRefresh) startOrderDetailRefresh(id);
 
     } catch (error) {
         console.error("Order detail error:", error);
@@ -1597,6 +1729,14 @@ function bindSidebar() {
 */
 
 function bindModalEvents() {
+    getElement("detailModalBody").addEventListener("change", event => {
+        if (event.target.id === "order-shipper-select") {
+            getElement("assign-shipper-button").disabled = !event.target.value;
+        }
+    });
+    getElement("detailModalBody").addEventListener("click", event => {
+        if (event.target.closest("#assign-shipper-button")) assignSelectedShipper();
+    });
     getElement("closeDetailModal").addEventListener(
         "click",
         closeDetailModal
@@ -1624,46 +1764,6 @@ function bindModalEvents() {
             closeOrderCancelDialog();
         }
     });
-}
-
-/*
-|--------------------------------------------------------------------------
-| REFRESH
-|--------------------------------------------------------------------------
-*/
-
-async function refreshCurrentTab() {
-    const refreshButtons = [
-        getElement("refreshButton"),
-        getElement("reloadDataButton")
-    ];
-
-    refreshButtons.forEach(button => {
-        if (button) {
-            button.disabled = true;
-            button.classList.add("is-loading");
-        }
-    });
-
-    try {
-        const tasks = [loadStatistics()];
-
-        if (state.activeTab === "reservations") {
-            tasks.push(loadReservations());
-        } else {
-            tasks.push(loadOrders());
-        }
-
-        await Promise.all(tasks);
-
-    } finally {
-        refreshButtons.forEach(button => {
-            if (button) {
-                button.disabled = false;
-                button.classList.remove("is-loading");
-            }
-        });
-    }
 }
 
 /*
@@ -1715,16 +1815,6 @@ function bindEvents() {
                 applyOrderFilters();
             }
         }
-    );
-
-    getElement("refreshButton")?.addEventListener(
-        "click",
-        refreshCurrentTab
-    );
-
-    getElement("reloadDataButton").addEventListener(
-        "click",
-        refreshCurrentTab
     );
 
     bindTableActions();

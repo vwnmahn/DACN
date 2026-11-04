@@ -27,12 +27,14 @@ const API_ENDPOINTS = {
 
     // Danh sách chi nhánh
     branches: "/admin/restaurants?page=0&size=100&sortBy=id&sortDirection=asc",
+    branchRevenue: "/admin/reports/revenue",
+    tableAvailability: restaurantId => `/restaurants/${restaurantId}/tables/availability`,
 
     // Yêu cầu cần xử lý
     urgentItems: "",
 
     // Trạng thái bếp
-    kitchenStatus: "",
+    kitchenStatus: "/admin/orders",
 
     // Đặt bàn mới nhất
     recentReservations: "/admin/table-reservations",
@@ -60,12 +62,17 @@ const dashboardState = {
     branchId: "",
     summary: null,
     revenue: [],
+    branchRevenueById: new Map(),
+    branchRevenueLoaded: false,
     branches: [],
     urgentItems: [],
     kitchen: null,
     recentReservations: [],
     inventory: []
 };
+
+let kitchenLoading = false;
+let kitchenRefreshTimer = null;
 
 /*
  * 4. DOM HELPERS
@@ -325,14 +332,18 @@ function mapRevenue(item) {
 
 // Branch
 function mapBranch(item) {
+    const id = item.id ?? item.branchId;
+    const branchRevenue = dashboardState.branchRevenueById.get(String(id));
     return {
-        id: item.id ?? item.branchId,
+        id,
         name: item.name ?? item.branchName,
         address: item.address ?? item.location,
         active: item.active,
-        revenue: item.revenue ?? item.totalRevenue,
-        occupiedTables: item.occupiedTables,
-        totalTables: item.totalTables
+        revenue: branchRevenue?.revenue ?? (dashboardState.branchRevenueLoaded ? 0 : null),
+        occupiedTables: null,
+        totalTables: null,
+        revenueState: branchRevenue || dashboardState.branchRevenueLoaded ? "ready" : "loading",
+        tableState: "loading"
     };
 }
 
@@ -469,8 +480,32 @@ async function loadRevenue() {
         endpoint,
         data => {
             const list = data?.dailyRevenue || [];
+            const branchRevenue = Array.isArray(data?.branchRevenue) ? data.branchRevenue : [];
 
             dashboardState.revenue = list.map(mapRevenue);
+            if (!dashboardState.branchId) {
+                dashboardState.branchRevenueById = new Map(branchRevenue.map(item => [
+                    String(item.restaurantId),
+                    { revenue: Number(item.revenue), orderCount: Number(item.orderCount) }
+                ]));
+                dashboardState.branchRevenueLoaded = true;
+            } else {
+                branchRevenue.forEach(item => dashboardState.branchRevenueById.set(
+                    String(item.restaurantId),
+                    { revenue: Number(item.revenue), orderCount: Number(item.orderCount) }
+                ));
+            }
+            if (dashboardState.branches.length) {
+                dashboardState.branches = dashboardState.branches.map(branch => {
+                    const metrics = dashboardState.branchRevenueById.get(String(branch.id));
+                    return {
+                        ...branch,
+                        revenue: metrics ? metrics.revenue : 0,
+                        revenueState: "ready"
+                    };
+                });
+                renderBranches(dashboardState.branches);
+            }
             renderRevenueChart(dashboardState.revenue);
         },
         "Không thể tải thống kê doanh thu"
@@ -484,24 +519,64 @@ async function loadBranches() {
         return;
     }
 
-    await loadEndpoint(
-        API_ENDPOINTS.branches,
-        data => {
-            const list = Array.isArray(data)
-                ? data
-                : data?.items || data?.content || [];
-
-            dashboardState.branches = list.map(mapBranch);
+    const container = getElement("branchList");
+    if (container) setEmptyState("branchList", "Đang tải trạng thái chi nhánh", "Đang truy vấn dữ liệu nhà hàng từ hệ thống.", "progress_activity");
+    try {
+        const data = extractData(await apiRequest(API_ENDPOINTS.branches));
+        const list = Array.isArray(data) ? data : data?.items || data?.content || [];
+        dashboardState.branches = list.map(mapBranch);
+        renderBranches(dashboardState.branches);
+        renderBranchFilter(dashboardState.branches);
+        setText("totalBranches", formatNumber(data?.totalElements ?? list.length));
+        setText("branchDescription", `Đang hoạt động: ${formatNumber(list.filter(item => item.active === true).length)}`);
+        if (dashboardState.branches.length) {
+            dashboardState.branches = await Promise.all(dashboardState.branches.map(loadBranchMetrics));
             renderBranches(dashboardState.branches);
-            renderBranchFilter(dashboardState.branches);
-            setText("totalBranches", formatNumber(data?.totalElements ?? list.length));
-            setText(
-                "branchDescription",
-                `Đang hoạt động: ${formatNumber(list.filter(item => item.active !== false).length)}`
-            );
-        },
-        "Không thể tải danh sách chi nhánh"
-    );
+        }
+    } catch (error) {
+        dashboardState.branches = [];
+        renderBranchFilter([]);
+        setText("totalBranches", "--");
+        setText("branchDescription", "Không tải được dữ liệu chi nhánh");
+        setEmptyState("branchList", "Không thể tải trạng thái chi nhánh", error.message, "error");
+        console.error("[Dashboard] Không thể tải danh sách chi nhánh:", error);
+    }
+}
+
+function dashboardLocalDate(value) {
+    return [value.getFullYear(), String(value.getMonth() + 1).padStart(2, "0"), String(value.getDate()).padStart(2, "0")].join("-");
+}
+
+async function loadBranchMetrics(branch) {
+    const now = new Date();
+    const availabilityAt = new Date(now.getTime() + 60000);
+    const availabilityDate = dashboardLocalDate(availabilityAt);
+    const time = `${String(availabilityAt.getHours()).padStart(2, "0")}:${String(availabilityAt.getMinutes()).padStart(2, "0")}`;
+    const tableParams = new URLSearchParams({date: availabilityDate, time, guests: "1"});
+    const tableResult = await Promise.resolve(apiRequest(
+        `${API_ENDPOINTS.tableAvailability(branch.id)}?${tableParams.toString()}`
+    )).then(value => ({status: "fulfilled", value}), reason => ({status: "rejected", reason}));
+    const enriched = {...branch};
+    const revenue = dashboardState.branchRevenueById.get(String(branch.id));
+    if (revenue) {
+        enriched.revenue = revenue.revenue;
+        enriched.revenueState = "ready";
+    } else if (dashboardState.branchRevenueLoaded) {
+        enriched.revenue = 0;
+        enriched.revenueState = "ready";
+    }
+    if (tableResult.status === "fulfilled") {
+        const availability = extractData(tableResult.value);
+        const total = Number(availability?.totalActiveTables);
+        const available = Number(availability?.availableTableCount);
+        enriched.totalTables = Number.isFinite(total) ? total : 0;
+        enriched.occupiedTables = Number.isFinite(total) && Number.isFinite(available) ? Math.max(0, total - available) : 0;
+        enriched.tableState = "ready";
+    } else {
+        enriched.tableState = "error";
+        console.error(`[Dashboard] Không tải được thông tin bàn chi nhánh ${branch.id}:`, tableResult.reason);
+    }
+    return enriched;
 }
 
 async function loadUrgentItems() {
@@ -526,20 +601,63 @@ async function loadUrgentItems() {
 }
 
 async function loadKitchenStatus() {
-    if (!API_ENDPOINTS.kitchenStatus) {
-        dashboardState.kitchen = null;
-        renderKitchen(null);
-        return;
-    }
+    if (kitchenLoading) return;
+    kitchenLoading = true;
+    renderKitchenLoading();
 
-    await loadEndpoint(
-        API_ENDPOINTS.kitchenStatus,
-        data => {
-            dashboardState.kitchen = mapKitchen(data);
-            renderKitchen(dashboardState.kitchen);
-        },
-        "Không thể tải trạng thái bếp"
-    );
+    try {
+        const firstResponse = await apiRequest(`${API_ENDPOINTS.kitchenStatus}?page=0&size=100`);
+        const firstPage = extractData(firstResponse) || {};
+        const totalPages = Math.max(1, Number(firstPage.totalPages) || 1);
+        const pages = [firstPage];
+
+        if (totalPages > 1) {
+            const remaining = await Promise.all(
+                Array.from({length: totalPages - 1}, (_, index) =>
+                    apiRequest(`${API_ENDPOINTS.kitchenStatus}?page=${index + 1}&size=100`)
+                        .then(extractData))
+            );
+            pages.push(...remaining);
+        }
+
+        const orders = pages.flatMap(page => Array.isArray(page?.content) ? page.content : []);
+        const branchId = String(dashboardState.branchId || "");
+        const kitchen = {waiting: 0, processing: 0, delayed: 0};
+        let activeOrderCount = 0;
+
+        orders.forEach(item => {
+            const order = item?.order || item;
+            if (!order || (branchId && String(order.restaurantId) !== branchId)) return;
+
+            const status = String(order.status || "").toUpperCase();
+            if (status === "COMPLETED" || status === "CANCELLED") return;
+            activeOrderCount += 1;
+            if (order.deliveryOverdue === true) {
+                kitchen.delayed += 1;
+            } else if (["PREPARING", "READY_FOR_DELIVERY", "DELIVERING", "ARRIVED"].includes(status)) {
+                kitchen.processing += 1;
+            } else if (["PENDING", "AWAITING_PAYMENT", "CONFIRMED"].includes(status)) {
+                kitchen.waiting += 1;
+            }
+        });
+
+        kitchen.message = activeOrderCount
+            ? "Đã đồng bộ trạng thái đơn hàng thực tế."
+            : "Không có đơn hàng cần xử lý.";
+        dashboardState.kitchen = kitchen;
+        renderKitchen(kitchen);
+    } catch (error) {
+        dashboardState.kitchen = null;
+        renderKitchenError(error.message);
+        console.error("[Dashboard] Không thể tải trạng thái bếp:", error);
+    } finally {
+        kitchenLoading = false;
+    }
+}
+
+function startKitchenRefresh() {
+    if (kitchenRefreshTimer) window.clearInterval(kitchenRefreshTimer);
+    kitchenRefreshTimer = window.setInterval(loadKitchenStatus, 30000);
 }
 
 async function loadRecentReservations() {
@@ -766,6 +884,10 @@ function renderBranches(items) {
             ? Math.min(100, Math.max(0, occupied / total * 100))
             : null;
 
+        const statusLabel = branch.active === true ? "Đang hoạt động" : branch.active === false ? "Ngừng hoạt động" : "Chưa rõ trạng thái";
+        const statusClass = branch.active === true ? "active" : branch.active === false ? "inactive" : "unknown";
+        const revenueText = branch.revenueState === "loading" ? "Đang tải…" : branch.revenueState === "error" ? "Không tải được" : formatCurrency(branch.revenue);
+        const tableText = branch.tableState === "loading" ? "Đang tải thông tin bàn…" : branch.tableState === "error" ? "Không tải được thông tin bàn" : total > 0 ? `${formatNumber(occupied)} / ${formatNumber(total)} bàn đang sử dụng` : "Chưa có bàn hoạt động";
         return `
             <article class="branch-card">
                 <div class="branch-card-header">
@@ -778,8 +900,8 @@ function renderBranches(items) {
                         </div>
                     </div>
 
-                    <span class="status-pill">
-                        ${percentage === null ? "Chưa có dữ liệu" : `${percentage.toFixed(1)}%`}
+                    <span class="status-pill ${statusClass}">
+                        ${escapeHTML(statusLabel)}
                     </span>
                 </div>
 
@@ -787,20 +909,18 @@ function renderBranches(items) {
                     <div>
                         <div class="branch-metric-label">Doanh thu</div>
                         <div class="branch-metric-value">
-                            ${formatCurrency(branch.revenue)}
+                            ${escapeHTML(revenueText)}
                         </div>
                     </div>
 
                     <div class="branch-metric-label">
                         ${
-                            hasCapacity
-                                ? `${formatNumber(occupied)} / ${formatNumber(total)} bàn`
-                                : "Chưa có thông tin bàn"
+                            tableText
                         }
                     </div>
                 </div>
 
-                <div class="branch-capacity">
+                <div class="branch-capacity" title="${percentage === null ? "Chưa có dữ liệu sử dụng bàn" : `${percentage.toFixed(1)}% bàn đang sử dụng`}">
                     <div class="branch-capacity-fill"
                          style="width: ${percentage ?? 0}%"></div>
                 </div>
@@ -916,6 +1036,22 @@ function renderKitchen(data) {
             <span>${escapeHTML(data.message || "Đã tải dữ liệu trạng thái bếp.")}</span>
         `;
     }
+}
+
+function renderKitchenLoading() {
+    setText("kdsWaiting", "…");
+    setText("kdsProcessing", "…");
+    setText("kdsDelayed", "…");
+    const status = getElement("kdsStatus");
+    if (status) status.innerHTML = '<span class="material-symbols-outlined">progress_activity</span><span>Đang tải trạng thái đơn hàng…</span>';
+}
+
+function renderKitchenError(message) {
+    setText("kdsWaiting", "--");
+    setText("kdsProcessing", "--");
+    setText("kdsDelayed", "--");
+    const status = getElement("kdsStatus");
+    if (status) status.innerHTML = `<span class="material-symbols-outlined">error</span><span>${escapeHTML(message || "Không tải được trạng thái bếp.")}</span>`;
 }
 
 /*
@@ -1043,34 +1179,20 @@ async function loadCurrentUser() {
  */
 
 async function loadDashboard() {
-    const refreshButton = getElement("refreshButton");
+    await Promise.allSettled([
+        loadSummary(),
+        loadRevenue(),
+        loadBranches(),
+        loadUrgentItems(),
+        loadKitchenStatus(),
+        loadRecentReservations(),
+        loadInventory()
+    ]);
 
-    if (refreshButton) {
-        refreshButton.disabled = true;
-        refreshButton.classList.add("loading");
-    }
-
-    try {
-        await Promise.allSettled([
-            loadSummary(),
-            loadRevenue(),
-            loadBranches(),
-            loadUrgentItems(),
-            loadKitchenStatus(),
-            loadRecentReservations(),
-            loadInventory()
-        ]);
-
-        setText(
-            "lastUpdated",
-            `Cập nhật lúc ${new Date().toLocaleTimeString("vi-VN")}`
-        );
-    } finally {
-        if (refreshButton) {
-            refreshButton.disabled = false;
-            refreshButton.classList.remove("loading");
-        }
-    }
+    setText(
+        "lastUpdated",
+        `Cập nhật lúc ${new Date().toLocaleTimeString("vi-VN")}`
+    );
 }
 
 /*
@@ -1124,22 +1246,6 @@ function initializeBranchFilter() {
             loadRecentReservations(),
             loadInventory()
         ]);
-    });
-}
-
-/*
- * 21. REFRESH BUTTON
- */
-
-function initializeRefreshButton() {
-    const button = getElement("refreshButton");
-
-    if (!button) {
-        return;
-    }
-
-    button.addEventListener("click", async () => {
-        await loadDashboard();
     });
 }
 
@@ -1248,7 +1354,6 @@ function initializeNotification() {
 async function initializeDashboard() {
     initializePeriodFilter();
     initializeBranchFilter();
-    initializeRefreshButton();
     initializeExportButton();
     initializeGlobalSearch();
     initializeMobileMenu();
@@ -1258,6 +1363,7 @@ async function initializeDashboard() {
         loadCurrentUser(),
         loadDashboard()
     ]);
+    startKitchenRefresh();
 }
 
 document.addEventListener("DOMContentLoaded", initializeDashboard);

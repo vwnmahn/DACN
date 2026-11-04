@@ -918,8 +918,6 @@ function bindEvents() {
 
     $("#resetFiltersButton").addEventListener("click", resetFilters);
 
-    $("#refreshDishesButton").addEventListener("click", loadDishes);
-
     $("#logoutButton").addEventListener("click", handleLogout);
 
     if (!$("#sidebar").classList.contains("admin-shell-sidebar")) {

@@ -928,6 +928,32 @@ tbody tr:hover {
     font-size: 19px;
 }
 
+#lock-confirm-modal,
+#unlock-confirm-modal { z-index: 2500; }
+.confirmation-card { width: min(460px, 100%); padding: 28px; overflow: auto; }
+.confirmation-icon { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 16px; border-radius: 14px; background: #fff3d6; color: #a15c00; }
+.confirmation-icon .material-symbols-outlined { font-size: 27px; }
+.confirmation-copy h2 { margin: 6px 0 8px; font-size: 21px; }
+.confirmation-copy p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.confirmation-target { margin: 16px 0 18px; padding: 12px 14px; border: 1px solid #f1d79a; border-radius: 10px; background: #fffbeb; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.confirmation-card textarea { width: 100%; min-height: 100px; padding: 11px 12px; resize: vertical; border: 1px solid var(--border); border-radius: 9px; outline: 0; font: inherit; }
+.confirmation-card textarea:focus { border-color: #c67a00; box-shadow: 0 0 0 3px rgba(198,122,0,.12); }
+.confirmation-error { margin: -4px 0 0; color: #b42318; font-size: 12px; }
+.confirmation-submit { background: #a15c00; border-color: #a15c00; }
+.confirmation-submit:hover { background: #814900; }
+.unlock-confirmation .confirmation-icon { background: #dcfce7; color: #08783e; }
+.unlock-confirmation-submit { background: #08783e; border-color: #08783e; }
+.unlock-confirmation-submit:hover { background: #056333; }
+.action-btn:disabled { cursor: not-allowed; opacity: .42; }
+
+@media (max-width: 560px) {
+    #lock-confirm-modal,
+    #unlock-confirm-modal { padding: 12px; }
+    .confirmation-card { padding: 21px; }
+    .confirmation-card .modal-actions { flex-direction: column-reverse; }
+    .confirmation-card .modal-actions button { width: 100%; }
+}
+
 /* LOADING */
 
 .loading {

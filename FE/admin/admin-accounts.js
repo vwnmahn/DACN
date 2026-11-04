@@ -30,6 +30,10 @@ const state = {
 };
 
 const $ = id => document.getElementById(id);
+let pendingLockAccount = null;
+let lockRequestPending = false;
+let pendingUnlockAccount = null;
+let unlockRequestPending = false;
 
 /* =========================================
    AUTHENTICATION
@@ -47,6 +51,45 @@ function clearTokens() {
     localStorage.removeItem("adminAccessToken");
     localStorage.removeItem("adminRefreshToken");
     localStorage.removeItem("adminTokenType");
+}
+
+function getCurrentAccountId() {
+    const token = getAccessToken();
+    if (!token) return "";
+
+    try {
+        const encoded = token.split(".")[1];
+        if (!encoded) return "";
+        const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+        const claims = JSON.parse(decodeURIComponent(Array.from(atob(padded), character =>
+            `%${character.charCodeAt(0).toString(16).padStart(2, "0")}`
+        ).join("")));
+        return claims?.sub == null ? "" : String(claims.sub);
+    } catch (error) {
+        console.warn("Không đọc được accountId từ JWT Admin:", error);
+        return "";
+    }
+}
+
+function frontendAssetUrl(path) {
+    const prefix = window.location.pathname.startsWith("/FE/") ? "/FE" : "";
+    return new URL(`${prefix}/${String(path).replace(/^\/+/, "")}`, window.location.origin).href;
+}
+
+function resolveAvatarUrl(value) {
+    const raw = String(value ?? "").trim();
+    if (!raw) return "";
+    const normalized = raw.replace(/\\/g, "/");
+    if (/^(?:https?:|data:|blob:)/i.test(normalized)) return normalized;
+    const imagesIndex = normalized.toLowerCase().indexOf("/images/");
+    if (imagesIndex >= 0) return frontendAssetUrl(normalized.slice(imagesIndex + 1));
+    if (/^images\//i.test(normalized)) return frontendAssetUrl(normalized);
+    const backendOrigin = new URL(API_BASE).origin;
+    if (normalized.startsWith("/") || /^(?:uploads?|files?)\//i.test(normalized)) {
+        return new URL(normalized.replace(/^\/+/, ""), `${backendOrigin}/`).href;
+    }
+    return frontendAssetUrl(normalized);
 }
 
 /* =========================================
@@ -228,12 +271,6 @@ function hideMessage() {
 function setLoading(value) {
 
     state.loading = value;
-
-    $("refresh-btn").disabled = value;
-
-    $("refresh-btn")
-        .querySelector(".material-symbols-outlined")
-        .classList.toggle("spinning", value);
 
     $("account-table-body").classList.toggle(
         "loading",
@@ -446,8 +483,9 @@ function renderAccounts() {
             account.phoneNumber || "—"
         );
 
-        const avatarUrl = account.avatarUrl
-            ? escapeHTML(account.avatarUrl)
+        const resolvedAvatarUrl = resolveAvatarUrl(account.avatarUrl);
+        const avatarUrl = resolvedAvatarUrl
+            ? escapeHTML(resolvedAvatarUrl)
             : "";
 
         const avatar = avatarUrl
@@ -455,8 +493,9 @@ function renderAccounts() {
                 <img
                     src="${avatarUrl}"
                     alt="Avatar"
-                    onerror="this.style.display='none'"
+                    onerror="this.hidden=true;this.nextElementSibling.hidden=false"
                 >
+                <span class="material-symbols-outlined" hidden>person</span>
             `
             : `
                 <span class="material-symbols-outlined">
@@ -475,6 +514,8 @@ function renderAccounts() {
         const actionClass = account.locked
             ? ""
             : "danger";
+        const isCurrentAccount = String(account.id) === getCurrentAccountId();
+        const lockDisabled = isCurrentAccount && !account.locked;
 
         return `
             <tr data-account-id="${id}">
@@ -552,7 +593,8 @@ function renderAccounts() {
                             type="button"
                             data-action="lock"
                             data-id="${id}"
-                            title="${actionTitle}"
+                            title="${lockDisabled ? "Bạn không thể khóa tài khoản đang đăng nhập" : actionTitle}"
+                            ${lockDisabled ? "disabled aria-disabled=\"true\"" : ""}
                         >
                             <span class="material-symbols-outlined">
                                 ${actionIcon}
@@ -918,46 +960,135 @@ async function toggleAccountLock(id) {
     );
 
     if (!account) return;
+    if (!account.locked && String(account.id) === getCurrentAccountId()) {
+        showMessage("Bạn không thể khóa tài khoản đang đăng nhập", "error");
+        return;
+    }
 
-    const newLockedStatus = !account.locked;
+    if (account.locked) openUnlockConfirmation(account);
+    else openLockConfirmation(account);
+}
 
-    const action = newLockedStatus
-        ? "khóa"
-        : "mở khóa";
+function openLockConfirmation(account) {
+    pendingLockAccount = account;
+    $("lock-account-name").textContent = account.username || `Tài khoản #${account.id}`;
+    $("lock-reason").value = "";
+    $("lock-confirm-error").hidden = true;
+    $("lock-confirm-modal").classList.remove("hidden");
+    window.setTimeout(() => $("lock-reason").focus(), 0);
+}
 
-    const confirmed = confirm(
-        `Bạn có chắc chắn muốn ${action} tài khoản "${account.username}"?`
-    );
+function closeLockConfirmation() {
+    if (lockRequestPending) return;
+    $("lock-confirm-modal").classList.add("hidden");
+    $("lock-confirm-form").reset();
+    $("lock-confirm-error").hidden = true;
+    pendingLockAccount = null;
+}
 
-    if (!confirmed) return;
+async function submitLockConfirmation(event) {
+    event.preventDefault();
+    if (!pendingLockAccount || lockRequestPending) return;
+
+    if (String(pendingLockAccount.id) === getCurrentAccountId()) {
+        $("lock-confirm-error").textContent = "Bạn không thể khóa tài khoản đang đăng nhập";
+        $("lock-confirm-error").hidden = false;
+        return;
+    }
+    const reason = $("lock-reason").value.trim();
+    const error = $("lock-confirm-error");
+    if (!reason) {
+        error.textContent = "Vui lòng nhập lý do khóa tài khoản.";
+        error.hidden = false;
+        $("lock-reason").focus();
+        return;
+    }
+
+    const accountId = pendingLockAccount.id;
+    const button = $("submit-lock-confirm");
+    lockRequestPending = true;
+    button.disabled = true;
+    button.textContent = "Đang xử lý…";
+    error.hidden = true;
 
     try {
 
         await apiRequest(
-            `${ACCOUNT_API}/${encodeURIComponent(id)}/lock`,
+            `${ACCOUNT_API}/${encodeURIComponent(accountId)}/lock`,
             {
                 method: "PATCH",
                 body: JSON.stringify({
-                    locked: newLockedStatus
+                    locked: true
                 })
             }
         );
 
         showMessage(
-            newLockedStatus
-                ? "Đã khóa tài khoản thành công."
-                : "Đã mở khóa tài khoản thành công.",
+            "Đã khóa tài khoản thành công.",
             "success"
         );
-
+        lockRequestPending = false;
+        closeLockConfirmation();
         await loadAccounts();
 
     } catch (error) {
 
         console.error("Lock account error:", error);
 
-        showMessage(error.message, "error");
+        $("lock-confirm-error").textContent = error.message;
+        $("lock-confirm-error").hidden = false;
 
+    } finally {
+        lockRequestPending = false;
+        button.disabled = false;
+        if (pendingLockAccount) {
+            button.textContent = "Xác nhận khóa";
+        }
+
+    }
+}
+
+function openUnlockConfirmation(account) {
+    pendingUnlockAccount = account;
+    $("unlock-account-name").textContent = account.username || `Tài khoản #${account.id}`;
+    $("unlock-confirm-error").hidden = true;
+    $("unlock-confirm-modal").classList.remove("hidden");
+}
+
+function closeUnlockConfirmation() {
+    if (unlockRequestPending) return;
+    $("unlock-confirm-modal").classList.add("hidden");
+    $("unlock-confirm-error").hidden = true;
+    pendingUnlockAccount = null;
+}
+
+async function submitUnlockConfirmation(event) {
+    event.preventDefault();
+    if (!pendingUnlockAccount || unlockRequestPending) return;
+    const accountId = pendingUnlockAccount.id;
+    const button = $("submit-unlock-confirm");
+    unlockRequestPending = true;
+    button.disabled = true;
+    button.textContent = "Đang xử lý…";
+    $("unlock-confirm-error").hidden = true;
+
+    try {
+        await apiRequest(`${ACCOUNT_API}/${encodeURIComponent(accountId)}/lock`, {
+            method: "PATCH",
+            body: JSON.stringify({ locked: false })
+        });
+        showMessage("Đã mở khóa tài khoản thành công.", "success");
+        unlockRequestPending = false;
+        closeUnlockConfirmation();
+        await loadAccounts();
+    } catch (error) {
+        console.error("Unlock account error:", error);
+        $("unlock-confirm-error").textContent = error.message;
+        $("unlock-confirm-error").hidden = false;
+    } finally {
+        unlockRequestPending = false;
+        button.disabled = false;
+        button.textContent = "Xác nhận mở khóa";
     }
 }
 
@@ -1089,6 +1220,21 @@ function initializeModals() {
         updateAccountRole
     );
 
+    $("cancel-lock-confirm").addEventListener("click", closeLockConfirmation);
+    $("lock-confirm-form").addEventListener("submit", submitLockConfirmation);
+    $("lock-confirm-modal").addEventListener("click", event => {
+        if (event.target === $("lock-confirm-modal") || event.target.hasAttribute("data-close-lock-modal")) {
+            closeLockConfirmation();
+        }
+    });
+    $("cancel-unlock-confirm").addEventListener("click", closeUnlockConfirmation);
+    $("unlock-confirm-form").addEventListener("submit", submitUnlockConfirmation);
+    $("unlock-confirm-modal").addEventListener("click", event => {
+        if (event.target === $("unlock-confirm-modal") || event.target.hasAttribute("data-close-unlock-modal")) {
+            closeUnlockConfirmation();
+        }
+    });
+
     document.addEventListener(
         "keydown",
         event => {
@@ -1096,6 +1242,8 @@ function initializeModals() {
             if (event.key === "Escape") {
                 closeAccountDetail();
                 closeRoleModal();
+                closeLockConfirmation();
+                closeUnlockConfirmation();
             }
 
         }
@@ -1108,11 +1256,6 @@ function initializeModals() {
 ========================================= */
 
 function initializePage() {
-
-    $("refresh-btn").addEventListener(
-        "click",
-        loadAccounts
-    );
 
     $("account-search").addEventListener(
         "input",

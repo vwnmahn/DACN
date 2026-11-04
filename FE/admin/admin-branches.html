@@ -152,15 +152,6 @@
                 <div class="heading-actions">
 
                     <button
-                        class="btn-secondary"
-                        id="refresh-btn"
-                        type="button"
-                    >
-                        <span class="material-symbols-outlined">refresh</span>
-                        Làm mới
-                    </button>
-
-                    <button
                         class="btn-primary"
                         id="add-branch-btn"
                         type="button"
@@ -337,18 +328,44 @@
                     </div>
 
                     <div class="detail-panel workforce-panel" data-detail-panel="workforce">
-                        <div class="workforce-toolbar">
-                            <input id="employee-search" type="search" placeholder="Tìm tên hoặc mã nhân viên">
-                            <select id="employee-position-filter"><option value="">Tất cả chức vụ</option><option value="MANAGER">Quản lý</option><option value="CASHIER">Thu ngân</option><option value="CHEF">Đầu bếp</option><option value="SERVER">Phục vụ</option><option value="SHIPPER">Shipper</option><option value="OTHER">Khác</option></select>
-                            <select id="employee-status-filter"><option value="">Tất cả trạng thái</option><option value="ACTIVE">Đang làm việc</option><option value="PENDING_TERMINATION">Chờ chấm dứt</option><option value="TERMINATED">Đã chấm dứt</option></select>
+                        <div class="workforce-heading">
+                            <div>
+                                <h3>Nhân sự tại chi nhánh</h3>
+                                <p>Quản lý nhân viên, shipper, lương và tình trạng làm việc.</p>
+                            </div>
                             <button class="btn-primary" id="add-employee-btn" type="button">Thêm nhân viên</button>
                         </div>
+                        <div class="workforce-overview" aria-live="polite">
+                            <article><span class="material-symbols-outlined">badge</span><div><small>Tổng hồ sơ nhân sự</small><strong id="total-employee-count">—</strong></div></article>
+                            <article><span class="material-symbols-outlined">groups</span><div><small>Nhân viên đang hoạt động</small><strong id="active-employee-count">—</strong></div></article>
+                            <article><span class="material-symbols-outlined">local_shipping</span><div><small>Shipper đang hoạt động</small><strong id="active-shipper-count">—</strong></div></article>
+                        </div>
                         <div id="workforce-summary" class="workforce-summary"></div>
-                        <div id="employee-list" class="employee-list"></div>
+                        <div class="workforce-toolbar">
+                            <input id="employee-search" type="search" placeholder="Tìm tên, số điện thoại hoặc mã nhân viên">
+                            <select id="employee-position-filter"><option value="">Tất cả chức vụ</option><option value="MANAGER">Quản lý</option><option value="CASHIER">Thu ngân</option><option value="CHEF">Đầu bếp</option><option value="SERVER">Phục vụ</option><option value="SHIPPER">Shipper</option><option value="OTHER">Khác</option></select>
+                            <select id="employee-status-filter"><option value="">Tất cả trạng thái</option><option value="ACTIVE">Đang làm việc</option><option value="PENDING_TERMINATION">Chờ chấm dứt</option><option value="TERMINATED">Đã chấm dứt</option></select>
+                        </div>
+                        <div id="employee-list" class="employee-list" aria-live="polite"></div>
                         <section class="cost-section">
-                            <h3>Chi phí vận hành theo tháng</h3>
-                            <div class="cost-controls"><input id="cost-period" type="month"><input id="rent-amount" type="number" min="0" step="1000" placeholder="Tiền thuê mặt bằng"><button id="save-rent-btn" type="button">Lưu tiền thuê</button><button id="load-cost-report-btn" type="button">Xem báo cáo</button></div>
-                            <div id="cost-report"></div>
+                            <div class="cost-heading"><div><h3>Chi phí vận hành</h3><p>Quản lý tiền thuê và theo dõi tổng chi phí theo từng tháng.</p></div></div>
+                            <div class="cost-workspace">
+                                <article class="rent-management-card">
+                                    <div class="section-card-heading"><span class="material-symbols-outlined">apartment</span><div><h4>Tiền thuê mặt bằng</h4><p>Mức thuê áp dụng cho kỳ được chọn</p></div></div>
+                                    <div class="current-rent"><small>Mức thuê hiện tại</small><strong id="rent-current-value">Chưa tải dữ liệu</strong></div>
+                                    <label class="cost-field">Kỳ áp dụng<input id="cost-period" type="month"></label>
+                                    <label class="cost-field">Mức tiền thuê mới<input id="rent-amount" type="number" min="0" step="1000" placeholder="Nhập số tiền"></label>
+                                    <div class="rent-actions"><button id="save-rent-btn" type="button">Lưu tiền thuê</button><button id="load-cost-report-btn" type="button">Xem báo cáo kỳ này</button></div>
+                                </article>
+                                <article class="cost-report-card">
+                                    <div class="section-card-heading"><span class="material-symbols-outlined">monitoring</span><div><h4>Báo cáo chi phí tháng</h4><p>Lương nhân sự và tiền thuê mặt bằng</p></div></div>
+                                    <div id="cost-report"><div class="empty-state compact">Chọn tháng và nhấn “Xem báo cáo kỳ này”.</div></div>
+                                </article>
+                            </div>
+                            <article class="rent-history-card">
+                                <div class="section-card-heading"><span class="material-symbols-outlined">history</span><div><h4>Lịch sử thay đổi tiền thuê</h4><p>Các lần cập nhật gần nhất của chi nhánh</p></div></div>
+                                <div id="rent-history"><div class="empty-state compact">Chưa tải lịch sử tiền thuê.</div></div>
+                            </article>
                         </section>
                     </div>
 
@@ -454,6 +471,17 @@
                     </select>
                 </div>
 
+            </div>
+
+            <div class="form-group">
+                <label for="branch-confirmation-mode">
+                    Chế độ xác nhận đơn hàng
+                </label>
+
+                <select id="branch-confirmation-mode" name="orderConfirmationMode">
+                    <option value="MANUAL">Admin xác nhận thủ công</option>
+                    <option value="AUTO">Tự động xác nhận</option>
+                </select>
             </div>
 
             <h3 class="form-section-title">Vận hành và giao hàng</h3>
@@ -623,6 +651,31 @@
 
     </div>
 
+</div>
+
+<!-- DELETE BRANCH CONFIRMATION -->
+<div class="modal hidden" id="delete-branch-modal" role="dialog" aria-modal="true" aria-labelledby="delete-branch-title">
+    <div class="modal-backdrop" data-close-delete-modal></div>
+    <div class="modal-content confirmation-card danger-confirmation">
+        <div class="confirmation-icon"><span class="material-symbols-outlined">delete_forever</span></div>
+        <div class="confirmation-copy">
+            <span class="page-label">DANGER ZONE</span>
+            <h2 id="delete-branch-title">Xác nhận xóa quán ăn</h2>
+            <p>Bạn có chắc chắn muốn xóa quán ăn này không?</p>
+            <div class="confirmation-target" id="delete-branch-name">—</div>
+        </div>
+        <form id="delete-branch-form" novalidate>
+            <div class="form-group">
+                <label for="delete-branch-reason">Lý do xóa *</label>
+                <textarea id="delete-branch-reason" maxlength="500" placeholder="Nhập lý do xóa quán ăn..."></textarea>
+            </div>
+            <p class="confirmation-error" id="delete-branch-error" hidden></p>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="cancel-delete-branch">Hủy</button>
+                <button type="submit" class="btn-primary confirmation-submit" id="submit-delete-branch">Xác nhận xóa</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script src="admin-branches.js"></script>

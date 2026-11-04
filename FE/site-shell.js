@@ -4,6 +4,120 @@
   const ACTIVE_CLASSES = ['font-semibold', 'text-emerald-700', 'bg-emerald-50'];
   const API_ORIGIN = 'http://localhost:8080';
   const INACTIVE_CLASSES = ['font-medium', 'text-slate-600', 'hover:text-emerald-700', 'hover:bg-slate-100'];
+  const USER_REFRESH_LOCK_KEY = 'fca_user_refresh_lock';
+  const userRefreshOwner = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+  let userRefreshTimer = null;
+
+  const wait = milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds));
+
+  function tokenExpiration(token) {
+    try {
+      const encoded = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = encoded.padEnd(Math.ceil(encoded.length / 4) * 4, '=');
+      return Number(JSON.parse(atob(padded)).exp) * 1000;
+    } catch {
+      return NaN;
+    }
+  }
+
+  function clearUserSession() {
+    localStorage.removeItem('userAccessToken');
+    localStorage.removeItem('userRefreshToken');
+  }
+
+  function scheduleUserRefresh() {
+    window.clearTimeout(userRefreshTimer);
+    const expiration = tokenExpiration(localStorage.getItem('userAccessToken') || '');
+    if (!Number.isFinite(expiration) || !localStorage.getItem('userRefreshToken')) return;
+    userRefreshTimer = window.setTimeout(() => {
+      refreshUserSession().catch(() => {});
+    }, Math.max(0, expiration - Date.now() - 60000));
+  }
+
+  async function performUserRefresh() {
+    const currentExpiration = tokenExpiration(localStorage.getItem('userAccessToken') || '');
+    if (Number.isFinite(currentExpiration) && currentExpiration > Date.now() + 60000) {
+      scheduleUserRefresh();
+      return localStorage.getItem('userAccessToken');
+    }
+
+    const refreshToken = localStorage.getItem('userRefreshToken');
+    if (!refreshToken) throw new Error('Không có refresh token USER.');
+    let response;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15000);
+    try {
+      response = await fetch(`${API_ORIGIN}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+        signal: controller.signal
+      });
+    } catch (error) {
+      userRefreshTimer = window.setTimeout(scheduleUserRefresh, 30000);
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    const data = payload.data ?? payload;
+    if (localStorage.getItem('userRefreshToken') !== refreshToken) {
+      scheduleUserRefresh();
+      return localStorage.getItem('userAccessToken');
+    }
+    if (!response.ok || !data?.accessToken) {
+      if ([400, 401, 403].includes(response.status)) {
+        clearUserSession();
+        window.location.replace('login.html');
+      } else {
+        userRefreshTimer = window.setTimeout(() => refreshUserSession().catch(() => {}), 30000);
+      }
+      throw new Error(payload.message || 'Không thể làm mới phiên đăng nhập USER.');
+    }
+
+    localStorage.setItem('userAccessToken', data.accessToken);
+    if (data.refreshToken) localStorage.setItem('userRefreshToken', data.refreshToken);
+    scheduleUserRefresh();
+    return data.accessToken;
+  }
+
+  function refreshUserSession() {
+    if (navigator.locks?.request) {
+      return navigator.locks.request('fca-user-auth-refresh', performUserRefresh);
+    }
+    return refreshUserSessionWithLease();
+  }
+
+  async function refreshUserSessionWithLease() {
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      let lock = null;
+      try { lock = JSON.parse(localStorage.getItem(USER_REFRESH_LOCK_KEY) || 'null'); } catch {}
+      if (lock?.owner !== userRefreshOwner && Number(lock?.expiresAt) > Date.now()) {
+        await wait(100);
+        continue;
+      }
+
+      localStorage.setItem(USER_REFRESH_LOCK_KEY, JSON.stringify({
+        owner: userRefreshOwner,
+        expiresAt: Date.now() + 20000
+      }));
+      await wait(25);
+      let confirmed = null;
+      try { confirmed = JSON.parse(localStorage.getItem(USER_REFRESH_LOCK_KEY) || 'null'); } catch {}
+      if (confirmed?.owner !== userRefreshOwner) continue;
+
+      try {
+        return await performUserRefresh();
+      } finally {
+        let current = null;
+        try { current = JSON.parse(localStorage.getItem(USER_REFRESH_LOCK_KEY) || 'null'); } catch {}
+        if (current?.owner === userRefreshOwner) localStorage.removeItem(USER_REFRESH_LOCK_KEY);
+      }
+    }
+    throw new Error('Không thể khóa thao tác làm mới phiên USER.');
+  }
 
   function renderSharedShell() {
     const headerHost = document.querySelector('[data-site-header]');
@@ -347,6 +461,7 @@
       badge.textContent = count > 0 ? String(count) : '';
       badge.classList.toggle('hidden', count === 0);
       badge.classList.toggle('flex', count > 0);
+      badge.style.display = count > 0 ? 'flex' : 'none';
     };
 
     renderCount(badge.dataset.count);
@@ -429,6 +544,14 @@
   window.FCA_SHELL.apiOrigin = API_ORIGIN;
   window.FCA_SHELL.logout = logout;
   window.FCA_SHELL.authHeaders = authHeaders;
+  window.FCA_SHELL.refreshAccessToken = refreshUserSession;
+  scheduleUserRefresh();
+
+  window.addEventListener('storage', event => {
+    if (event.key === 'userAccessToken' || event.key === 'userRefreshToken') {
+      scheduleUserRefresh();
+    }
+  });
 
   /* ============================================================
      6. ĐỒNG BỘ SỐ LƯỢNG GIỎ HÀNG TRÊN TRANG HOME
@@ -465,33 +588,46 @@
     } catch { return []; }
   }
 
+  let cartBadgeRevision = 0;
+
+  function cartQuantity(cart) {
+    const responseTotal = Number(cart?.totalQuantity);
+    if (Number.isFinite(responseTotal) && responseTotal >= 0) {
+      return Math.floor(responseTotal);
+    }
+    if (!Array.isArray(cart?.items)) return null;
+    return cart.items.reduce((total, item) => {
+      const quantity = Number(item?.quantity);
+      return total + (Number.isFinite(quantity) && quantity > 0 ? Math.floor(quantity) : 1);
+    }, 0);
+  }
+
+  function publishCartCount(count) {
+    cartBadgeRevision += 1;
+    window.FCA_SHELL?.setCartCount?.(count);
+    window.dispatchEvent(new CustomEvent('fca:cart-count', { detail: { count } }));
+  }
+
   async function updateCartBadge() {
     const badge = document.getElementById('cart-count-badge');
     if (!badge) return;
+    const requestRevision = cartBadgeRevision;
 
     try {
       const token = localStorage.getItem('userAccessToken');
       const cart = token ? await cartApiRequest() : { items: guestCart() };
-      const items = Array.isArray(cart?.items) ? cart.items : [];
-      const count = items.reduce((total, item) => {
-            const quantity = Number(item?.quantity);
-            return total + (
-              Number.isFinite(quantity) && quantity > 0
-                ? Math.floor(quantity)
-                : 1
-            );
-          }, 0);
+      if (requestRevision !== cartBadgeRevision) return;
+      const count = cartQuantity(cart) ?? 0;
 
-      badge.textContent = count > 99 ? '99+' : String(count);
-      badge.dataset.count = String(count);
-      badge.classList.toggle('hidden', count === 0);
-      badge.classList.toggle('flex', count > 0);
+      window.FCA_SHELL?.setCartCount?.(count);
     } catch (error) {
+      if (requestRevision !== cartBadgeRevision) return;
       console.error('[FCA] Không đọc được giỏ hàng:', error);
       badge.textContent = '';
       badge.dataset.count = '0';
       badge.classList.add('hidden');
       badge.classList.remove('flex');
+      badge.style.display = 'none';
     }
   }
 
@@ -507,7 +643,8 @@
   // Đồng bộ nếu giỏ hàng thay đổi từ tab khác.
   window.addEventListener('storage', (event) => {
     if (event.key === 'userAccessToken') {
-      window.location.reload();
+      if (!event.newValue) window.location.replace('login.html');
+      else scheduleUserRefresh();
       return;
     }
     if (event.key === GUEST_CART_KEY) {
@@ -552,16 +689,28 @@
   // Cho phép các script khác cập nhật badge sau khi sửa giỏ hàng.
   window.FCA = window.FCA || {};
   window.FCA.updateCartBadge = updateCartBadge;
+
+  async function mutateCart(path, options) {
+    const result = await cartApiRequest(path, options);
+    let count = cartQuantity(result);
+    if (count == null) {
+      const synchronizedCart = await cartApiRequest();
+      count = cartQuantity(synchronizedCart) ?? 0;
+    }
+    publishCartCount(count);
+    return result;
+  }
+
   window.FCA_CART_API = {
     get: () => cartApiRequest(),
-    add: (menuItemId, quantity) => cartApiRequest('/items', {
+    add: (menuItemId, quantity) => mutateCart('/items', {
       method: 'POST', body: JSON.stringify({ menuItemId, quantity })
     }),
-    update: (itemId, quantity) => cartApiRequest(`/items/${encodeURIComponent(itemId)}`, {
-      method: 'PUT', body: JSON.stringify({ quantity })
+    update: (itemId, quantity, note) => mutateCart(`/items/${encodeURIComponent(itemId)}`, {
+      method: 'PUT', body: JSON.stringify({ quantity, note })
     }),
-    remove: (itemId) => cartApiRequest(`/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' }),
-    clear: () => cartApiRequest('', { method: 'DELETE' }),
+    remove: (itemId) => mutateCart(`/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' }),
+    clear: () => mutateCart('', { method: 'DELETE' }),
     refreshBadge: updateCartBadge,
     guestKey: GUEST_CART_KEY
   };

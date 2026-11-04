@@ -18,22 +18,42 @@ function escapeHtml(value) {
   })[character]);
 }
 
+function frontendAssetUrl(path) {
+  const prefix = window.location.pathname.startsWith('/FE/') ? '/FE' : '';
+  return new URL(`${prefix}/${String(path).replace(/^\/+/, '')}`, window.location.origin).href;
+}
+
 function resolveImageUrl(value) {
   const url = String(value ?? '').trim();
   if (!url) return '';
 
+  const normalized = url.replace(/\\/g, '/');
+  if (/^(?:https?:|data:|blob:)/i.test(normalized)) {
+    try {
+      return new URL(normalized, window.location.href).href;
+    } catch (_error) {
+      return url;
+    }
+  }
+  const imagesIndex = normalized.toLowerCase().indexOf('/images/');
+  if (imagesIndex >= 0) return frontendAssetUrl(normalized.slice(imagesIndex + 1));
+  if (/^images\//i.test(normalized)) return frontendAssetUrl(normalized);
+  if (/^(?:restaurant\/)?fca test\//i.test(normalized)) {
+    return frontendAssetUrl(`images/restaurant/${normalized.replace(/^restaurant\//i, '')}`);
+  }
+  if (/^(?:anh-pho|pho-thai-1|quan-pho-sang-trong)\.jpg$/i.test(normalized)) {
+    return frontendAssetUrl(`images/restaurant/FCA Test/${normalized}`);
+  }
+
   try {
     const parsed = new URL(url, window.location.href);
-    if (parsed.origin === window.location.origin && /^\/images\//i.test(parsed.pathname)) {
-      const prefix = window.location.pathname.startsWith('/FE/') ? '/FE' : '';
-      return `${prefix}${parsed.pathname}${parsed.search}${parsed.hash}`;
-    }
+    return parsed.href;
   } catch (_error) {
     return url;
   }
-
-  return url;
 }
+
+const RESTAURANT_IMAGE_FALLBACK = frontendAssetUrl('images/restaurant/FCA Test/quan-pho-sang-trong.jpg');
 
 function authHeaders() {
   if (typeof window.FCA_SHELL?.authHeaders === 'function') {
@@ -239,7 +259,7 @@ function distanceKm(latitude1, longitude1, latitude2, longitude2) {
         (r) => `
       <article class="bg-white rounded-2xl overflow-hidden border border-slate-200/80 shadow-xs hover:shadow-xl hover:border-slate-300 transition-all duration-300 flex flex-col group">
         <div class="relative w-full h-56 overflow-hidden bg-slate-100">
-          <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="${r.image || ''}" alt="${r.name || ''}"/>
+          <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="${r.image || RESTAURANT_IMAGE_FALLBACK}" alt="${escapeHtml(r.name || 'Nhà hàng')}" onerror="this.onerror=null;this.src='${RESTAURANT_IMAGE_FALLBACK}'"/>
           <div class="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-white/95 backdrop-blur text-amber-800 text-xs font-bold flex items-center gap-1 shadow-xs border border-slate-200/60">
             <span class="material-symbols-outlined text-[16px] text-amber-500" style="font-variation-settings: 'FILL' 1;">star</span>
             <span>${r.rating || '—'}</span>
@@ -470,7 +490,7 @@ function distanceKm(latitude1, longitude1, latitude2, longitude2) {
         id: r.id,
         name: r.name,
         address: r.address,
-        image: resolveImageUrl(r.imageUrl),
+        image: resolveImageUrl(r.imageUrl) || RESTAURANT_IMAGE_FALLBACK,
         rating: r.averageRating,
         reviewCount: r.reviewCount,
         categoryStatus: r.categoryStatus,

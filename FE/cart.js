@@ -46,9 +46,11 @@
     originalShipping: 0,
     deliveryLatitude: null,
     deliveryLongitude: null,
+    restaurant: null,
     voucherOriginalShipping: null,
     freeShipping: false
   };
+  const noteSaveTimers = new Map();
 
   let refreshPromise = null;
   let voucherRequestId = 0;
@@ -79,6 +81,33 @@
       "'": "&#39;"
     })[char]);
   }
+
+  function frontendAssetUrl(path) {
+    const prefix = window.location.pathname.startsWith("/FE/") ? "/FE" : "";
+    return new URL(`${prefix}/${String(path).replace(/^\/+/, "")}`, window.location.origin).href;
+  }
+
+  function resolveImageUrl(value, kind = "menuItems") {
+    const raw = String(value ?? "").trim();
+    if (!raw) return "";
+    const normalized = raw.replace(/\\/g, "/");
+    if (/^(?:https?:|data:|blob:)/i.test(normalized)) return normalized;
+    const imagesIndex = normalized.toLowerCase().indexOf("/images/");
+    if (imagesIndex >= 0) return frontendAssetUrl(normalized.slice(imagesIndex + 1));
+    if (/^images\//i.test(normalized)) return frontendAssetUrl(normalized);
+    if (/^(?:restaurant|menuitems)\//i.test(normalized)) {
+      return frontendAssetUrl(`images/${normalized}`);
+    }
+    if (/^fca test\//i.test(normalized)) {
+      return frontendAssetUrl(`images/${kind}/${normalized}`);
+    }
+    if (normalized.startsWith("/") || /^(?:uploads?|files?)\//i.test(normalized)) {
+      return new URL(normalized.replace(/^\/+/, ""), `${API_BASE_URL}/`).href;
+    }
+    return frontendAssetUrl(`images/${kind}/${normalized}`);
+  }
+
+  const RESTAURANT_IMAGE_FALLBACK = frontendAssetUrl("images/restaurant/FCA Test/quan-pho-sang-trong.jpg");
 
   function getItemId(item) {
     return String(item?.id ?? "");
@@ -115,7 +144,7 @@
         restaurantId: getRestaurantId(item),
         name: String(item.name ?? item.menuItemName ?? "Món ăn"),
         price: getItemPrice(item),
-        image: String(item.image ?? item.imageUrl ?? ""),
+        image: resolveImageUrl(item.image ?? item.imageUrl, "menuItems"),
         quantity: getItemQuantity(item)
       }));
   }
@@ -439,14 +468,17 @@
       return;
     }
 
-    container.innerHTML = state.items.map(item => {
+    const restaurantName = state.restaurant?.name || state.items[0]?.restaurantName || "Nhà hàng";
+    const restaurantImage = resolveImageUrl(state.restaurant?.imageUrl, "restaurant") || RESTAURANT_IMAGE_FALLBACK;
+    const restaurantHeader = `<div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+      <img class="h-14 w-14 shrink-0 rounded-lg object-cover" src="${escapeHtml(restaurantImage)}" alt="${escapeHtml(restaurantName)}" onerror="this.onerror=null;this.src='${escapeHtml(RESTAURANT_IMAGE_FALLBACK)}'">
+      <div><span class="text-xs text-outline">Nhà hàng phục vụ</span><strong class="block text-on-surface">${escapeHtml(restaurantName)}</strong></div>
+    </div>`;
+
+    container.innerHTML = restaurantHeader + state.items.map(item => {
       const id = escapeHtml(item.id);
       const name = escapeHtml(item.name);
       const image = escapeHtml(item.image);
-
-      const note = item.note
-        ? `<p class="font-body-sm mt-1">${escapeHtml(item.note)}</p>`
-        : "";
 
       const badge = item.badge
         ? `<span class="absolute bottom-1 left-1 rounded bg-white/90 px-1.5 py-0.5 text-xs">${escapeHtml(item.badge)}</span>`
@@ -464,14 +496,16 @@
           <div class="flex items-center gap-space-md w-full sm:w-auto min-w-0">
             <div class="relative w-24 h-24 rounded-lg overflow-hidden shrink-0 bg-surface-container">
               ${image
-                ? `<img class="w-full h-full object-cover" src="${image}" alt="${name}" loading="lazy">`
-                : `<div class="w-full h-full flex items-center justify-center"><span class="material-symbols-outlined text-[32px]">restaurant</span></div>`}
+                ? `<img class="w-full h-full object-cover" src="${image}" alt="${name}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><div class="w-full h-full flex items-center justify-center" hidden><span class="material-symbols-outlined text-[32px]">restaurant_menu</span></div>`
+                : `<div class="w-full h-full flex items-center justify-center"><span class="material-symbols-outlined text-[32px]">restaurant_menu</span></div>`}
               ${badge}
             </div>
             <div class="flex flex-col min-w-0">
               <h3 class="font-title-md text-on-surface font-semibold break-words">${name}</h3>
-              ${note}
               <p class="sm:hidden mt-2 font-bold text-primary">${formatCurrency(item.price)}</p>
+              <label class="mt-2 text-xs font-semibold text-on-surface-variant" for="item-note-${id}">Ghi chú riêng</label>
+              <input id="item-note-${id}" class="cart-item-note mt-1 w-full rounded-lg border border-outline-variant bg-white px-3 py-2 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                data-id="${id}" maxlength="500" value="${escapeHtml(item.note || "")}" placeholder="Ví dụ: Ít đá, không hành..." type="text">
             </div>
           </div>
 
@@ -508,6 +542,23 @@
     }).join("");
 
     updateCartBadge(state.items);
+  }
+
+  async function loadCartRestaurant() {
+    const restaurantId = getCommonRestaurantId(state.items);
+    if (restaurantId == null) {
+      state.restaurant = null;
+      return;
+    }
+    try {
+      const restaurants = await fetchJson(`${API_BASE_URL}/api/v1/restaurants/active`);
+      state.restaurant = Array.isArray(restaurants)
+        ? restaurants.find(item => String(item.id) === String(restaurantId)) || null
+        : null;
+    } catch (error) {
+      console.warn("Không tải được ảnh nhà hàng của giỏ hàng:", error);
+      state.restaurant = null;
+    }
   }
 
   // Chỉ cập nhật dòng món thay đổi, không dựng lại toàn bộ danh sách.
@@ -1358,7 +1409,7 @@
 
     if (localStorage.getItem("userAccessToken")) {
       try {
-        applyServerCart(await window.FCA_CART_API.update(item.cartItemId, quantity));
+        applyServerCart(await window.FCA_CART_API.update(item.cartItemId, quantity, item.note ?? null));
       } catch (error) {
         showToast(error.message || "Không cập nhật được số lượng.");
         return;
@@ -1378,6 +1429,42 @@
       scheduleVoucherRevalidation(voucherCode);
     }
 
+  }
+
+  async function saveItemNote(input) {
+    const id = input?.dataset.id;
+    const item = getCart().find(entry => getItemId(entry) === String(id));
+    if (!item) return;
+
+    const note = String(input.value || "").trim();
+    if (note === String(item.note || "").trim()) return;
+
+    if (localStorage.getItem("userAccessToken")) {
+      try {
+        applyServerCart(await window.FCA_CART_API.update(
+          item.cartItemId,
+          getItemQuantity(item),
+          note
+        ));
+      } catch (error) {
+        input.value = String(item.note || "");
+        showToast(error.message || "Không lưu được ghi chú món ăn.");
+        throw error;
+      }
+    } else {
+      item.note = note;
+      if (!saveCart(getCart())) throw new Error("Không lưu được ghi chú món ăn.");
+    }
+  }
+
+  function scheduleItemNoteSave(input) {
+    const id = String(input?.dataset.id || "");
+    if (!id) return;
+    window.clearTimeout(noteSaveTimers.get(id));
+    noteSaveTimers.set(id, window.setTimeout(() => {
+      noteSaveTimers.delete(id);
+      saveItemNote(input).catch(() => {});
+    }, 500));
   }
 
   async function removeItem(id) {
@@ -1687,9 +1774,22 @@
       }
     });
 
+    $("cart-item-list")?.addEventListener("input", event => {
+      const input = event.target.closest(".cart-item-note");
+      if (input) scheduleItemNoteSave(input);
+    });
+
+    $("cart-item-list")?.addEventListener("change", event => {
+      const input = event.target.closest(".cart-item-note");
+      if (!input) return;
+      window.clearTimeout(noteSaveTimers.get(String(input.dataset.id || "")));
+      noteSaveTimers.delete(String(input.dataset.id || ""));
+      saveItemNote(input).catch(() => {});
+    });
+
     $("clear-all-btn")?.addEventListener("click", clearCart);
 
-    $("checkout-cta")?.addEventListener("click", event => {
+    $("checkout-cta")?.addEventListener("click", async event => {
       if (!getCart().length) {
         event.preventDefault();
         event.stopPropagation();
@@ -1707,12 +1807,28 @@
         return;
       }
 
+      event.preventDefault();
+      const checkoutLink = event.currentTarget;
+      const noteInputs = Array.from(document.querySelectorAll(".cart-item-note"));
+      noteSaveTimers.forEach(timer => window.clearTimeout(timer));
+      noteSaveTimers.clear();
+      try {
+        await Promise.all(noteInputs.map(saveItemNote));
+      } catch {
+        return;
+      }
+
       sessionStorage.setItem("fca_checkout_context", JSON.stringify({
         voucherCode: state.couponCode,
         discount: state.discount,
         shipping: state.shipping,
-        ecoPackaging: true
+        ecoPackaging: true,
+        itemNotes: Object.fromEntries(getCart().map(item => [
+          String(item.id),
+          String(item.note || "").trim()
+        ]))
       }));
+      window.location.href = checkoutLink.href;
     });
 
     window.addEventListener("storage", event => {
@@ -1871,6 +1987,7 @@
       state.items = [];
       showToast(error.message || "Không tải được giỏ hàng.");
     }
+    await loadCartRestaurant();
     renderCartItems(state.items);
     updateCartBadge(state.items);
     recalculateCart(false);

@@ -36,10 +36,7 @@
             <p>Theo dõi tiến trình xử lý và giao đơn hàng của bạn.</p>
         </div>
 
-        <button type="button" class="btn btn-outline" id="refreshBtn">
-            <span class="material-symbols-outlined" id="refreshIcon">sync</span>
-            Cập nhật trạng thái
-        </button>
+
     </section>
 
     <div class="notice" id="notice" role="status" hidden></div>
@@ -67,6 +64,22 @@
                 <span class="field-label">Ngày đặt hàng</span>
                 <strong id="orderDate">--</strong>
             </div>
+            <div>
+                <span class="field-label">Dự kiến nhận hàng</span>
+                <strong id="estimatedDeliveryAt">--</strong>
+            </div>
+            <div>
+                <span class="field-label">Khoảng cách giao hàng</span>
+                <strong id="deliveryDistance">--</strong>
+            </div>
+            <div>
+                <span class="field-label">Nhân viên giao hàng</span>
+                <strong id="shipperName">Đang chờ phân công nhân viên giao hàng</strong>
+            </div>
+            <div>
+                <span class="field-label">Số điện thoại shipper</span>
+                <strong id="shipperPhone">—</strong>
+            </div>
             <div><span class="field-label">Quán ăn</span><strong id="restaurantName">--</strong></div>
             <div>
                 <span class="field-label">Phương thức thanh toán</span>
@@ -80,6 +93,10 @@
                 <span class="field-label">Tổng thanh toán</span>
                 <strong class="total-price" id="orderTotal">--</strong>
             </div>
+        </div>
+        <div class="delivery-overdue-alert" id="deliveryOverdueAlert" role="alert" hidden>
+            <span class="material-symbols-outlined">warning</span>
+            <div><strong>Đơn hàng đang giao trễ</strong><p>Đơn hàng đã quá thời gian dự kiến nhận 20 phút và chưa hoàn thành. Vui lòng liên hệ cho nhà hàng để xử lý vấn đề của bạn !</p></div>
         </div>
     </section>
 
@@ -102,6 +119,10 @@
         <div class="order-cancel-action" id="order-cancel-action" hidden>
             <button type="button" class="btn btn-danger" id="cancel-order-btn">Hủy đơn hàng</button>
             <span id="cancel-order-hint"></span>
+        </div>
+        <div class="order-cancellation-detail" id="order-cancellation-detail" hidden>
+            <span>Lý do hủy</span>
+            <strong id="order-cancellation-reason"></strong>
         </div>
         <div class="order-received-action" id="order-received-action" hidden>
             <button type="button" class="btn btn-primary" id="confirm-received-btn">Đã nhận hàng</button>
@@ -236,10 +257,6 @@
                 <span class="field-label">Địa chỉ nhận hàng</span>
                 <strong id="deliveryAddress">--</strong>
             </div>
-            <div class="address-field">
-                <span class="field-label">Ghi chú</span>
-                <strong id="orderNote">Không có ghi chú</strong>
-            </div>
         </div>
     </section>
 
@@ -278,12 +295,22 @@
         <div class="receive-confirm-icon cancel-confirm-icon" aria-hidden="true">
             <span class="material-symbols-outlined">warning</span>
         </div>
-        <h2 id="cancel-confirm-title">Xác nhận hủy đơn hàng</h2>
-        <p id="cancel-confirm-message">Bạn có chắc chắn muốn hủy đơn hàng này không?</p>
+        <h2 id="cancel-confirm-title">Lý do hủy đơn hàng</h2>
+        <p id="cancel-confirm-message">Vui lòng cho chúng tôi biết lý do bạn muốn hủy đơn hàng.</p>
+        <fieldset class="cancel-reason-options" id="cancel-reason-options">
+            <label><input type="radio" name="cancel-reason" value="ADDRESS_CHANGE"><span>Muốn thay đổi địa chỉ giao hàng</span></label>
+            <label><input type="radio" name="cancel-reason" value="VOUCHER_CHANGE"><span>Muốn thay đổi voucher</span></label>
+            <label><input type="radio" name="cancel-reason" value="ITEM_CHANGE"><span>Muốn thay đổi món ăn</span></label>
+            <label><input type="radio" name="cancel-reason" value="OTHER"><span>Lý do khác</span></label>
+        </fieldset>
+        <label class="cancel-other-reason" id="cancel-other-reason" for="cancel-other-reason-input" hidden>
+            <span>Nhập lý do hủy đơn</span>
+            <textarea id="cancel-other-reason-input" maxlength="500" placeholder="Vui lòng nhập lý do bạn muốn hủy..."></textarea>
+        </label>
         <div class="cancel-confirm-error" id="cancel-confirm-error" hidden aria-live="polite"></div>
         <div class="receive-confirm-actions">
-            <button type="button" class="btn btn-outline" id="cancel-confirm-keep">Không, giữ đơn hàng</button>
-            <button type="button" class="btn btn-danger" id="cancel-confirm-submit">Đồng ý hủy đơn</button>
+            <button type="button" class="btn btn-outline" id="cancel-confirm-keep">Quay lại</button>
+            <button type="button" class="btn btn-danger" id="cancel-confirm-submit">Xác nhận hủy đơn</button>
         </div>
     </section>
 </div>
