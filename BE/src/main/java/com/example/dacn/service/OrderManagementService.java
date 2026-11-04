@@ -12,7 +12,8 @@ import java.util.List;
 public interface OrderManagementService {
     OrderResponse confirmByAdmin(Long orderId);
     OrderResponse updateStatusByAdmin(Long orderId, OrderStatus target);
-    OrderResponse cancelMyOrder(Long orderId);
+    OrderResponse assignShipper(Long orderId, Long shipperId);
+    OrderResponse cancelMyOrder(Long orderId, String reasonCode, String reason);
     OrderResponse confirmReceivedByUser(Long orderId);
     OrderResponse completeCodByAdmin(Long orderId, boolean paymentCollected);
     AdminOrderPageResponse searchAdminOrders(Long orderId, String customer, String restaurant,

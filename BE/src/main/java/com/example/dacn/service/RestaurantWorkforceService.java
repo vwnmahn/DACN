@@ -11,5 +11,6 @@ public interface RestaurantWorkforceService {
  List<EmploymentTerminationHistoryResponse> terminationHistory(Long restaurantId,Long employeeId);
  void finalizeDueTerminations();
  void saveRent(Long restaurantId,RestaurantRentRequest request);
+ List<RestaurantRentCostHistoryResponse> rentHistory(Long restaurantId);
  RestaurantCostReportResponse report(Long restaurantId,int year,int month);
 }

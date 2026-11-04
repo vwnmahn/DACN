@@ -7,4 +7,7 @@ import lombok.Data;
 public class CartItemQuantityRequest {
     @NotNull @Min(1) @Max(100)
     private Integer quantity;
+
+    @Size(max = 500)
+    private String note;
 }

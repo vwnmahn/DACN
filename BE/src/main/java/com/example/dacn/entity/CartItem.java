@@ -24,4 +24,7 @@ public class CartItem extends BaseEntity {
 
     @Column(nullable = false)
     private Integer quantity;
+
+    @Column(name = "note", length = 500)
+    private String note;
 }

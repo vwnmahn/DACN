@@ -153,7 +153,8 @@ class OrderManagementServiceImplTest {
         order.setCreatedAt(LocalDateTime.now(clock).minusSeconds(14));
         lockOrderAndPayment();
 
-        OrderResponse result = service.cancelMyOrder(3L);
+        OrderResponse result = service.cancelMyOrder(
+                3L, "OTHER", "Khách hàng không còn nhu cầu đặt món");
 
         assertEquals(OrderStatus.CANCELLED, result.getStatus());
         assertEquals(OrderCancellationReason.CANCELLED_BY_USER, result.getCancellationReason());
@@ -165,7 +166,8 @@ class OrderManagementServiceImplTest {
         order.setCreatedAt(LocalDateTime.now(clock).minusSeconds(15));
         when(orderRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(order));
 
-        AppException error = assertThrows(AppException.class, () -> service.cancelMyOrder(3L));
+        AppException error = assertThrows(AppException.class, () -> service.cancelMyOrder(
+                3L, "OTHER", "Khách hàng không còn nhu cầu đặt món"));
 
         assertEquals(ErrorCode.ORDER_CANCELLATION_NOT_ALLOWED, error.getErrorCode());
         verifyNoInteractions(paymentRepository);
@@ -201,7 +203,8 @@ class OrderManagementServiceImplTest {
         order.setCreatedAt(LocalDateTime.now(clock).minusSeconds(16));
         authenticate(owner);
         when(orderRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(order));
-        AppException error = assertThrows(AppException.class, () -> service.cancelMyOrder(3L));
+        AppException error = assertThrows(AppException.class, () -> service.cancelMyOrder(
+                3L, "OTHER", "Khách hàng không còn nhu cầu đặt món"));
         assertEquals(ErrorCode.ORDER_CANCELLATION_NOT_ALLOWED, error.getErrorCode());
         verify(voucherService, never()).releaseForOrder(anyLong());
     }

@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
 import java.time.LocalDateTime;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Page;
@@ -17,24 +18,26 @@ import org.springframework.data.jpa.domain.Specification;
 
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
     boolean existsByRestaurantId(Long restaurantId);
-    @EntityGraph(attributePaths = {"restaurant", "items", "items.menuItem"})
+    boolean existsByShipperIdAndStatusNotInAndIdNot(Long shipperId,
+            Collection<com.example.dacn.entity.OrderStatus> statuses, Long orderId);
+    @EntityGraph(attributePaths = {"restaurant", "shipper", "items", "items.menuItem"})
     List<Order> findByAccountIdOrderByIdDesc(Long accountId);
 
-    @EntityGraph(attributePaths = {"restaurant", "items", "items.menuItem"})
+    @EntityGraph(attributePaths = {"restaurant", "shipper", "items", "items.menuItem"})
     Optional<Order> findByIdAndAccountId(Long id, Long accountId);
 
     @EntityGraph(attributePaths = {"restaurant", "items", "items.menuItem"})
     Optional<Order> findByAccountIdAndIdempotencyKey(Long accountId, String idempotencyKey);
 
     @Override
-    @EntityGraph(attributePaths = {"account", "restaurant"})
+    @EntityGraph(attributePaths = {"account", "restaurant", "shipper"})
     Page<Order> findAll(Specification<Order> specification, Pageable pageable);
 
     @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items i "
             + "LEFT JOIN FETCH i.menuItem WHERE o.id IN :ids")
     List<Order> fetchItemsForOrders(@Param("ids") List<Long> ids);
 
-    @EntityGraph(attributePaths = {"account", "restaurant", "items", "items.menuItem"})
+    @EntityGraph(attributePaths = {"account", "restaurant", "shipper", "items", "items.menuItem"})
     @Query("SELECT o FROM Order o WHERE o.id = :id")
     Optional<Order> findAdminDetailById(@Param("id") Long id);
 

@@ -16,6 +16,9 @@ public class OrderResponse {
     private Long id;
     private Long restaurantId;
     private String restaurantName;
+    private Long shipperId;
+    private String shipperName;
+    private String shipperPhone;
     private OrderStatus status;
     private LocalDateTime confirmationDeadline;
     private LocalDateTime cancellationDeadline;
@@ -23,6 +26,8 @@ public class OrderResponse {
     private LocalDateTime confirmedAt;
     private ConfirmationSource confirmationSource;
     private OrderCancellationReason cancellationReason;
+    private String cancellationCode;
+    private String cancellationDetail;
     private LocalDateTime cancelledAt;
     private Boolean refundRequired;
     private BigDecimal subtotal;
@@ -32,6 +37,8 @@ public class OrderResponse {
     private BigDecimal restaurantLatitude;
     private BigDecimal restaurantLongitude;
     private BigDecimal deliveryDistanceKm;
+    private LocalDateTime estimatedDeliveryAt;
+    private Boolean deliveryOverdue;
     private BigDecimal deliveryRadiusKmSnapshot;
     private BigDecimal baseDeliveryFeeSnapshot;
     private BigDecimal baseDistanceKmSnapshot;

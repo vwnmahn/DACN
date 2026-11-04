@@ -152,6 +152,12 @@ public enum ErrorCode {
     ORDER_NOT_COD(7013, "Đơn hàng không sử dụng phương thức COD", HttpStatus.CONFLICT),
     VNPAY_ORDER_NOT_ACCEPTED(7014, "Đơn hàng chưa được nhà hàng chấp nhận để thanh toán VNPay", HttpStatus.CONFLICT),
     ORDER_INVALID_SEARCH_REQUEST(7015, "Tham số tìm kiếm hoặc phân trang đơn hàng không hợp lệ", HttpStatus.BAD_REQUEST),
+    ORDER_SHIPPER_NOT_FOUND(7016, "Không tìm thấy nhân viên giao hàng", HttpStatus.NOT_FOUND),
+    ORDER_SHIPPER_INVALID_POSITION(7017, "Nhân viên được chọn không có vị trí SHIPPER", HttpStatus.BAD_REQUEST),
+    ORDER_SHIPPER_WRONG_RESTAURANT(7018, "Nhân viên giao hàng không thuộc nhà hàng của đơn hàng", HttpStatus.CONFLICT),
+    ORDER_SHIPPER_INACTIVE(7019, "Nhân viên giao hàng không còn hoạt động", HttpStatus.CONFLICT),
+    ORDER_SHIPPER_ASSIGNMENT_NOT_ALLOWED(7020, "Không thể thay đổi nhân viên giao hàng ở trạng thái hiện tại", HttpStatus.CONFLICT),
+    ORDER_SHIPPER_BUSY(7021, "Nhân viên giao hàng đang phụ trách một đơn hàng chưa hoàn tất", HttpStatus.CONFLICT),
 
     // ================= VOUCHER =================
     VOUCHER_NOT_FOUND(8001, "Voucher không tồn tại", HttpStatus.NOT_FOUND),

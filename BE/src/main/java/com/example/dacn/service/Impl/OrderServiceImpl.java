@@ -24,6 +24,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -40,6 +41,7 @@ public class OrderServiceImpl implements OrderService {
     private final AccountRepository accountRepository;
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
+    private final CartItemRepository cartItemRepository;
     private final Clock clock;
     private final VoucherService voucherService;
     private final DeliveryDistanceService deliveryDistanceService;
@@ -135,9 +137,15 @@ public class OrderServiceImpl implements OrderService {
 
             BigDecimal unitPrice = menuItem.getPrice();
             BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(requestedItem.getQuantity()));
+            String itemNote = cartItemRepository
+                    .findByCartAccountIdAndMenuItemId(account.getId(), menuItem.getId())
+                    .map(CartItem::getNote)
+                    .orElseGet(() -> trimToNull(requestedItem.getNote()));
             order.addItem(OrderItem.builder()
                     .menuItem(menuItem)
                     .itemName(menuItem.getName())
+                    .imageUrl(menuItem.getImageUrl())
+                    .note(itemNote)
                     .unitPrice(unitPrice)
                     .quantity(requestedItem.getQuantity())
                     .lineTotal(lineTotal)
@@ -264,11 +272,14 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private OrderResponse toResponse(Order order) {
+        LocalDateTime estimatedDeliveryAt = estimatedDeliveryAt(order);
         List<OrderItemResponse> items = order.getItems().stream()
                 .map(item -> OrderItemResponse.builder()
                         .id(item.getId())
                         .menuItemId(item.getMenuItem().getId())
                         .itemName(item.getItemName())
+                        .imageUrl(item.getImageUrl())
+                        .note(item.getNote())
                         .unitPrice(item.getUnitPrice())
                         .quantity(item.getQuantity())
                         .lineTotal(item.getLineTotal())
@@ -278,6 +289,9 @@ public class OrderServiceImpl implements OrderService {
                 .id(order.getId())
                 .restaurantId(order.getRestaurant().getId())
                 .restaurantName(order.getRestaurant().getName())
+                .shipperId(order.getShipper() == null ? null : order.getShipper().getId())
+                .shipperName(order.getShipper() == null ? null : order.getShipper().getFullName())
+                .shipperPhone(order.getShipper() == null ? null : order.getShipper().getPhoneNumber())
                 .status(order.getStatus())
                 .confirmationDeadline(order.getConfirmationDeadline())
                 .cancellationDeadline(order.getCreatedAt() == null ? null
@@ -286,6 +300,8 @@ public class OrderServiceImpl implements OrderService {
                 .confirmedAt(order.getConfirmedAt())
                 .confirmationSource(order.getConfirmationSource())
                 .cancellationReason(order.getCancellationReason())
+                .cancellationCode(order.getCancellationCode())
+                .cancellationDetail(order.getCancellationDetail())
                 .cancelledAt(order.getCancelledAt())
                 .refundRequired(order.getRefundRequired())
                 .subtotal(order.getSubtotal())
@@ -295,6 +311,8 @@ public class OrderServiceImpl implements OrderService {
                 .restaurantLatitude(order.getRestaurantLatitude())
                 .restaurantLongitude(order.getRestaurantLongitude())
                 .deliveryDistanceKm(order.getDeliveryDistanceKm())
+                .estimatedDeliveryAt(estimatedDeliveryAt)
+                .deliveryOverdue(isDeliveryOverdue(order, estimatedDeliveryAt))
                 .deliveryRadiusKmSnapshot(order.getDeliveryRadiusKmSnapshot())
                 .baseDeliveryFeeSnapshot(order.getBaseDeliveryFeeSnapshot())
                 .baseDistanceKmSnapshot(order.getBaseDistanceKmSnapshot())
@@ -311,5 +329,21 @@ public class OrderServiceImpl implements OrderService {
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .build();
+    }
+
+    private LocalDateTime estimatedDeliveryAt(Order order) {
+        if (order.getCreatedAt() == null || order.getDeliveryDistanceKm() == null) return null;
+        long deliveryMinutes = order.getDeliveryDistanceKm()
+                .multiply(BigDecimal.valueOf(15))
+                .setScale(0, RoundingMode.HALF_UP)
+                .longValue();
+        return order.getCreatedAt().plusMinutes(deliveryMinutes);
+    }
+
+    private boolean isDeliveryOverdue(Order order, LocalDateTime estimatedDeliveryAt) {
+        if (estimatedDeliveryAt == null
+                || order.getStatus() == OrderStatus.COMPLETED
+                || order.getStatus() == OrderStatus.CANCELLED) return false;
+        return LocalDateTime.now(clock).isAfter(estimatedDeliveryAt.plusMinutes(20));
     }
 }

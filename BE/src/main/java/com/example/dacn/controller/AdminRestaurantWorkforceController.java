@@ -14,5 +14,6 @@ public class AdminRestaurantWorkforceController {
  @GetMapping("/employees/{employeeId}/salary-history") public ApiResponse<List<EmployeeSalaryHistoryResponse>> salaryHistory(@PathVariable Long restaurantId,@PathVariable Long employeeId){return ok("Lấy lịch sử lương thành công",service.salaryHistory(restaurantId,employeeId));}
  @GetMapping("/employees/{employeeId}/termination-history") public ApiResponse<List<EmploymentTerminationHistoryResponse>> terminationHistory(@PathVariable Long restaurantId,@PathVariable Long employeeId){return ok("Lấy lịch sử hợp đồng thành công",service.terminationHistory(restaurantId,employeeId));}
  @PutMapping("/rent") public ApiResponse<Void> rent(@PathVariable Long restaurantId,@Valid @RequestBody RestaurantRentRequest request){service.saveRent(restaurantId,request);return ok("Cập nhật tiền thuê thành công",null);}
+ @GetMapping("/rent-history") public ApiResponse<List<RestaurantRentCostHistoryResponse>> rentHistory(@PathVariable Long restaurantId){return ok("Lấy lịch sử tiền thuê thành công",service.rentHistory(restaurantId));}
  @GetMapping("/cost-report") public ApiResponse<RestaurantCostReportResponse> report(@PathVariable Long restaurantId,@RequestParam int year,@RequestParam int month){return ok("Lấy báo cáo chi phí thành công",service.report(restaurantId,year,month));}
 }

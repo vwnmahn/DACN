@@ -35,6 +35,12 @@ public class OrderItem extends BaseEntity {
     @Column(name = "item_name", nullable = false, length = 150)
     private String itemName;
 
+    @Column(name = "image_url", length = 1000)
+    private String imageUrl;
+
+    @Column(name = "note", length = 500)
+    private String note;
+
     @Column(name = "unit_price", nullable = false, precision = 15, scale = 2)
     private BigDecimal unitPrice;
 

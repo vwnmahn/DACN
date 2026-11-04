@@ -60,5 +60,8 @@ public class CheckoutRequest {
         @Min(value = 1, message = "Số lượng phải lớn hơn 0")
         @Max(value = 100, message = "Số lượng mỗi món không được vượt quá 100")
         private Integer quantity;
+
+        @Size(max = 500, message = "Ghi chú món ăn không được vượt quá 500 ký tự")
+        private String note;
     }
 }

@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @Table(name = "orders", indexes = {
         @Index(name = "idx_order_account", columnList = "account_id"),
         @Index(name = "idx_order_restaurant", columnList = "restaurant_id"),
+        @Index(name = "idx_order_shipper", columnList = "shipper_id"),
         @Index(name = "idx_order_status", columnList = "status")
 }, uniqueConstraints = {
         @UniqueConstraint(name = "uk_order_account_idempotency",
@@ -42,6 +43,11 @@ public class Order extends BaseEntity {
             foreignKey = @ForeignKey(name = "fk_order_restaurant"))
     private Restaurant restaurant;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shipper_id",
+            foreignKey = @ForeignKey(name = "fk_order_shipper"))
+    private RestaurantEmployee shipper;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     @Builder.Default
@@ -63,6 +69,12 @@ public class Order extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "cancellation_reason", length = 100)
     private OrderCancellationReason cancellationReason;
+
+    @Column(name = "cancellation_code", length = 30)
+    private String cancellationCode;
+
+    @Column(name = "cancellation_detail", length = 500)
+    private String cancellationDetail;
 
     @Column(name = "cancelled_at")
     private LocalDateTime cancelledAt;

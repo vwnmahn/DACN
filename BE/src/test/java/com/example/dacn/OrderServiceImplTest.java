@@ -17,8 +17,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -37,8 +39,10 @@ class OrderServiceImplTest {
     @Mock AccountRepository accountRepository;
     @Mock RestaurantRepository restaurantRepository;
     @Mock MenuItemRepository menuItemRepository;
+    @Mock CartItemRepository cartItemRepository;
     @Mock VoucherService voucherService;
     @Mock DeliveryDistanceService deliveryDistanceService;
+    @Mock ApplicationEventPublisher eventPublisher;
     OrderServiceImpl service;
 
     private Account account;
@@ -47,9 +51,10 @@ class OrderServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new OrderServiceImpl(orderRepository, accountRepository, restaurantRepository,
-                menuItemRepository, Clock.fixed(Instant.parse("2026-10-12T05:00:00Z"),
+                menuItemRepository, cartItemRepository, Clock.fixed(Instant.parse("2026-10-12T05:00:00Z"),
                 ZoneId.of("Asia/Ho_Chi_Minh")), voucherService, deliveryDistanceService,
                 new OrderManagementProperties());
+        ReflectionTestUtils.setField(service, "eventPublisher", eventPublisher);
         account = Account.builder().id(10L).role(Role.USER).locked(false).build();
         restaurant = Restaurant.builder().id(20L).name("FCA")
                 .active(true).openingTime(LocalTime.of(8, 0)).closingTime(LocalTime.of(22, 0))
@@ -203,7 +208,8 @@ class OrderServiceImplTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
             Order saved = invocation.getArgument(0); if (saved.getId() == null) saved.setId(99L); return saved;
         });
-        when(voucherService.reserveForOrder(" save10 ", 10L, 99L, 20L, new BigDecimal("90000")))
+        when(voucherService.reserveForOrder(" save10 ", 10L, 99L, 20L,
+                new BigDecimal("90000"), new BigDecimal("20000")))
                 .thenReturn(new VoucherReservationResult(5L, "SAVE10", new BigDecimal("10000")));
 
         var response = service.createOrder(request);

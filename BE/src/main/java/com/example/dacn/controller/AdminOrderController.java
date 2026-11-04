@@ -3,6 +3,7 @@ package com.example.dacn.controller;
 import com.example.dacn.dto.request.OrderManagementRequest.CodCompletion;
 import com.example.dacn.dto.request.OrderManagementRequest.Cancellation;
 import com.example.dacn.dto.request.OrderManagementRequest.StatusUpdate;
+import com.example.dacn.dto.request.OrderManagementRequest.ShipperAssignment;
 import com.example.dacn.dto.response.*;
 import com.example.dacn.entity.OrderStatus;
 import com.example.dacn.service.OrderManagementService;
@@ -33,6 +34,13 @@ public class AdminOrderController {
             @PathVariable Long orderId, @Valid @RequestBody StatusUpdate request) {
         return ok("Cập nhật trạng thái đơn hàng thành công",
                 orderManagementService.updateStatusByAdmin(orderId, request.getStatus()));
+    }
+
+    @PatchMapping("/{orderId}/shipper")
+    public ResponseEntity<ApiResponse<OrderResponse>> assignShipper(
+            @PathVariable Long orderId, @Valid @RequestBody ShipperAssignment request) {
+        return ok("Phân công nhân viên giao hàng thành công",
+                orderManagementService.assignShipper(orderId, request.getShipperId()));
     }
 
     @PatchMapping("/{orderId}/complete-cod")

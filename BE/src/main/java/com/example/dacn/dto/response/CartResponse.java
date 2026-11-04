@@ -22,6 +22,7 @@ public class CartResponse {
         private BigDecimal price;
         private String imageUrl;
         private Integer quantity;
+        private String note;
         private BigDecimal lineTotal;
     }
 }

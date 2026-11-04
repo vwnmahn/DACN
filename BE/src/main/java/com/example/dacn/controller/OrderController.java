@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+import com.example.dacn.dto.request.OrderManagementRequest.CustomerCancellation;
 import java.util.List;
 
 @RestController
@@ -32,10 +34,11 @@ public class OrderController {
     }
 
     @PatchMapping("/{id}/cancel")
-    public ResponseEntity<ApiResponse<OrderResponse>> cancelMyOrder(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<OrderResponse>> cancelMyOrder(
+            @PathVariable Long id, @Valid @RequestBody CustomerCancellation request) {
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
                 .code(1000).message("Hủy đơn hàng thành công")
-                .data(orderManagementService.cancelMyOrder(id)).build());
+                .data(orderManagementService.cancelMyOrder(id, request.getReasonCode(), request.getReason())).build());
     }
 
     @PatchMapping("/{id}/confirm-received")

@@ -59,6 +59,10 @@ public class CartServiceImpl implements CartService {
                 .orElseThrow(() -> new AppException(ErrorCode.CART_ITEM_NOT_FOUND));
         activeMenuItem(item.getMenuItem().getId());
         item.setQuantity(request.getQuantity());
+        if (request.getNote() != null) {
+            String note = request.getNote().trim();
+            item.setNote(note.isEmpty() ? null : note);
+        }
         cartItemRepository.save(item);
         return response(reload(item.getCart().getId()));
     }
@@ -102,7 +106,7 @@ public class CartServiceImpl implements CartService {
                         .restaurantId(i.getMenuItem().getRestaurant().getId())
                         .restaurantName(i.getMenuItem().getRestaurant().getName()).name(i.getMenuItem().getName())
                         .description(i.getMenuItem().getDescription()).price(i.getMenuItem().getPrice())
-                        .imageUrl(i.getMenuItem().getImageUrl()).quantity(i.getQuantity())
+                        .imageUrl(i.getMenuItem().getImageUrl()).quantity(i.getQuantity()).note(i.getNote())
                         .lineTotal(i.getMenuItem().getPrice().multiply(BigDecimal.valueOf(i.getQuantity()))).build())
                 .toList();
         return CartResponse.builder().id(cart.getId()).items(items)

@@ -75,6 +75,7 @@ public class CheckoutServiceImpl implements CheckoutService {
             CreateOrderRequest.Item targetItem = new CreateOrderRequest.Item();
             targetItem.setMenuItemId(item.getMenuItemId());
             targetItem.setQuantity(item.getQuantity());
+            targetItem.setNote(item.getNote());
             return targetItem;
         }).toList());
         return target;

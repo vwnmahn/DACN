@@ -45,6 +45,8 @@ storage/
 backups/
 *.sql
 !src/main/resources/db/migration/manual/V20261027_1__voucher_redemption_idempotency.sql
+!src/main/resources/db/migration/manual/V20261104_1__order_cancellation_detail_and_item_note.sql
+!src/main/resources/db/migration/manual/V20261104_1__order_cancellation_detail_and_item_note_rollback.sql
 *.sql.gz
 
 # Logs

@@ -10,6 +10,7 @@ import com.example.dacn.repository.OrderRepository;
 import com.example.dacn.repository.AccountRepository;
 import com.example.dacn.repository.OrderStatusHistoryRepository;
 import com.example.dacn.repository.PaymentRepository;
+import com.example.dacn.repository.RestaurantEmployeeRepository;
 import com.example.dacn.service.OrderManagementService;
 import com.example.dacn.service.VoucherService;
 import lombok.RequiredArgsConstructor;
@@ -28,9 +29,12 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 public class OrderManagementServiceImpl implements OrderManagementService {
@@ -44,6 +48,9 @@ public class OrderManagementServiceImpl implements OrderManagementService {
 
     @Autowired(required = false)
     private ApplicationEventPublisher eventPublisher;
+
+    @Autowired
+    private RestaurantEmployeeRepository employeeRepository;
 
     @Autowired
     public OrderManagementServiceImpl(OrderRepository orderRepository, AccountRepository accountRepository,
@@ -117,6 +124,9 @@ public class OrderManagementServiceImpl implements OrderManagementService {
             throw new AppException(ErrorCode.ORDER_PAYMENT_NOT_READY);
         }
         order.setStatus(target);
+        if (target == OrderStatus.READY_FOR_DELIVERY && order.getShipper() == null) {
+            autoAssignShipper(order);
+        }
         if (target == OrderStatus.COMPLETED) {
             awardLoyaltyPoints(order, now());
         }
@@ -127,7 +137,49 @@ public class OrderManagementServiceImpl implements OrderManagementService {
 
     @Override
     @Transactional
-    public OrderResponse cancelMyOrder(Long orderId) {
+    public OrderResponse assignShipper(Long orderId, Long shipperId) {
+        Order order = lockedOrder(orderId);
+        if (Set.of(OrderStatus.DELIVERING, OrderStatus.ARRIVED,
+                OrderStatus.COMPLETED, OrderStatus.CANCELLED).contains(order.getStatus())) {
+            throw new AppException(ErrorCode.ORDER_SHIPPER_ASSIGNMENT_NOT_ALLOWED);
+        }
+
+        RestaurantEmployee shipper = employeeRepository.findByIdForUpdate(shipperId)
+                .orElseThrow(() -> new AppException(ErrorCode.ORDER_SHIPPER_NOT_FOUND));
+        if (shipper.getPosition() != EmployeePosition.SHIPPER) {
+            throw new AppException(ErrorCode.ORDER_SHIPPER_INVALID_POSITION);
+        }
+        if (shipper.getStatus() != EmploymentStatus.ACTIVE) {
+            throw new AppException(ErrorCode.ORDER_SHIPPER_INACTIVE);
+        }
+        if (!shipper.getRestaurant().getId().equals(order.getRestaurant().getId())) {
+            throw new AppException(ErrorCode.ORDER_SHIPPER_WRONG_RESTAURANT);
+        }
+        if (isShipperBusy(shipper.getId(), order.getId())) {
+            throw new AppException(ErrorCode.ORDER_SHIPPER_BUSY);
+        }
+
+        order.setShipper(shipper);
+        Order saved = orderRepository.save(order);
+        publishOrderUpdate(saved, now());
+        return response(saved);
+    }
+
+    private void autoAssignShipper(Order order) {
+        employeeRepository.findActiveShippersForUpdate(order.getRestaurant().getId()).stream()
+                .filter(shipper -> !isShipperBusy(shipper.getId(), order.getId()))
+                .findFirst()
+                .ifPresent(order::setShipper);
+    }
+
+    private boolean isShipperBusy(Long shipperId, Long currentOrderId) {
+        return orderRepository.existsByShipperIdAndStatusNotInAndIdNot(
+                shipperId, Set.of(OrderStatus.COMPLETED, OrderStatus.CANCELLED), currentOrderId);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse cancelMyOrder(Long orderId, String reasonCode, String reason) {
         Account account = currentAccount();
         Order order = lockedOrder(orderId);
         if (!order.getAccount().getId().equals(account.getId())) {
@@ -139,8 +191,23 @@ public class OrderManagementServiceImpl implements OrderManagementService {
                 || !now().isBefore(cancellationDeadline)) {
             throw new AppException(ErrorCode.ORDER_CANCELLATION_NOT_ALLOWED);
         }
+        String normalizedCode = reasonCode == null ? "" : reasonCode.trim();
+        String requestedReason = reason == null ? "" : reason.trim();
+        if (!Set.of("ADDRESS_CHANGE", "VOUCHER_CHANGE", "ITEM_CHANGE", "OTHER").contains(normalizedCode)
+                || !hasText(requestedReason) || requestedReason.length() > 500) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+        String normalizedReason = switch (normalizedCode) {
+            case "ADDRESS_CHANGE" -> "Muốn thay đổi địa chỉ giao hàng";
+            case "VOUCHER_CHANGE" -> "Muốn thay đổi voucher";
+            case "ITEM_CHANGE" -> "Muốn thay đổi món ăn";
+            case "OTHER" -> requestedReason;
+            default -> throw new AppException(ErrorCode.INVALID_REQUEST);
+        };
+        order.setCancellationCode(normalizedCode);
+        order.setCancellationDetail(normalizedReason);
         cancel(order, OrderCancellationReason.CANCELLED_BY_USER, account,
-                OrderStatusActorType.USER, "Người dùng hủy đơn hàng");
+                OrderStatusActorType.USER, normalizedReason);
         return response(order);
     }
 
@@ -324,6 +391,7 @@ public class OrderManagementServiceImpl implements OrderManagementService {
                 || order.getStatus() == OrderStatus.ARRIVED) {
             throw new AppException(ErrorCode.ORDER_CANCELLATION_NOT_ALLOWED);
         }
+        order.setCancellationDetail(reason.trim());
         cancel(order, OrderCancellationReason.CANCELLED_BY_ADMIN, actor,
                 OrderStatusActorType.ADMIN, reason.trim());
         return response(order);
@@ -424,12 +492,16 @@ public class OrderManagementServiceImpl implements OrderManagementService {
         historyRepository.save(OrderStatusHistory.builder().order(order).oldStatus(oldStatus)
                 .newStatus(newStatus).actorAccount(actor).actorType(actorType)
                 .changedAt(changedAt).reason(reason).build());
+        publishOrderUpdate(order, changedAt);
+    }
+
+    private void publishOrderUpdate(Order order, LocalDateTime changedAt) {
         if (eventPublisher != null) {
             PaymentStatus paymentStatus = paymentRepository.findFirstByOrderIdOrderByIdDesc(order.getId())
                     .map(Payment::getPaymentStatus).orElse(null);
             eventPublisher.publishEvent(new OrderStatusChangedEvent(
                     OrderStatusChangedEvent.Type.STATUS_CHANGED,
-                    order.getId(), order.getAccount().getId(), newStatus, paymentStatus, changedAt));
+                    order.getId(), order.getAccount().getId(), order.getStatus(), paymentStatus, changedAt));
         }
     }
 
@@ -474,23 +546,32 @@ public class OrderManagementServiceImpl implements OrderManagementService {
     }
 
     private OrderResponse response(Order order) {
+        LocalDateTime estimatedDeliveryAt = estimatedDeliveryAt(order);
         List<OrderItemResponse> items = order.getItems().stream().map(item -> OrderItemResponse.builder()
                 .id(item.getId()).menuItemId(item.getMenuItem().getId()).itemName(item.getItemName())
+                .imageUrl(item.getImageUrl()).note(item.getNote())
                 .unitPrice(item.getUnitPrice()).quantity(item.getQuantity()).lineTotal(item.getLineTotal()).build())
                 .toList();
         return OrderResponse.builder()
                 .id(order.getId()).restaurantId(order.getRestaurant().getId())
-                .restaurantName(order.getRestaurant().getName()).status(order.getStatus())
+                .restaurantName(order.getRestaurant().getName())
+                .shipperId(order.getShipper() == null ? null : order.getShipper().getId())
+                .shipperName(order.getShipper() == null ? null : order.getShipper().getFullName())
+                .shipperPhone(order.getShipper() == null ? null : order.getShipper().getPhoneNumber())
+                .status(order.getStatus())
                 .confirmationDeadline(order.getConfirmationDeadline())
                 .cancellationDeadline(order.getCreatedAt() == null ? null
                         : order.getCreatedAt().plus(properties.getCustomerCancellationWindow()))
                 .acceptedAt(order.getAcceptedAt())
                 .confirmedAt(order.getConfirmedAt()).confirmationSource(order.getConfirmationSource())
                 .cancellationReason(order.getCancellationReason()).cancelledAt(order.getCancelledAt())
+                .cancellationCode(order.getCancellationCode()).cancellationDetail(order.getCancellationDetail())
                 .refundRequired(order.getRefundRequired()).subtotal(order.getSubtotal())
                 .deliveryFee(order.getDeliveryFee()).deliveryLatitude(order.getDeliveryLatitude())
                 .deliveryLongitude(order.getDeliveryLongitude()).restaurantLatitude(order.getRestaurantLatitude())
                 .restaurantLongitude(order.getRestaurantLongitude()).deliveryDistanceKm(order.getDeliveryDistanceKm())
+                .estimatedDeliveryAt(estimatedDeliveryAt)
+                .deliveryOverdue(isDeliveryOverdue(order, estimatedDeliveryAt))
                 .deliveryRadiusKmSnapshot(order.getDeliveryRadiusKmSnapshot())
                 .baseDeliveryFeeSnapshot(order.getBaseDeliveryFeeSnapshot())
                 .baseDistanceKmSnapshot(order.getBaseDistanceKmSnapshot())
@@ -500,6 +581,22 @@ public class OrderManagementServiceImpl implements OrderManagementService {
                 .recipientName(order.getRecipientName()).recipientPhone(order.getRecipientPhone())
                 .deliveryAddress(order.getDeliveryAddress()).deliveryNote(order.getDeliveryNote())
                 .items(items).createdAt(order.getCreatedAt()).updatedAt(order.getUpdatedAt()).build();
+    }
+
+    private LocalDateTime estimatedDeliveryAt(Order order) {
+        if (order.getCreatedAt() == null || order.getDeliveryDistanceKm() == null) return null;
+        long deliveryMinutes = order.getDeliveryDistanceKm()
+                .multiply(BigDecimal.valueOf(15))
+                .setScale(0, RoundingMode.HALF_UP)
+                .longValue();
+        return order.getCreatedAt().plusMinutes(deliveryMinutes);
+    }
+
+    private boolean isDeliveryOverdue(Order order, LocalDateTime estimatedDeliveryAt) {
+        if (estimatedDeliveryAt == null
+                || order.getStatus() == OrderStatus.COMPLETED
+                || order.getStatus() == OrderStatus.CANCELLED) return false;
+        return now().isAfter(estimatedDeliveryAt.plusMinutes(20));
     }
 
     private AdminOrderResponse adminResponse(Order order, boolean includeHistory) {
