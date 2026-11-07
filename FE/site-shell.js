@@ -8,6 +8,28 @@
   const userRefreshOwner = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
   let userRefreshTimer = null;
 
+  function loadCustomerChatbox() {
+    if (document.getElementById('fca-customer-chatbox-script')) return;
+    const shellScript = document.currentScript;
+    const baseUrl = shellScript?.src
+      ? new URL('.', shellScript.src)
+      : new URL('./', window.location.href);
+
+    if (!document.getElementById('fca-customer-chatbox-style')) {
+      const stylesheet = document.createElement('link');
+      stylesheet.id = 'fca-customer-chatbox-style';
+      stylesheet.rel = 'stylesheet';
+      stylesheet.href = new URL('customer-chatbox.css', baseUrl).href;
+      document.head.appendChild(stylesheet);
+    }
+
+    const script = document.createElement('script');
+    script.id = 'fca-customer-chatbox-script';
+    script.src = new URL('customer-chatbox.js', baseUrl).href;
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
   const wait = milliseconds => new Promise(resolve => window.setTimeout(resolve, milliseconds));
 
   function tokenExpiration(token) {
@@ -540,6 +562,7 @@
   setupLocationDropdown();
   setupCartBadge();
   setupAccountMenu();
+  loadCustomerChatbox();
   window.FCA_SHELL = window.FCA_SHELL || {};
   window.FCA_SHELL.apiOrigin = API_ORIGIN;
   window.FCA_SHELL.logout = logout;
