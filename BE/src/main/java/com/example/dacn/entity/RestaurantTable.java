@@ -1,12 +1,11 @@
 package com.example.dacn.entity;
 
 import jakarta.persistence.*;
-import lombok.Builder;
 import lombok.NoArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
-
+import lombok.Builder;
 import java.time.LocalDateTime;
 
 @Entity
